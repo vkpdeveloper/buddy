@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Onboarding: Activity Baseline</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&amp;family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "lime-electric": "#CCFF00", // Electric Lime
+                        "lime-glow": "#D9FF33", // Slightly lighter lime for glow
+                        "charcoal-dark": "#0F1115", // Very deep background
+                        "charcoal-card": "#161B22", // Card background
+                        "charcoal-light": "#242A33", // Lighter UI elements
+                        "text-main": "#FFFFFF",      // Pure white
+                        "text-muted": "#8B949E",      // Muted grey
+                        "track-bg": "#2D333B"
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"], // Switching to modern sans for fitness vibe
+                        "sans": ["Plus Jakarta Sans", "sans-serif"],
+                    },
+                    backgroundImage: {
+                        'stripe-pattern': "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0, 0, 0, 0.1) 10px, rgba(0, 0, 0, 0.1) 20px)",
+                    }
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-charcoal-dark font-sans text-text-main antialiased overflow-x-hidden;
+                min-height: 100vh;
+            }
+        }input[type=range] {
+            @apply appearance-none bg-transparent cursor-pointer w-full;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            @apply appearance-none h-6 w-6 rounded-full bg-lime-electric shadow-[0_0_15px_rgba(204,255,0,0.5)] border-2 border-charcoal-dark -mt-2 relative z-20;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            @apply w-full h-2 bg-track-bg rounded-full;
+        }@keyframes slide-stripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 40px 0; }
+        }
+        .animate-stripes {
+            animation: slide-stripes 2s linear infinite;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="dark flex items-center justify-center min-h-screen bg-charcoal-dark">
+<div class="relative w-full max-w-md h-full min-h-screen flex flex-col bg-charcoal-dark shadow-2xl overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-lime-electric/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-64 h-64 bg-lime-electric/5 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+<div class="pt-8 px-6 flex items-center justify-between">
+<button class="text-text-muted hover:text-white transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex gap-2">
+<div class="w-8 h-1 bg-lime-electric rounded-full"></div>
+<div class="w-8 h-1 bg-lime-electric rounded-full"></div>
+<div class="w-8 h-1 bg-lime-electric rounded-full"></div>
+<div class="w-8 h-1 bg-lime-electric rounded-full"></div>
+</div>
+<div class="w-6"></div> 
+</div>
+<div class="px-6 pt-8 pb-6">
+<h1 class="text-4xl font-bold font-display uppercase tracking-tight text-white leading-none mb-2">
+                Set Your<br/>Baseline
+            </h1>
+<p class="text-text-muted text-sm font-medium">
+                Let's establish your daily performance targets based on your biometric profile.
+            </p>
+</div>
+<div class="flex-1 px-6 space-y-8 overflow-y-auto pb-32">
+<div class="p-6 rounded-3xl bg-charcoal-card border border-white/5 shadow-xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-lime-electric">directions_walk</span>
+</div>
+<div class="relative z-10">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-sm font-bold uppercase tracking-widest text-text-muted">Daily Step Goal</h3>
+<span class="text-lime-electric font-bold text-xs bg-lime-electric/10 px-2 py-1 rounded">ACTIVE</span>
+</div>
+<div class="flex items-baseline gap-2 mb-6">
+<span class="text-5xl font-bold text-white tracking-tighter">10,000</span>
+<span class="text-text-muted font-medium">steps</span>
+</div>
+<div class="relative h-12 flex items-center">
+<input class="w-full z-20 opacity-0 absolute inset-0 cursor-pointer" max="20000" min="2000" step="500" type="range" value="10000"/>
+<div class="w-full h-2 bg-track-bg rounded-full relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 bg-lime-electric w-1/2 shadow-[0_0_10px_rgba(204,255,0,0.5)]"></div>
+</div>
+<div class="absolute left-1/2 -translate-x-1/2 h-6 w-6 bg-charcoal-dark border-2 border-lime-electric rounded-full shadow-[0_0_15px_rgba(204,255,0,0.4)] flex items-center justify-center z-10 pointer-events-none">
+<div class="w-2 h-2 bg-lime-electric rounded-full"></div>
+</div>
+</div>
+<div class="flex justify-between mt-2 text-xs text-text-muted font-mono uppercase">
+<span>Sedentary</span>
+<span>Athlete</span>
+</div>
+</div>
+</div>
+<div class="p-6 rounded-3xl bg-charcoal-card border border-white/5 shadow-xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-lime-electric">bedtime</span>
+</div>
+<div class="relative z-10">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-sm font-bold uppercase tracking-widest text-text-muted">Sleep Target</h3>
+<span class="text-lime-electric font-bold text-xs bg-lime-electric/10 px-2 py-1 rounded">RECOVERY</span>
+</div>
+<div class="flex items-baseline gap-2 mb-6">
+<span class="text-5xl font-bold text-white tracking-tighter">7.5</span>
+<span class="text-text-muted font-medium">hours</span>
+</div>
+<div class="relative h-12 flex items-center">
+<input class="w-full z-20 opacity-0 absolute inset-0 cursor-pointer" max="12" min="4" step="0.5" type="range" value="7.5"/>
+<div class="w-full h-2 bg-track-bg rounded-full relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 bg-lime-electric w-[43%] shadow-[0_0_10px_rgba(204,255,0,0.5)]"></div>
+</div>
+<div class="absolute left-[43%] -translate-x-1/2 h-6 w-6 bg-charcoal-dark border-2 border-lime-electric rounded-full shadow-[0_0_15px_rgba(204,255,0,0.4)] flex items-center justify-center z-10 pointer-events-none">
+<div class="w-2 h-2 bg-lime-electric rounded-full"></div>
+</div>
+</div>
+<div class="flex justify-between mt-2 text-xs text-text-muted font-mono uppercase">
+<span>Min Rest</span>
+<span>Deep Sleep</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-4 rounded-2xl bg-charcoal-card border border-white/5 flex flex-col gap-2">
+<span class="material-symbols-outlined text-lime-electric/70">local_fire_department</span>
+<div>
+<div class="text-xs text-text-muted uppercase tracking-wider font-bold">Burn Target</div>
+<div class="text-xl font-bold text-white">2,400 <span class="text-xs font-normal text-text-muted">kcal</span></div>
+</div>
+</div>
+<div class="p-4 rounded-2xl bg-charcoal-card border border-white/5 flex flex-col gap-2">
+<span class="material-symbols-outlined text-lime-electric/70">water_drop</span>
+<div>
+<div class="text-xs text-text-muted uppercase tracking-wider font-bold">Hydration</div>
+<div class="text-xl font-bold text-white">2.5 <span class="text-xs font-normal text-text-muted">L</span></div>
+</div>
+</div>
+</div>
+</div>
+<div class="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-charcoal-dark via-charcoal-dark to-transparent max-w-md mx-auto pointer-events-none">
+<button class="pointer-events-auto w-full group relative h-16 bg-lime-electric text-charcoal-dark font-display font-bold text-lg tracking-widest uppercase rounded-xl overflow-hidden shadow-[0_0_30px_rgba(204,255,0,0.3)] hover:shadow-[0_0_50px_rgba(204,255,0,0.5)] transition-all transform hover:-translate-y-1">
+<div class="absolute inset-0 opacity-20 bg-stripe-pattern animate-stripes" style="background-size: 20px 20px;"></div>
+<span class="relative z-10 flex items-center justify-center gap-2">
+                    Finalize Setup
+                    <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</span>
+</button>
+</div>
+</div>
+
+</body></html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fitness Onboarding - Goal Selection</title>
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@300;400;500;600;700&amp;family=Chakra+Petch:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "lime-electric": "#CCFF00", 
+                        "lime-glow": "#AADD00",
+                        "dark-void": "#050505", 
+                        "dark-card": "#111111",      
+                        "text-main": "#FFFFFF",      
+                        "text-dim": "#666666"      
+                    },
+                    fontFamily: {
+                        "display": ["Teko", "sans-serif"],
+                        "sans": ["Chakra Petch", "sans-serif"],
+                    },
+                    backgroundImage: {
+                        'grid-pattern': "linear-gradient(to right, #222 1px, transparent 1px), linear-gradient(to bottom, #222 1px, transparent 1px)",
+                    }
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-dark-void font-sans text-text-main antialiased overflow-x-hidden;
+                min-height: max(844px, 100dvh);
+            }
+        }
+        .text-stroke-lime {
+            -webkit-text-stroke: 1px #CCFF00;
+            color: transparent;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="dark flex items-center justify-center">
+<div class="relative flex h-full min-h-screen w-full flex-col max-w-md mx-auto bg-dark-void border-x border-white/10 shadow-2xl overflow-hidden">
+<div class="absolute inset-0 bg-grid-pattern bg-[length:40px_40px] opacity-20 pointer-events-none"></div>
+<div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-dark-void pointer-events-none"></div>
+<div class="w-full h-1 bg-white/10">
+<div class="h-full w-3/4 bg-lime-electric shadow-[0_0_10px_#CCFF00]"></div>
+</div>
+<header class="px-6 pt-12 pb-6 relative z-10">
+<div class="flex items-center justify-between mb-2">
+<button class="text-white/50 hover:text-lime-electric transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<span class="text-lime-electric font-display text-xl tracking-widest uppercase">Step 03 / 04</span>
+</div>
+<h1 class="text-5xl font-bold font-display uppercase leading-[0.85] tracking-tight mt-4">
+                Define Your <br/>
+<span class="text-stroke-lime">Mission</span>
+</h1>
+<p class="text-white/40 font-sans text-sm mt-4 max-w-[80%]">Select your primary objective to calibrate your biometric baseline.</p>
+</header>
+<main class="flex-1 px-6 py-2 flex flex-col gap-4 relative z-10 overflow-y-auto pb-32">
+<label class="group relative flex items-center p-0 cursor-pointer">
+<input class="peer sr-only" name="goal" type="radio"/>
+<div class="w-full h-24 bg-dark-card border border-white/10 rounded-sm flex items-center px-6 relative overflow-hidden transition-all duration-300 peer-checked:border-lime-electric peer-checked:border-2 peer-checked:bg-white/5 peer-checked:shadow-[0_0_20px_rgba(204,255,0,0.15)] hover:border-white/30">
+<div class="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-black/80 to-transparent z-10"></div>
+<span class="material-symbols-outlined absolute right-[-20px] top-1/2 -translate-y-1/2 text-[120px] text-white/5 font-black select-none pointer-events-none group-hover:scale-110 transition-transform">local_fire_department</span>
+<div class="flex items-center gap-4 z-20 w-full">
+<div class="w-10 h-10 rounded-none border border-white/20 flex items-center justify-center peer-checked:bg-lime-electric peer-checked:text-black peer-checked:border-lime-electric transition-colors">
+<span class="material-symbols-outlined text-xl group-peer-checked:text-black">local_fire_department</span>
+</div>
+<div class="flex flex-col">
+<span class="font-display text-2xl font-bold tracking-wide uppercase text-white peer-checked:text-lime-electric">Fat Loss</span>
+<span class="text-[10px] text-white/40 uppercase tracking-widest font-sans">Maximize caloric burn</span>
+</div>
+<div class="ml-auto opacity-0 peer-checked:opacity-100 transition-opacity">
+<div class="w-4 h-4 bg-lime-electric shadow-[0_0_8px_#CCFF00] rotate-45"></div>
+</div>
+</div>
+</div>
+</label>
+<label class="group relative flex items-center p-0 cursor-pointer">
+<input checked="" class="peer sr-only" name="goal" type="radio"/>
+<div class="w-full h-24 bg-dark-card border-2 border-lime-electric rounded-sm flex items-center px-6 relative overflow-hidden transition-all duration-300 shadow-[0_0_20px_rgba(204,255,0,0.15)] bg-white/5">
+<div class="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-black/80 to-transparent z-10"></div>
+<span class="material-symbols-outlined absolute right-[-20px] top-1/2 -translate-y-1/2 text-[120px] text-lime-electric/10 font-black select-none pointer-events-none group-hover:scale-110 transition-transform">fitness_center</span>
+<div class="flex items-center gap-4 z-20 w-full">
+<div class="w-10 h-10 rounded-none border border-lime-electric bg-lime-electric text-black flex items-center justify-center transition-colors shadow-[0_0_10px_rgba(204,255,0,0.4)]">
+<span class="material-symbols-outlined text-xl">fitness_center</span>
+</div>
+<div class="flex flex-col">
+<span class="font-display text-2xl font-bold tracking-wide uppercase text-lime-electric">Muscle Gain</span>
+<span class="text-[10px] text-lime-electric/60 uppercase tracking-widest font-sans">Hypertrophy Focus</span>
+</div>
+<div class="ml-auto opacity-100 transition-opacity">
+<div class="w-4 h-4 bg-lime-electric shadow-[0_0_8px_#CCFF00] rotate-45"></div>
+</div>
+</div>
+</div>
+</label>
+<label class="group relative flex items-center p-0 cursor-pointer">
+<input class="peer sr-only" name="goal" type="radio"/>
+<div class="w-full h-24 bg-dark-card border border-white/10 rounded-sm flex items-center px-6 relative overflow-hidden transition-all duration-300 peer-checked:border-lime-electric peer-checked:border-2 peer-checked:bg-white/5 peer-checked:shadow-[0_0_20px_rgba(204,255,0,0.15)] hover:border-white/30">
+<div class="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-black/80 to-transparent z-10"></div>
+<span class="material-symbols-outlined absolute right-[-20px] top-1/2 -translate-y-1/2 text-[120px] text-white/5 font-black select-none pointer-events-none group-hover:scale-110 transition-transform">bolt</span>
+<div class="flex items-center gap-4 z-20 w-full">
+<div class="w-10 h-10 rounded-none border border-white/20 flex items-center justify-center peer-checked:bg-lime-electric peer-checked:text-black peer-checked:border-lime-electric transition-colors">
+<span class="material-symbols-outlined text-xl">bolt</span>
+</div>
+<div class="flex flex-col">
+<span class="font-display text-2xl font-bold tracking-wide uppercase text-white peer-checked:text-lime-electric">Endurance</span>
+<span class="text-[10px] text-white/40 uppercase tracking-widest font-sans">Increase Stamina</span>
+</div>
+<div class="ml-auto opacity-0 peer-checked:opacity-100 transition-opacity">
+<div class="w-4 h-4 bg-lime-electric shadow-[0_0_8px_#CCFF00] rotate-45"></div>
+</div>
+</div>
+</div>
+</label>
+<label class="group relative flex items-center p-0 cursor-pointer">
+<input class="peer sr-only" name="goal" type="radio"/>
+<div class="w-full h-24 bg-dark-card border border-white/10 rounded-sm flex items-center px-6 relative overflow-hidden transition-all duration-300 peer-checked:border-lime-electric peer-checked:border-2 peer-checked:bg-white/5 peer-checked:shadow-[0_0_20px_rgba(204,255,0,0.15)] hover:border-white/30">
+<div class="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-black/80 to-transparent z-10"></div>
+<span class="material-symbols-outlined absolute right-[-20px] top-1/2 -translate-y-1/2 text-[120px] text-white/5 font-black select-none pointer-events-none group-hover:scale-110 transition-transform">hotel_class</span>
+<div class="flex items-center gap-4 z-20 w-full">
+<div class="w-10 h-10 rounded-none border border-white/20 flex items-center justify-center peer-checked:bg-lime-electric peer-checked:text-black peer-checked:border-lime-electric transition-colors">
+<span class="material-symbols-outlined text-xl">hotel_class</span>
+</div>
+<div class="flex flex-col">
+<span class="font-display text-2xl font-bold tracking-wide uppercase text-white peer-checked:text-lime-electric">Recovery</span>
+<span class="text-[10px] text-white/40 uppercase tracking-widest font-sans">Optimize Sleep</span>
+</div>
+<div class="ml-auto opacity-0 peer-checked:opacity-100 transition-opacity">
+<div class="w-4 h-4 bg-lime-electric shadow-[0_0_8px_#CCFF00] rotate-45"></div>
+</div>
+</div>
+</div>
+</label>
+</main>
+<footer class="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-dark-void via-dark-void to-transparent z-30">
+<button class="w-full bg-lime-electric hover:bg-lime-glow text-black font-display text-2xl font-bold py-4 uppercase tracking-widest clip-path-polygon flex items-center justify-center gap-2 group transition-colors shadow-[0_0_25px_rgba(204,255,0,0.3)]">
+<span>Confirm Mission</span>
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</footer>
+</div>
+
+</body></html>

@@ -13,7 +13,9 @@ void main() {
   testWidgets('App renders without crashing', (WidgetTester tester) async {
     // Provide a localized mock response for image requests instead of throwing
     await tester.runAsync(() async {
-      await tester.pumpWidget(const HealthBiometricsApp());
+      await tester.pumpWidget(
+        const HealthBiometricsApp(onboardingCompleted: true),
+      );
 
       // Let the image fetch fail and catch the exception locally
       tester.takeException();
