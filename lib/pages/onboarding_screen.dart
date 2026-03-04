@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ledger/app_theme.dart';
-import 'package:ledger/providers/health_provider.dart';
-import 'package:ledger/pages/home_page.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:buddy/app_theme.dart';
+import 'package:buddy/providers/health_provider.dart';
+import 'package:buddy/pages/fitness_onboarding.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -33,12 +34,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   DateTime _birthDate = DateTime(1996, 3, 12);
   String _sex = 'Male';
 
-  // Page 3 - Mission
-  int _selectedMission = 0;
-
-  // Page 4 - Baseline
+  // Page 3 - Baseline
   double _stepGoal = 10000;
   double _sleepTarget = 7.5;
+  double _waterTargetMl = 2500;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -73,7 +72,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   }
 
   void _nextPage() {
-    if (_currentPage < 3) {
+    if (_currentPage < 2) {
       _goToPage(_currentPage + 1);
     }
   }
@@ -153,19 +152,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   Future<void> _finalizeSetup() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_completed', true);
+    // Mark health onboarding done, but NOT full onboarding_completed yet
     await prefs.setDouble('step_goal', _stepGoal);
     await prefs.setDouble('sleep_target', _sleepTarget);
-    await prefs.setInt('selected_mission', _selectedMission);
+    await prefs.setInt('water_target_ml', _waterTargetMl.toInt());
     await prefs.setDouble('user_height', _height);
     await prefs.setDouble('user_weight', _weight);
     await prefs.setString('user_sex', _sex);
     await prefs.setString('user_birth_date', _birthDate.toIso8601String());
 
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomePage()),
-      (_) => false,
+    // Navigate to fitness onboarding extension (activity, equipment, diet goal)
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => FitnessOnboardingExtension(
+          totalSteps: _totalSteps,
+          startStep: 3,
+          onComplete: () async {
+           final prefs = await SharedPreferences.getInstance();
+           await prefs.setBool('onboarding_completed', true);
+          },
+        ),
+      ),
     );
   }
 
@@ -173,10 +181,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundDark,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: PageView(
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: PageView(
             controller: _pageController,
             physics: const NeverScrollableScrollPhysics(),
             onPageChanged: (page) {
@@ -187,12 +194,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             children: [
               _buildSyncPage(),
               _buildCoreMetricsPage(),
-              _buildMissionPage(),
               _buildBaselinePage(),
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -200,7 +205,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   Widget _buildSyncPage() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -241,14 +246,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               ? _buildPrimaryButton(
                   label: 'CONNECTED',
                   onTap: _nextPage,
-                  icon: Icons.check_circle,
+                  icon: LucideIcons.circle_check,
                 )
               : _isConnecting
-                  ? _buildLoadingButton()
-                  : _buildPrimaryButton(
-                      label: 'CONNECT HEALTH DATA',
-                      onTap: _connectHealthData,
-                    ),
+              ? _buildLoadingButton()
+              : _buildPrimaryButton(
+                  label: 'CONNECT HEALTH DATA',
+                  onTap: _connectHealthData,
+                ),
           const SizedBox(height: 24),
           _buildPrivacyFooter(),
           const SizedBox(height: 32),
@@ -262,7 +267,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 18),
       decoration: BoxDecoration(
-        color: AppTheme.primary.withOpacity(0.6),
+        color: AppTheme.primary.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -299,8 +304,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: _isConnected
-              ? AppTheme.primary.withOpacity(0.4)
-              : AppTheme.accent.withOpacity(0.2),
+              ? AppTheme.primary.withValues(alpha: 0.4)
+              : AppTheme.accent.withValues(alpha: 0.2),
         ),
       ),
       child: Column(
@@ -309,11 +314,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.15),
+              color: AppTheme.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primary.withOpacity(0.1),
+                  color: AppTheme.primary.withValues(alpha: 0.1),
                   blurRadius: 30,
                   spreadRadius: 10,
                 ),
@@ -328,7 +333,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     ),
                   )
                 : Icon(
-                    _isConnected ? Icons.check_circle : Icons.monitor_heart,
+                    _isConnected ? LucideIcons.circle_check : LucideIcons.heart_pulse,
                     color: AppTheme.primary,
                     size: 36,
                   ),
@@ -365,8 +370,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             if (_weightSynced && _heightSynced)
               Divider(color: AppTheme.borderDark, height: 24),
             if (_heightSynced)
-              _buildCheckRow(
-                  'Height (${_height.toStringAsFixed(0)} cm)', true),
+              _buildCheckRow('Height (${_height.toStringAsFixed(0)} cm)', true),
           ],
         ],
       ),
@@ -398,19 +402,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       color: AppTheme.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check,
-                        color: AppTheme.backgroundDark, size: 14),
+                    child: const Icon(
+                      LucideIcons.check,
+                      color: AppTheme.backgroundDark,
+                      size: 14,
+                    ),
                   )
                 : Container(
                     key: const ValueKey('unchecked'),
                     width: 24,
                     height: 24,
                     decoration: BoxDecoration(
-                      color: AppTheme.primary.withOpacity(0.1),
+                      color: AppTheme.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppTheme.borderDark,
-                      ),
+                      border: Border.all(color: AppTheme.borderDark),
                     ),
                   ),
           ),
@@ -424,8 +429,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
-          Icons.shield_outlined,
-          color: AppTheme.textSageMuted.withOpacity(0.6),
+          LucideIcons.shield,
+          color: AppTheme.textSageMuted.withValues(alpha: 0.6),
           size: 16,
         ),
         const SizedBox(width: 8),
@@ -433,7 +438,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           child: Text(
             'By connecting, we auto-fill your profile with precise biometric data. Your privacy is protected with end-to-end encryption.',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted.withOpacity(0.6),
+              color: AppTheme.textSageMuted.withValues(alpha: 0.6),
               fontSize: 11,
               height: 1.4,
             ),
@@ -447,7 +452,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   Widget _buildCoreMetricsPage() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -508,7 +513,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             label: 'BIRTH DATE',
             value: _formatDate(_birthDate),
             unit: '',
-            icon: Icons.calendar_today_outlined,
+            icon: LucideIcons.calendar,
             onTap: () async {
               final picked = await showDatePicker(
                 context: context,
@@ -543,13 +548,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildSexButton('Male', _sex == 'Male'),
-              ),
+              Expanded(child: _buildSexButton('Male', _sex == 'Male')),
               const SizedBox(width: 12),
-              Expanded(
-                child: _buildSexButton('Female', _sex == 'Female'),
-              ),
+              Expanded(child: _buildSexButton('Female', _sex == 'Female')),
             ],
           ),
           const SizedBox(height: 32),
@@ -581,12 +582,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: isSynced
-            ? AppTheme.primary.withOpacity(0.1)
-            : AppTheme.textSageMuted.withOpacity(0.1),
+            ? AppTheme.primary.withValues(alpha: 0.1)
+            : AppTheme.textSageMuted.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isSynced
-              ? AppTheme.primary.withOpacity(0.2)
+              ? AppTheme.primary.withValues(alpha: 0.2)
               : AppTheme.borderDark,
         ),
       ),
@@ -594,7 +595,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isSynced ? Icons.verified_user : Icons.sync_disabled,
+            isSynced ? LucideIcons.shield_check : LucideIcons.refresh_cw_off,
             color: isSynced ? AppTheme.primary : AppTheme.textSageMuted,
             size: 14,
           ),
@@ -683,14 +684,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 decoration: BoxDecoration(
                   color: synced
                       ? AppTheme.primary
-                      : AppTheme.primary.withOpacity(0.15),
+                      : AppTheme.primary.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.check,
-                  color: synced
-                      ? AppTheme.backgroundDark
-                      : AppTheme.primary,
+                  LucideIcons.check,
+                  color: synced ? AppTheme.backgroundDark : AppTheme.primary,
                   size: 14,
                 ),
               ),
@@ -708,13 +707,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.primary.withOpacity(0.1)
+              ? AppTheme.primary.withValues(alpha: 0.1)
               : AppTheme.cardDark,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected
-                ? AppTheme.primary
-                : AppTheme.borderDark,
+            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -731,183 +728,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     );
   }
 
-  // ─── PAGE 3: Mission ──────────────────────────────────
-
-  Widget _buildMissionPage() {
-    final missions = [
-      _MissionData(
-        icon: Icons.fitness_center,
-        title: 'Muscle Gain',
-        subtitle: 'BUILD LEAN MASS',
-      ),
-      _MissionData(
-        icon: Icons.local_fire_department,
-        title: 'Fat Loss',
-        subtitle: 'MAXIMIZE CALORIC BURN',
-      ),
-      _MissionData(
-        icon: Icons.bolt,
-        title: 'Endurance',
-        subtitle: 'INCREASE STAMINA',
-      ),
-      _MissionData(
-        icon: Icons.nights_stay,
-        title: 'Recovery',
-        subtitle: 'OPTIMIZE SLEEP',
-      ),
-    ];
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 24),
-          _buildPageHeader(2, showBack: true),
-          const SizedBox(height: 32),
-          Text(
-            'DEFINE YOUR',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
-            ),
-          ),
-          Text(
-            'MISSION',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Select your primary objective to calibrate your biometric baseline.',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 28),
-          ...List.generate(missions.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _buildMissionCard(missions[index], index),
-            );
-          }),
-          const SizedBox(height: 20),
-          _buildPrimaryButton(
-            label: 'CONFIRM MISSION',
-            onTap: _nextPage,
-          ),
-          const SizedBox(height: 32),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMissionCard(_MissionData mission, int index) {
-    final isSelected = _selectedMission == index;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedMission = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppTheme.primary
-                    : AppTheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(
-                mission.icon,
-                color: isSelected
-                    ? AppTheme.backgroundDark
-                    : AppTheme.primary,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    mission.title,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: isSelected
-                          ? AppTheme.primary
-                          : AppTheme.textCream,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    mission.subtitle,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primary.withOpacity(0.4),
-                      blurRadius: 8,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── PAGE 4: Baseline ─────────────────────────────────
+  // ─── PAGE 3: Baseline ─────────────────────────────────
 
   Widget _buildBaselinePage() {
     final burnTarget = (_weight * 30).toInt();
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 24),
-          _buildPageHeader(3, showBack: true),
+          _buildPageHeader(2, showBack: true),
           const SizedBox(height: 32),
           Text(
             'SET YOUR',
@@ -933,9 +765,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             badge: 'ACTIVE',
             value: _stepGoal,
             displayValue: _stepGoal.toInt().toString().replaceAllMapped(
-                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                  (m) => '${m[1]},',
-                ),
+              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+              (m) => '${m[1]},',
+            ),
             unit: 'steps',
             min: 2000,
             max: 25000,
@@ -960,32 +792,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 setState(() => _sleepTarget = (v * 2).round() / 2),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSmallMetric(
-                  icon: Icons.local_fire_department,
-                  label: 'DAILY BURN',
-                  value: '$burnTarget',
-                  unit: 'kcal',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildSmallMetric(
-                  icon: Icons.water_drop,
-                  label: 'HYDRATION',
-                  value: '2.5',
-                  unit: 'L',
-                ),
-              ),
-            ],
+          _buildSliderCard(
+            label: 'DAILY WATER TARGET',
+            badge: 'HYDRATION',
+            value: _waterTargetMl,
+            displayValue: (_waterTargetMl / 1000).toStringAsFixed(1),
+            unit: 'L',
+            min: 1500,
+            max: 4000,
+            divisions: 25,
+            minLabel: 'MINIMUM',
+            maxLabel: 'ATHLETE',
+            onChanged: (v) => setState(() => _waterTargetMl = (v / 250).round() * 250),
+          ),
+          const SizedBox(height: 16),
+          _buildSmallMetric(
+            icon: LucideIcons.flame,
+            label: 'DAILY BURN',
+            value: '$burnTarget',
+            unit: 'kcal',
           ),
           const SizedBox(height: 32),
-          _buildPrimaryButton(
-            label: 'FINALIZE SETUP',
-            onTap: _finalizeSetup,
-          ),
+          _buildPrimaryButton(label: 'FINALIZE SETUP', onTap: _finalizeSetup),
           const SizedBox(height: 32),
         ],
       ),
@@ -1028,10 +856,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.15),
+                  color: AppTheme.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1076,7 +903,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               activeTrackColor: AppTheme.primary,
               inactiveTrackColor: AppTheme.borderDark,
               thumbColor: AppTheme.primary,
-              overlayColor: AppTheme.primary.withOpacity(0.1),
+              overlayColor: AppTheme.primary.withValues(alpha: 0.1),
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(
                 enabledThumbRadius: 8,
@@ -1178,62 +1005,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   // ─── Shared Components ────────────────────────────────
 
+  static const int _totalSteps = 5;
+
   Widget _buildPageHeader(int activeIndex, {bool showBack = false}) {
     return Row(
-      children: [
-        if (showBack)
-          GestureDetector(
-            onTap: () => _goToPage(_currentPage - 1),
-            child: const Icon(
-              Icons.arrow_back_ios_new,
-              color: AppTheme.textCream,
-              size: 20,
-            ),
-          )
-        else
-          const SizedBox(width: 20),
-        const Spacer(),
-        Row(
-          children: List.generate(4, (i) {
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: i <= activeIndex ? 24 : 8,
-              height: 4,
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                color: i <= activeIndex
-                    ? AppTheme.primary
-                    : AppTheme.borderDark,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            );
-          }),
-        ),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: AppTheme.borderDark),
-          ),
-          child: Text(
-            'STEP ${(activeIndex + 1).toString().padLeft(2, '0')}',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
+      children: List.generate(_totalSteps, (i) {
+        return Expanded(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: 4,
+            margin: EdgeInsets.only(right: i < _totalSteps - 1 ? 6 : 0),
+            decoration: BoxDecoration(
+              color: i <= activeIndex
+                  ? AppTheme.primary
+                  : AppTheme.borderDark,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-        ),
-      ],
+        );
+      }),
     );
   }
 
   Widget _buildPrimaryButton({
     required String label,
     required VoidCallback onTap,
-    IconData icon = Icons.arrow_forward,
+    IconData icon = LucideIcons.arrow_right,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -1245,7 +1042,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primary.withOpacity(0.2),
+              color: AppTheme.primary.withValues(alpha: 0.2),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -1264,11 +1061,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               ),
             ),
             const SizedBox(width: 8),
-            Icon(
-              icon,
-              color: AppTheme.backgroundDark,
-              size: 18,
-            ),
+            Icon(icon, color: AppTheme.backgroundDark, size: 18),
           ],
         ),
       ),
@@ -1279,8 +1072,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   String _formatDate(DateTime date) {
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -1341,7 +1144,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       activeTrackColor: AppTheme.primary,
                       inactiveTrackColor: AppTheme.borderDark,
                       thumbColor: AppTheme.primary,
-                      overlayColor: AppTheme.primary.withOpacity(0.1),
+                      overlayColor: AppTheme.primary.withValues(alpha: 0.1),
                     ),
                     child: Slider(
                       value: current,
@@ -1391,14 +1194,3 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   }
 }
 
-class _MissionData {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _MissionData({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-}

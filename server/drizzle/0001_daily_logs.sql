@@ -1,0 +1,12 @@
+ALTER TABLE user_profile ADD COLUMN water_target_ml INTEGER NOT NULL DEFAULT 2500;
+ALTER TABLE user_profile ADD COLUMN weight_goal_kg REAL;
+
+CREATE TABLE IF NOT EXISTS daily_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL UNIQUE,
+  water_ml INTEGER NOT NULL DEFAULT 0,
+  sleep_minutes INTEGER NOT NULL DEFAULT 0,
+  steps_count INTEGER NOT NULL DEFAULT 0,
+  calories_burned INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT DEFAULT (datetime('now'))
+);

@@ -1,8 +1,7 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ledger/main.dart';
+import 'package:buddy/main.dart';
 
 void main() {
   setUpAll(() {
@@ -13,15 +12,13 @@ void main() {
   testWidgets('App renders without crashing', (WidgetTester tester) async {
     // Provide a localized mock response for image requests instead of throwing
     await tester.runAsync(() async {
-      await tester.pumpWidget(
-        const HealthBiometricsApp(onboardingCompleted: true),
-      );
+      await tester.pumpWidget(const HealthBiometricsApp());
 
       // Let the image fetch fail and catch the exception locally
       tester.takeException();
 
       // Verify that the title is rendered.
-      expect(find.text('Peace be with you,\nAlex'), findsOneWidget);
+      expect(find.text('Buddy'), findsOneWidget);
     });
   });
 }

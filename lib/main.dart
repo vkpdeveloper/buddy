@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 import 'app_theme.dart';
 import 'pages/home_page.dart';
 import 'pages/onboarding_screen.dart';
+import 'pages/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SoLoud.instance.init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
+      systemStatusBarContrastEnforced: false,
+      systemNavigationBarContrastEnforced: false,
       systemNavigationBarIconBrightness: Brightness.light,
       statusBarIconBrightness: Brightness.light,
     ),
@@ -21,27 +26,18 @@ void main() async {
 
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  final prefs = await SharedPreferences.getInstance();
-  final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-
-  runApp(
-    ProviderScope(
-      child: HealthBiometricsApp(onboardingCompleted: onboardingCompleted),
-    ),
-  );
+  runApp(ProviderScope(child: const HealthBiometricsApp()));
 }
 
 class HealthBiometricsApp extends StatelessWidget {
-  final bool onboardingCompleted;
-
-  const HealthBiometricsApp({super.key, required this.onboardingCompleted});
+  const HealthBiometricsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Ledger',
+      title: 'Buddy',
       theme: AppTheme.darkTheme,
-      home: onboardingCompleted ? const HomePage() : const OnboardingScreen(),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

@@ -173,12 +173,14 @@ final sleepDurationProvider = FutureProvider<Duration>((ref) async {
 
   final health = ref.read(healthProvider);
   final now = DateTime.now();
-  final yesterday = now.subtract(const Duration(hours: 24));
+  // Extend window to catch sleep sessions that start yesterday evening and end today morning
+  final sleepStart = DateTime(now.year, now.month, now.day - 1, 20, 0); // yesterday 8pm
+  final sleepEnd = DateTime(now.year, now.month, now.day, 14, 0);       // today 2pm
 
   try {
     List<HealthDataPoint> data = await health.getHealthDataFromTypes(
-      startTime: yesterday,
-      endTime: now,
+      startTime: sleepStart,
+      endTime: sleepEnd,
       types: [HealthDataType.SLEEP_SESSION],
     );
 

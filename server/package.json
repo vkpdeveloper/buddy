@@ -1,0 +1,32 @@
+{
+    "name": "ledger-server",
+    "version": "1.0.0",
+    "description": "Ledger Fitness AI Backend — Bun + Hono + Drizzle + Gemini",
+    "module": "src/index.ts",
+    "type": "module",
+    "scripts": {
+        "dev": "bun run --watch src/index.ts",
+        "start": "bun run src/index.ts",
+        "db:init": "bun run scripts/init-db.ts",
+        "db:generate": "bunx drizzle-kit generate",
+        "db:migrate": "bunx drizzle-kit migrate",
+        "db:studio": "bunx drizzle-kit studio",
+        "db:fix-migrations": "bun run scripts/fix-migrations.ts"
+    },
+    "dependencies": {
+        "@ai-sdk/google": "^3.0.37",
+        "@deepgram/sdk": "^4.11.3",
+        "@google/genai": "^1.43.0",
+        "@hono/zod-validator": "^0.7.6",
+        "@libsql/client": "^0.17.0",
+        "ai": "^6.0.111",
+        "dotenv": "^17.3.1",
+        "drizzle-orm": "^0.45.1",
+    "hono": "^4.12.4",
+    "zod": "^4.3.6"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.3.10",
+        "drizzle-kit": "^0.31.9"
+    }
+}
