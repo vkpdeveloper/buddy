@@ -271,6 +271,35 @@ class ApiClient {
     return _decode(res);
   }
 
+  // ─── Body Measurements ───────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> logBodyMeasurement(
+    Map<String, dynamic> data,
+  ) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/body/log'),
+      headers: _headers,
+      body: jsonEncode(data),
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getBodyHistory() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/body/history'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getLatestBodyMeasurement() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/body/latest'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
   // ─── TTS ─────────────────────────────────────────────────────────────
 
   /// Downloads the full MP3 from the TTS endpoint and returns the raw bytes.

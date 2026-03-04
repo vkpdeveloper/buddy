@@ -178,3 +178,19 @@ export const userAchievements = sqliteTable('user_achievements', {
     unlockedAt: text('unlocked_at').default(sql`(datetime('now'))`),
     sessionId: integer('session_id').references(() => workoutSessions.id),
 });
+
+// ─── Body Measurements (Growth tracking) ─────────────────────────────────────
+
+export const bodyMeasurements = sqliteTable('body_measurements', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    date: text('date').notNull(),                       // 'YYYY-MM-DD'
+    weightKg: real('weight_kg'),                        // body weight in kg
+    chestCm: real('chest_cm'),                          // chest circumference
+    waistCm: real('waist_cm'),                          // waist circumference
+    hipsCm: real('hips_cm'),                            // hips circumference
+    armsCm: real('arms_cm'),                            // avg upper arm
+    thighsCm: real('thighs_cm'),                        // avg thigh
+    notes: text('notes').notNull().default(''),
+    xpEarned: integer('xp_earned').notNull().default(0),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+});

@@ -10,6 +10,7 @@ import workoutRouter from './routes/workout';
 import ttsRouter from './routes/tts';
 import logsRouter from './routes/logs';
 import progressRouter, { seedAchievements, ensureUserProgress } from './routes/progress';
+import bodyRouter from './routes/body';
 
 const app = new Hono();
 
@@ -38,6 +39,7 @@ app.route('/api/workout', workoutRouter);
 app.route('/api/tts', ttsRouter);
 app.route('/api/logs', logsRouter);
 app.route('/api/progress', progressRouter);
+app.route('/api/body', bodyRouter);
 
 // ─── Startup tasks ────────────────────────────────────────────────────────────
 seedAchievements().catch(console.error);

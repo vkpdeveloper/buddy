@@ -8,6 +8,7 @@ import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/pages/diet_plan_page.dart';
 import 'package:buddy/pages/workout_page.dart';
+import 'package:buddy/pages/growth_page.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,6 +26,7 @@ class _HomePageState extends State<HomePage> {
     _HealthDashboard(), // Center / Home
     DietPlanPage(), // Diet
     WorkoutPage(), // Workout
+    GrowthPage(), // Growth
   ];
 
   @override
@@ -750,7 +752,11 @@ class _TodayWorkoutSheetState extends State<_TodayWorkoutSheet> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(LucideIcons.hotel, color: AppTheme.primary, size: 40),
+                    const Icon(
+                      LucideIcons.hotel,
+                      color: AppTheme.primary,
+                      size: 40,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Rest Day',
@@ -2056,11 +2062,13 @@ class _ProgressCard extends ConsumerWidget {
                 const SizedBox(height: 10),
                 ShimmerBox(width: double.infinity, height: 6, borderRadius: 3),
                 const SizedBox(height: 12),
-                Row(children: [
-                  ShimmerBox(width: 60, height: 10, borderRadius: 4),
-                  const SizedBox(width: 16),
-                  ShimmerBox(width: 60, height: 10, borderRadius: 4),
-                ]),
+                Row(
+                  children: [
+                    ShimmerBox(width: 60, height: 10, borderRadius: 4),
+                    const SizedBox(width: 16),
+                    ShimmerBox(width: 60, height: 10, borderRadius: 4),
+                  ],
+                ),
               ],
             ),
           ),
@@ -2110,21 +2118,32 @@ class _ProgressCard extends ConsumerWidget {
                         ),
                         if (prog.currentStreak >= 1) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.xpGold.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: AppTheme.xpGold.withValues(alpha: 0.35)),
+                              border: Border.all(
+                                color: AppTheme.xpGold.withValues(alpha: 0.35),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(LucideIcons.flame, color: AppTheme.xpGold, size: 13),
+                                const Icon(
+                                  LucideIcons.flame,
+                                  color: AppTheme.xpGold,
+                                  size: 13,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${prog.currentStreak}',
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.xpGold, fontSize: 13, fontWeight: FontWeight.w700,
+                                    color: AppTheme.xpGold,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
@@ -2140,19 +2159,26 @@ class _ProgressCard extends ConsumerWidget {
                       child: LinearProgressIndicator(
                         value: prog.levelProgressFraction.clamp(0.0, 1.0),
                         backgroundColor: AppTheme.borderDark,
-                        valueColor: const AlwaysStoppedAnimation(AppTheme.levelArc),
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppTheme.levelArc,
+                        ),
                         minHeight: 5,
                       ),
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(LucideIcons.dumbbell, color: AppTheme.textSageMuted, size: 13),
+                        const Icon(
+                          LucideIcons.dumbbell,
+                          color: AppTheme.textSageMuted,
+                          size: 13,
+                        ),
                         const SizedBox(width: 5),
                         Text(
                           '${prog.totalWorkoutsCompleted} sessions',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted, fontSize: 11,
+                            color: AppTheme.textSageMuted,
+                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -2172,16 +2198,25 @@ class _ProgressCard extends ConsumerWidget {
                     itemBuilder: (_, i) {
                       final a = recentAchievements[i];
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.xpGold.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.xpGold.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppTheme.xpGold.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(LucideIcons.trophy, color: AppTheme.xpGold, size: 12),
+                            const Icon(
+                              LucideIcons.trophy,
+                              color: AppTheme.xpGold,
+                              size: 12,
+                            ),
                             const SizedBox(width: 5),
                             Text(
                               a.name,
@@ -2275,8 +2310,8 @@ class _BottomNavigation extends StatelessWidget {
           _NavItem(
             icon: LucideIcons.trending_up,
             label: 'GROWTH',
-            isActive: false,
-            onTap: () {},
+            isActive: currentIndex == 3,
+            onTap: () => onTap(3),
           ),
         ],
       ),
