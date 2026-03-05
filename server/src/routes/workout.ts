@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { and, eq, gte, lt } from 'drizzle-orm';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import { env } from '../lib/env';
@@ -90,6 +90,60 @@ router.get('/plans/:id', async (c) => {
         }));
 
         return c.json({ success: true, data: { ...plan, days: daysWithExercises } });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── GET /api/workout/summary/weekly ────────────────────────────────────────
+router.get('/summary/weekly', async (c) => {
+    try {
+        const now = new Date();
+        const day = now.getDay(); // 0..6 (Sun..Sat)
+        const diffToMonday = day === 0 ? -6 : 1 - day;
+        const start = new Date(now);
+        start.setDate(now.getDate() + diffToMonday);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 7);
+
+        const [activePlan] = await db.select().from(workoutPlans).where(eq(workoutPlans.isActive, true)).limit(1);
+        if (!activePlan) {
+            return c.json({
+                success: true,
+                data: {
+                    weekStart: start.toISOString().slice(0, 10),
+                    weekEndExclusive: end.toISOString().slice(0, 10),
+                    workoutsCompleted: 0,
+                    plannedWorkouts: 0,
+                    completionFraction: 0,
+                },
+            });
+        }
+
+        const planDays = await db.select().from(workoutDays).where(eq(workoutDays.planId, activePlan.id));
+        const plannedWorkouts = planDays.filter((d) => !d.isRestDay).length || activePlan.daysPerWeek;
+
+        const completed = await db.select().from(workoutSessions).where(and(
+            eq(workoutSessions.planId, activePlan.id),
+            gte(workoutSessions.completedAt, start.toISOString()),
+            lt(workoutSessions.completedAt, end.toISOString()),
+        ));
+        const workoutsCompleted = completed.length;
+        const completionFraction = plannedWorkouts > 0
+            ? Math.min(workoutsCompleted / plannedWorkouts, 1)
+            : 0;
+
+        return c.json({
+            success: true,
+            data: {
+                weekStart: start.toISOString().slice(0, 10),
+                weekEndExclusive: end.toISOString().slice(0, 10),
+                workoutsCompleted,
+                plannedWorkouts,
+                completionFraction,
+            },
+        });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
     }

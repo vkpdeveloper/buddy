@@ -1,11 +1,40 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { eq, desc } from 'drizzle-orm';
+import { and, desc, eq, gte, lt } from 'drizzle-orm';
 import { db } from '../db';
-import { dailyLogs } from '../db/schema';
+import {
+    dailyLogs,
+    dietDays,
+    dietMealLogs,
+    dietMeals,
+    dietPlans,
+    workoutDays,
+    workoutExercises,
+    workoutPlans,
+    workoutSessions,
+} from '../db/schema';
 
 const router = new Hono();
+const mealTypeOrder: Record<string, number> = {
+    breakfast: 1,
+    morning_snack: 2,
+    lunch: 3,
+    pre_workout: 4,
+    post_workout: 5,
+    dinner: 6,
+    evening_snack: 7,
+};
+
+const mealTypeLabel: Record<string, string> = {
+    breakfast: 'Breakfast',
+    morning_snack: 'Morning Snack',
+    lunch: 'Lunch',
+    pre_workout: 'Pre-Workout',
+    post_workout: 'Post-Workout',
+    dinner: 'Dinner',
+    evening_snack: 'Evening Snack',
+};
 
 // ─── GET /api/logs/week ──────────────────────────────────────────────────────
 router.get('/week', async (c) => {
@@ -14,6 +43,105 @@ router.get('/week', async (c) => {
             .orderBy(desc(dailyLogs.date))
             .limit(7);
         return c.json({ success: true, data: rows });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── GET /api/logs/home-summary/:date ───────────────────────────────────────
+router.get('/home-summary/:date', async (c) => {
+    try {
+        const date = c.req.param('date');
+        const weekday = new Date(`${date}T00:00:00`).getDay(); // 0=Sun...6=Sat
+        const dayNumber = weekday === 0 ? 7 : weekday;
+
+        const [logRow] = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
+        const hydrationMl = logRow?.waterMl ?? 0;
+        const sleepMinutes = logRow?.sleepMinutes ?? 0;
+        const activeEnergy = logRow?.caloriesBurned ?? 0;
+        const steps = logRow?.stepsCount ?? 0;
+
+        // Next meal from active diet plan, for the selected date.
+        const [activeDietPlan] = await db.select().from(dietPlans).where(eq(dietPlans.isActive, true)).limit(1);
+        let nextMeal: null | { id: number; type: string; label: string; mealName: string; isCompleted: boolean } = null;
+        if (activeDietPlan) {
+            const [dietDay] = await db.select().from(dietDays)
+                .where(and(eq(dietDays.planId, activeDietPlan.id), eq(dietDays.dayNumber, dayNumber)))
+                .limit(1);
+
+            if (dietDay) {
+                const meals = await db.select().from(dietMeals).where(eq(dietMeals.dayId, dietDay.id));
+                meals.sort((a, b) => (mealTypeOrder[a.mealType] ?? 99) - (mealTypeOrder[b.mealType] ?? 99));
+
+                const logs = await db.select().from(dietMealLogs).where(eq(dietMealLogs.date, date));
+                const logMap = new Map(logs.map((l) => [l.mealId, l.isCompleted]));
+                const pending = meals.find((m) => !(logMap.get(m.id) ?? false));
+                const fallback = meals[0];
+                const chosen = pending ?? fallback;
+                if (chosen) {
+                    nextMeal = {
+                        id: chosen.id,
+                        type: chosen.mealType,
+                        label: mealTypeLabel[chosen.mealType] ?? chosen.mealType,
+                        mealName: chosen.mealName,
+                        isCompleted: logMap.get(chosen.id) ?? false,
+                    };
+                }
+            }
+        }
+
+        // Today's workout summary from active workout plan.
+        const [activeWorkoutPlan] = await db.select().from(workoutPlans).where(eq(workoutPlans.isActive, true)).limit(1);
+        let todayWorkoutSummary: null | {
+            dayId: number;
+            dayLabel: string;
+            isRestDay: boolean;
+            exerciseCount: number;
+            isCompletedToday: boolean;
+        } = null;
+
+        if (activeWorkoutPlan) {
+            const [workoutDay] = await db.select().from(workoutDays)
+                .where(and(eq(workoutDays.planId, activeWorkoutPlan.id), eq(workoutDays.dayNumber, dayNumber)))
+                .limit(1);
+
+            if (workoutDay) {
+                const dayStart = new Date(`${date}T00:00:00.000Z`).toISOString();
+                const dayEnd = new Date(`${date}T23:59:59.999Z`).toISOString();
+                const sessionsToday = await db.select().from(workoutSessions).where(and(
+                    eq(workoutSessions.dayId, workoutDay.id),
+                    gte(workoutSessions.completedAt, dayStart),
+                    lt(workoutSessions.completedAt, dayEnd),
+                ));
+
+                const completedSession = sessionsToday.find((s) => !!s.completedAt);
+                const exercisesCount = workoutDay.isRestDay
+                    ? 0
+                    : (await db.select().from(workoutExercises).where(eq(workoutExercises.dayId, workoutDay.id))).length;
+
+                todayWorkoutSummary = {
+                    dayId: workoutDay.id,
+                    dayLabel: workoutDay.dayLabel,
+                    isRestDay: workoutDay.isRestDay,
+                    exerciseCount: exercisesCount,
+                    isCompletedToday: !!completedSession,
+                };
+            }
+        }
+
+        return c.json({
+            success: true,
+            data: {
+                date,
+                sleepMinutes,
+                activeEnergy,
+                restingHr: null,
+                steps,
+                hydrationMl,
+                nextMeal,
+                todayWorkoutSummary,
+            },
+        });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
     }
@@ -42,6 +170,38 @@ const logSchema = z.object({
     sleepMinutes: z.number().int().min(0).optional(),
     stepsCount: z.number().int().min(0).optional(),
     caloriesBurned: z.number().int().min(0).optional(),
+});
+
+const hydrationIncrementSchema = z.object({
+    amountMl: z.number().int().positive().max(2000).optional(),
+});
+
+// ─── POST /api/logs/:date/hydration/increment ───────────────────────────────
+router.post('/:date/hydration/increment', zValidator('json', hydrationIncrementSchema), async (c) => {
+    try {
+        const date = c.req.param('date');
+        const amountMl = c.req.valid('json').amountMl ?? 250;
+
+        const [existing] = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
+        if (existing) {
+            const [updated] = await db.update(dailyLogs).set({
+                waterMl: existing.waterMl + amountMl,
+                updatedAt: new Date().toISOString(),
+            }).where(eq(dailyLogs.date, date)).returning();
+            return c.json({ success: true, data: updated });
+        }
+
+        const [inserted] = await db.insert(dailyLogs).values({
+            date,
+            waterMl: amountMl,
+            sleepMinutes: 0,
+            stepsCount: 0,
+            caloriesBurned: 0,
+        }).returning();
+        return c.json({ success: true, data: inserted });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
 });
 
 // ─── PUT /api/logs/:date ─────────────────────────────────────────────────────

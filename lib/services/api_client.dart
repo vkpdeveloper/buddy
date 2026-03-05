@@ -153,6 +153,14 @@ class ApiClient {
     return _decode(res);
   }
 
+  static Future<Map<String, dynamic>> getWeeklyWorkoutSummary() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/workout/summary/weekly'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
   static Future<Map<String, dynamic>> generateWorkoutPlan() async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/workout/generate'),
@@ -270,6 +278,26 @@ class ApiClient {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/logs/week'),
       headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getHomeSummary(String date) async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/logs/home-summary/$date'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> incrementHydration(
+    String date, {
+    int amountMl = 250,
+  }) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/logs/$date/hydration/increment'),
+      headers: _headers,
+      body: jsonEncode({'amountMl': amountMl}),
     );
     return _decode(res);
   }

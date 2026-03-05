@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/health_provider.dart';
+import 'package:buddy/models/home_dashboard.dart';
+import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
@@ -66,6 +68,8 @@ class _HealthDashboard extends ConsumerWidget {
     ref.invalidate(latestWeightProvider);
     ref.invalidate(healthPermissionProvider);
     ref.invalidate(progressProvider);
+    ref.invalidate(homeDashboardProvider);
+    ref.invalidate(weeklyWorkoutSummaryProvider);
     // Allow providers to rebuild
     await Future.delayed(const Duration(milliseconds: 400));
   }
@@ -87,6 +91,7 @@ class _HealthDashboard extends ConsumerWidget {
             const _PermissionBanner(),
             const _HeroHealthScore(),
             _QuickActionsRow(onNavigate: onNavigate),
+            const _AgendaCard(),
             const _VitalsCarousel(),
             const _ProgressCard(),
             Padding(
@@ -186,12 +191,24 @@ class _PermissionBanner extends ConsumerWidget {
 
 // ─── Quick Actions Row ────────────────────────────────────────────────────────
 
-class _QuickActionsRow extends StatelessWidget {
+class _QuickActionsRow extends ConsumerWidget {
   final void Function(int) onNavigate;
   const _QuickActionsRow({required this.onNavigate});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final homeAsync = ref.watch(homeDashboardProvider);
+    final dashboard = homeAsync.asData?.value;
+    final nextMealLabel = dashboard?.nextMeal != null
+        ? '${dashboard!.nextMeal!.label}: ${dashboard.nextMeal!.mealName}'
+        : 'Today\'s meals';
+    final workoutSummary = dashboard?.todayWorkoutSummary;
+    final trainSubtitle = workoutSummary == null
+        ? 'Workout plan'
+        : workoutSummary.isRestDay
+        ? 'Recover & recharge'
+        : '${workoutSummary.exerciseCount} exercises';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
       child: IntrinsicHeight(
@@ -202,12 +219,18 @@ class _QuickActionsRow extends StatelessWidget {
               child: _QuickActionCard(
                 icon: LucideIcons.utensils,
                 label: 'DIET',
-                subtitle: 'Today\'s meals',
+                subtitle: nextMealLabel,
                 onTap: () => onNavigate(1),
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(child: _TrainCard(onTap: () => onNavigate(2))),
+            Expanded(
+              child: _TrainCard(
+                onTap: () => onNavigate(2),
+                summary: workoutSummary,
+                subtitle: trainSubtitle,
+              ),
+            ),
           ],
         ),
       ),
@@ -215,66 +238,143 @@ class _QuickActionsRow extends StatelessWidget {
   }
 }
 
-class _TrainCard extends StatefulWidget {
+class _TrainCard extends StatelessWidget {
   final VoidCallback onTap;
-  const _TrainCard({required this.onTap});
-
-  @override
-  State<_TrainCard> createState() => _TrainCardState();
-}
-
-class _TrainCardState extends State<_TrainCard> {
-  bool? _isRestDay;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkRestDay();
-  }
-
-  Future<void> _checkRestDay() async {
-    try {
-      final res = await ApiClient.listWorkoutPlans();
-      final plans = (res['data'] as List?) ?? [];
-      final active = plans
-          .where((p) => p['isActive'] == true || p['is_active'] == 1)
-          .toList();
-      final planId = active.isNotEmpty
-          ? active.first['id']
-          : (plans.isNotEmpty ? plans.last['id'] : null);
-      if (planId == null) {
-        if (mounted) setState(() => _isRestDay = false);
-        return;
-      }
-      final detail = await ApiClient.getWorkoutPlan(planId as int);
-      final days = (detail['data']?['days'] as List?) ?? [];
-      final todayIdx = DateTime.now().weekday - 1;
-      if (days.length > todayIdx) {
-        final day = days[todayIdx];
-        if (mounted) {
-          setState(
-            () =>
-                _isRestDay =
-                    day['isRestDay'] == true || day['is_rest_day'] == 1,
-          );
-        }
-      } else {
-        if (mounted) setState(() => _isRestDay = false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isRestDay = false);
-    }
-  }
+  final HomeWorkoutSummaryData? summary;
+  final String subtitle;
+  const _TrainCard({
+    required this.onTap,
+    required this.summary,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isRest = _isRestDay ?? false;
+    final isRest = summary?.isRestDay == true;
     return _QuickActionCard(
       icon: isRest ? LucideIcons.moon : LucideIcons.dumbbell,
       label: isRest ? 'REST DAY' : 'TRAIN',
-      subtitle: isRest ? 'Recover & recharge' : 'Workout plan',
-      onTap: widget.onTap,
+      subtitle: subtitle,
+      onTap: onTap,
       muted: isRest,
+    );
+  }
+}
+
+class _AgendaCard extends ConsumerWidget {
+  const _AgendaCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final homeAsync = ref.watch(homeDashboardProvider);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+      child: homeAsync.when(
+        loading: () => const ShimmerBox(
+          width: double.infinity,
+          height: 110,
+          borderRadius: 20,
+        ),
+        error: (_, _) => const SizedBox.shrink(),
+        data: (home) {
+          final workout = home.todayWorkoutSummary;
+          final nextMeal = home.nextMeal;
+          final workoutLabel = workout == null
+              ? 'No workout planned'
+              : workout.isRestDay
+              ? 'Rest day'
+              : '${workout.dayLabel} • ${workout.exerciseCount} exercises';
+
+          final mealLabel = nextMeal == null
+              ? 'No meal planned'
+              : '${nextMeal.label}: ${nextMeal.mealName}';
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.cardDark,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.borderDark),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'TODAY\'S AGENDA',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _AgendaRow(
+                  icon: LucideIcons.dumbbell,
+                  label: workoutLabel,
+                  trailing: workout?.isCompletedToday == true
+                      ? 'Done'
+                      : 'Pending',
+                ),
+                const SizedBox(height: 8),
+                _AgendaRow(
+                  icon: LucideIcons.utensils,
+                  label: mealLabel,
+                  trailing: nextMeal?.isCompleted == true ? 'Done' : 'Next',
+                ),
+                const SizedBox(height: 8),
+                _AgendaRow(
+                  icon: LucideIcons.droplets,
+                  label: '${home.hydrationMl} ml water consumed',
+                  trailing: '',
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AgendaRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String trailing;
+  const _AgendaRow({
+    required this.icon,
+    required this.label,
+    required this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppTheme.textSageMuted),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textCream,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        if (trailing.isNotEmpty)
+          Text(
+            trailing,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.primary,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -418,6 +518,10 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
 
   @override
   Widget build(BuildContext context) {
+    final progress = ref.watch(progressProvider).asData?.value;
+    final weekly = ref.watch(weeklyWorkoutSummaryProvider).asData?.value;
+    final ringProgress = weekly?.completionFraction ?? 0.0;
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         24,
@@ -453,6 +557,57 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
               ),
             ],
           ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (progress != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.levelArc.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppTheme.levelArc.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    'L${progress.currentLevel} • ${progress.currentStreak}🔥',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.levelArc,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: ringProgress,
+                      strokeWidth: 4,
+                      backgroundColor: AppTheme.borderDark,
+                      color: AppTheme.primary,
+                    ),
+                    Text(
+                      '${weekly?.workoutsCompleted ?? 0}/${weekly?.plannedWorkouts ?? 0}',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textCream,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -462,9 +617,58 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
 class _HeroHealthScore extends ConsumerWidget {
   const _HeroHealthScore();
 
+  double _restingHrScore(int? hr) {
+    if (hr == null || hr <= 0) return 0.7;
+    if (hr <= 55) return 1.0;
+    if (hr <= 65) return 0.9;
+    if (hr <= 75) return 0.75;
+    if (hr <= 85) return 0.6;
+    return 0.45;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stepsAsync = ref.watch(todayStepsProvider);
+    final home = ref.watch(homeDashboardProvider).asData?.value;
+    final steps = ref
+        .watch(todayStepsProvider)
+        .when(
+          data: (v) => v > 0 ? v : (home?.steps ?? 0),
+          loading: () => home?.steps ?? 0,
+          error: (_, _) => home?.steps ?? 0,
+        );
+    final sleep = ref
+        .watch(sleepDurationProvider)
+        .when(
+          data: (v) => v > Duration.zero
+              ? v
+              : Duration(minutes: home?.sleepMinutes ?? 0),
+          loading: () => Duration(minutes: home?.sleepMinutes ?? 0),
+          error: (_, _) => Duration(minutes: home?.sleepMinutes ?? 0),
+        );
+    final activeEnergy = ref
+        .watch(todayActiveEnergyProvider)
+        .when(
+          data: (v) => v > 0 ? v : (home?.activeEnergy ?? 0).toDouble(),
+          loading: () => (home?.activeEnergy ?? 0).toDouble(),
+          error: (_, _) => (home?.activeEnergy ?? 0).toDouble(),
+        );
+    final hr = ref
+        .watch(latestHeartRateProvider)
+        .when(
+          data: (v) => v ?? home?.restingHr,
+          loading: () => home?.restingHr,
+          error: (_, _) => home?.restingHr,
+        );
+
+    final stepsNorm = (steps / 10000).clamp(0.0, 1.0);
+    final sleepNorm = (sleep.inMinutes / (8 * 60)).clamp(0.0, 1.0);
+    final activeNorm = (activeEnergy / 600).clamp(0.0, 1.0);
+    final hrNorm = _restingHrScore(hr);
+    final score =
+        ((stepsNorm * 0.4 + sleepNorm * 0.3 + activeNorm * 0.2 + hrNorm * 0.1) *
+                100)
+            .round();
+    final progress = score / 100.0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -484,77 +688,58 @@ class _HeroHealthScore extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            stepsAsync.when(
-              data: (steps) {
-                final score = (steps / 100).clamp(0, 100).toInt();
-                final progress = score / 100.0;
-
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 192,
-                      height: 192,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primary.withValues(alpha: 0.05),
-                            blurRadius: 40,
-                            spreadRadius: 20,
-                          ),
-                        ],
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 192,
+                  height: 192,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primary.withValues(alpha: 0.05),
+                        blurRadius: 40,
+                        spreadRadius: 20,
                       ),
-                    ),
-                    SizedBox(
-                      width: 180,
-                      height: 180,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 6,
-                        backgroundColor: AppTheme.borderDark,
-                        color: AppTheme.primary,
-                        strokeCap: StrokeCap.round,
-                      ),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$score',
-                          style: const TextStyle(
-                            color: AppTheme.textCream,
-                            fontSize: 60,
-                            fontWeight: FontWeight.w300,
-                            letterSpacing: -2,
-                          ),
-                        ),
-                        const Text(
-                          'HEALTH SCORE',
-                          style: TextStyle(
-                            color: AppTheme.primary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-              loading: () =>
-                  const ShimmerBox(width: 192, height: 192, borderRadius: 96),
-              error: (_, _) => const SizedBox(
-                width: 192,
-                height: 192,
-                child: Center(
-                  child: Text(
-                    'Error',
-                    style: TextStyle(color: AppTheme.textCream),
+                    ],
                   ),
                 ),
-              ),
+                SizedBox(
+                  width: 180,
+                  height: 180,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 6,
+                    backgroundColor: AppTheme.borderDark,
+                    color: AppTheme.primary,
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$score',
+                      style: const TextStyle(
+                        color: AppTheme.textCream,
+                        fontSize: 60,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: -2,
+                      ),
+                    ),
+                    const Text(
+                      'HEALTH SCORE',
+                      style: TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             // — Live activity strip —
@@ -1220,11 +1405,11 @@ class _HydrationCardState extends ConsumerState<_HydrationCard> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final target = prefs.getInt('water_target_ml') ?? 2500;
-      final res = await ApiClient.getDailyLog(_todayDate);
+      final res = await ApiClient.getHomeSummary(_todayDate);
       if (mounted) {
         setState(() {
           _targetMl = target;
-          _waterMl = res['data']?['waterMl'] ?? 0;
+          _waterMl = res['data']?['hydrationMl'] ?? 0;
           _loading = false;
         });
       }
@@ -1234,12 +1419,15 @@ class _HydrationCardState extends ConsumerState<_HydrationCard> {
   }
 
   Future<void> _addWater() async {
+    if (_loading) return;
+    final previous = _waterMl;
     final newValue = _waterMl + 250;
     setState(() => _waterMl = newValue);
     try {
-      await ApiClient.updateDailyLog(_todayDate, {'waterMl': newValue});
+      await ApiClient.incrementHydration(_todayDate, amountMl: 250);
+      ref.invalidate(homeDashboardProvider);
     } catch (_) {
-      // silently fail — local state already updated
+      if (mounted) setState(() => _waterMl = previous);
     }
   }
 
@@ -1330,12 +1518,30 @@ class _HydrationCardState extends ConsumerState<_HydrationCard> {
           ),
           const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: AppTheme.borderDark,
-              color: AppTheme.primary,
-              minHeight: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              height: 10,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        color: AppTheme.borderDark,
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeOutCubic,
+                        width: constraints.maxWidth * progress,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ],
