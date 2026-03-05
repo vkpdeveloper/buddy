@@ -39,6 +39,10 @@ const profileSchema = z.object({
     waterTargetMl: z.number().int().min(500).max(6000).optional(),
     weightGoalKg: z.number().min(30).max(300).optional(),
     preferredMeals: z.array(z.enum(['breakfast', 'morning_snack', 'lunch', 'pre_workout', 'post_workout', 'dinner', 'evening_snack'])).min(2).optional(),
+    dietType: z.enum(['vegetarian', 'non_vegetarian', 'vegan']).optional(),
+    mealPrepTime: z.enum(['15min', '30min', '1hour']).optional(),
+    cookingBy: z.enum(['myself', 'maid']).optional(),
+    preferredFoods: z.array(z.string()).optional(),
     profileCompleted: z.boolean().optional(),
 });
 
@@ -65,6 +69,10 @@ router.put('/', zValidator('json', profileSchema), async (c) => {
         if (body.waterTargetMl !== undefined) updateData.waterTargetMl = body.waterTargetMl;
         if (body.weightGoalKg !== undefined) updateData.weightGoalKg = body.weightGoalKg;
         if (body.preferredMeals !== undefined) updateData.preferredMeals = JSON.stringify(body.preferredMeals);
+        if (body.dietType !== undefined) updateData.dietType = body.dietType;
+        if (body.mealPrepTime !== undefined) updateData.mealPrepTime = body.mealPrepTime;
+        if (body.cookingBy !== undefined) updateData.cookingBy = body.cookingBy as 'myself' | 'maid';
+        if (body.preferredFoods !== undefined) updateData.preferredFoods = JSON.stringify(body.preferredFoods);
         if (body.profileCompleted !== undefined) updateData.profileCompleted = body.profileCompleted;
 
         let result;

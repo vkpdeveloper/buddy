@@ -14,6 +14,34 @@ const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+// ─── High-Protein Food Lists (per diet type) ────────────────────────────────
+
+export const HIGH_PROTEIN_FOODS = {
+    vegetarian: [
+        'Paneer', 'Tofu', 'Moong Dal', 'Masoor Dal', 'Chana Dal',
+        'Toor Dal', 'Urad Dal', 'Rajma', 'Chole (Chickpeas)',
+        'Dahi (Curd)', 'Greek Yogurt', 'Moong Sprouts',
+        'Sattu', 'Soya Chunks', 'Skimmed Milk',
+        'Peanut Butter', 'Makhana', 'Whey Protein',
+    ],
+    non_vegetarian: [
+        'Chicken Breast', 'Whole Eggs', 'Egg Whites',
+        'Tuna', 'Salmon', 'Prawn/Shrimp',
+        'Fish (Rohu/Catla)', 'Lean Mutton Keema', 'Turkey',
+        'Paneer', 'Moong Dal', 'Dahi (Curd)',
+        'Greek Yogurt', 'Chicken Liver', 'Whey Protein',
+        'Soya Chunks', 'Rajma', 'Chole (Chickpeas)',
+    ],
+    vegan: [
+        'Tofu', 'Tempeh', 'Seitan', 'Edamame',
+        'Moong Dal', 'Masoor Dal', 'Chole (Chickpeas)',
+        'Rajma', 'Quinoa', 'Hemp Seeds',
+        'Soya Chunks', 'Sattu', 'Peanut Butter',
+        'Lentil Sprouts', 'Black Beans',
+        'Pumpkin Seeds', 'Chia Seeds', 'Mung Bean Sprouts',
+    ],
+} as const;
+
 // Canonical eating-time order for all meal types
 const MEAL_ORDER: Record<string, number> = {
     breakfast: 1,
@@ -34,6 +62,11 @@ const MEAL_LABELS: Record<string, string> = {
     dinner: 'Dinner',
     evening_snack: 'Evening Snack',
 };
+
+// ─── GET /api/diet/foods ─────────────────────────────────────────────────────
+router.get('/foods', (c) => {
+    return c.json({ success: true, data: HIGH_PROTEIN_FOODS });
+});
 
 // ─── GET /api/diet/plans ─────────────────────────────────────────────────────
 router.get('/plans', async (c) => {
@@ -87,26 +120,80 @@ router.post('/generate', async (c) => {
         const mealTypesList = preferredMeals.map(m => `${m} (${MEAL_LABELS[m] ?? m})`).join(', ');
         const mealCount = preferredMeals.length;
 
-        const systemPrompt = `You are an expert Indian vegetarian sports nutritionist. Generate a detailed, practical 7-day high-protein vegetarian diet plan calibrated for South Asian physiology.
+        const dietType = (profile.dietType ?? 'vegetarian') as keyof typeof HIGH_PROTEIN_FOODS;
+        const mealPrepTime = profile.mealPrepTime ?? '30min';
+        const cookingBy = profile.cookingBy ?? 'myself';
+        const preferredFoods: string[] = JSON.parse(profile.preferredFoods ?? '[]');
+
+        const dietLabels: Record<string, string> = {
+            vegetarian: 'Indian vegetarian',
+            non_vegetarian: 'Indian non-vegetarian (includes chicken, eggs, fish)',
+            vegan: 'Indian vegan (strictly plant-based)',
+        };
+        const dietLabel = dietLabels[dietType];
+        const proteinFoods = HIGH_PROTEIN_FOODS[dietType].join(', ');
+
+        const mealPrepLabels: Record<string, string> = {
+            '15min': '15 minutes or less per meal',
+            '30min': '30 minutes or less per meal',
+            '1hour': 'up to 1 hour per meal',
+        };
+        const mealPrepLabel = mealPrepLabels[mealPrepTime];
+
+        const cookingContexts: Record<string, string> = {
+            myself: 'The person cooks for themselves — prefer quick, minimal-prep meals. Avoid elaborate multi-step recipes.',
+            maid: 'A household maid cooks — standard simple Indian home-cooked meals, nothing too specialized.',
+        };
+        const cookingContext = cookingContexts[cookingBy];
+
+        const dietRules: Record<string, string> = {
+            vegetarian: `- ONLY vegetarian Indian foods: dal varieties, paneer, tofu, curd/dahi, sprouts, rajma, chana, roti, rice, oats, upma, poha, sattu, makhana, soya chunks, etc.
+- NO meat, fish, or eggs AT ALL`,
+            non_vegetarian: `- Indian non-vegetarian foods allowed: chicken breast, eggs, fish (rohu, catla, tuna), prawns, lean mutton keema, etc.
+- Combine with Indian carbs: roti, rice, oats, poha, upma
+- Prioritize lean proteins: chicken breast and eggs over fatty cuts`,
+            vegan: `- STRICTLY plant-based: NO dairy (no paneer, no curd, no milk, no ghee), NO eggs, NO meat
+- Use tofu, tempeh, soya chunks, all dal varieties, legumes, sprouts, quinoa, plant milks
+- Replace ghee/butter with cold-pressed oils (coconut, mustard, groundnut)`,
+        };
+        const dietRule = dietRules[dietType];
+
+        const planTitle = {
+            vegetarian: '7-Day High Protein Indian Vegetarian Plan',
+            non_vegetarian: '7-Day High Protein Indian Non-Vegetarian Plan',
+            vegan: '7-Day High Protein Indian Vegan Plan',
+        }[dietType];
+
+        const systemPrompt = `You are an expert ${dietLabel} sports nutritionist. Generate a detailed, practical 7-day high-protein ${dietLabel} diet plan calibrated for South Asian physiology.
+
+DIET TYPE: ${dietLabel.toUpperCase()}
+${dietRule}
+
+MEAL PREPARATION CONSTRAINTS:
+- Maximum prep time: ${mealPrepLabel}
+- Cooking context: ${cookingContext}
+- High-protein staples available for this diet type: ${proteinFoods}
+${preferredFoods.length > 0 ? `
+FAVOURITE FOODS (treat these as the user's preferred ingredients — build meals around them as much as possible across the 7 days):
+${preferredFoods.map(f => `  - ${f}`).join('\n')}
+These are foods the user loves and eats regularly. Feature them prominently in breakfast, lunch, dinner and snacks. Rotate creatively but keep them as the backbone of the plan.
+` : ''}
 
 IMPORTANT RULES:
-- ONLY Indian foods: dal (moong, masoor, chana, toor, urad), roti, rice, sabzi, paneer, curd/dahi, sprouts, rajma, chana, tofu, oats (Indian style), upma, poha, sattu, makhana, etc.
-- NO meat, eggs, or non-vegetarian items AT ALL
-- HIGH PROTEIN focus — at least ${Math.round(macros.proteinG * 0.85)}g protein per day using dal-based proteins prominently
+- ONLY Indian foods and flavors — dal, roti, rice, sabzi, Indian spices, etc.
+- HIGH PROTEIN focus — at least ${Math.round(macros.proteinG * 0.85)}g protein per day, featuring the listed protein staples prominently
 ${useProteinPowder ? '- Include protein powder shakes: once post-workout (if post_workout is in the list) and once as evening_snack (if evening_snack is in the list). Each shake = 25g protein, 120 kcal' : '- No protein powder, use whole food proteins only'}
 - CRITICAL: Keep each day's total EXACTLY at ${macros.calories} kcal ±50 kcal
-- The calorie target is already adjusted for Indian BMR (South Asian correction applied) — do NOT increase it
 - Protein target: ${macros.proteinG}g | Carbs: ${macros.carbsG}g | Fat: ${macros.fatG}g
-- Indian portion sizes are typically smaller than Western — use realistic quantities (e.g., "2 medium rotis (60g)", "1 bowl dal (150ml)", "100g paneer")
+- Indian portion sizes — realistic quantities (e.g., "2 medium rotis (60g)", "1 bowl dal (150ml)", "100g paneer")
 - Vary meals each day — do NOT repeat the same meals across 7 days
-- Keep it REALISTIC for an Indian home/office lifestyle
-- Include quantities with every item
 - ONLY use these meal types (in this order): ${mealTypesList}
 - Generate exactly ${mealCount} meals per day using ONLY the meal types listed above
+- Meals must be feasible within the ${mealPrepLabel} prep time limit
 
 Return ONLY a valid JSON object in this EXACT structure (no markdown, no explanation):
 {
-  "title": "7-Day High Protein Indian Vegetarian Plan",
+  "title": "${planTitle}",
   "days": [
     {
       "dayNumber": 1,

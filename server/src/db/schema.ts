@@ -33,6 +33,16 @@ export const userProfile = sqliteTable('user_profile', {
     waterTargetMl: integer('water_target_ml').notNull().default(2500),
     weightGoalKg: real('weight_goal_kg'),
     preferredMeals: text('preferred_meals').notNull().default('["breakfast","morning_snack","lunch","pre_workout","post_workout","dinner","evening_snack"]'), // JSON array
+    dietType: text('diet_type', {
+        enum: ['vegetarian', 'non_vegetarian', 'vegan'],
+    }).notNull().default('vegetarian'),
+    mealPrepTime: text('meal_prep_time', {
+        enum: ['15min', '30min', '1hour'],
+    }).notNull().default('30min'),
+    cookingBy: text('cooking_by', {
+        enum: ['myself', 'maid'],
+    }).notNull().default('myself'),
+    preferredFoods: text('preferred_foods').notNull().default('[]'), // JSON array of food names
     profileCompleted: integer('profile_completed', { mode: 'boolean' }).notNull().default(false),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 });

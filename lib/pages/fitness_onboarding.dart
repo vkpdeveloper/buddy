@@ -49,23 +49,30 @@ class _FitnessOnboardingExtensionState
   late final PageController _pageController = PageController();
 
   // Page 1: Weight Goal
-  String _fitnessGoal = 'build_muscle'; // lose_fat | build_muscle | recomp | maintain
+  String _fitnessGoal = '';
   double _targetWeight = 75.0;
 
   // Page 2: Activity Level
-  String _activityLevel = 'moderately_active';
+  String _activityLevel = '';
 
-  // Page 3: Workout Setup
-  final Set<String> _selectedEquipment = {'dumbbells', 'bodyweight'};
-  String _workoutCycle = 'ppl';
+  // Page 3: Diet Preferences
+  String _dietType = '';
+  String _mealPrepTime = '';
+  String _cookingBy = '';
+  Map<String, List<String>> _dietFoods = {};
+  Set<String> _selectedFoods = {};
 
-  // Derived from the chosen split — no need to ask separately
+  // Page 4: Workout Setup
+  final Set<String> _selectedEquipment = {};
+  String _workoutCycle = '';
+
+  // Derived from the chosen split
   int get _daysPerWeek => const {
     'ppl': 6,
     'upper_lower': 4,
     'ppl_upper': 5,
     'full_body': 3,
-  }[_workoutCycle]!;
+  }[_workoutCycle] ?? 4;
 
   // Diet defaults (sent to API)
   final bool _useProteinPowder = true;
@@ -87,6 +94,23 @@ class _FitnessOnboardingExtensionState
   void initState() {
     super.initState();
     _loadCurrentWeight();
+    _fetchDietFoods();
+  }
+
+  Future<void> _fetchDietFoods() async {
+    try {
+      final res = await ApiClient.getDietFoods();
+      if (res['success'] == true && res['data'] != null) {
+        final raw = res['data'] as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            _dietFoods = raw.map(
+              (k, v) => MapEntry(k, List<String>.from(v as List)),
+            );
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -101,8 +125,84 @@ class _FitnessOnboardingExtensionState
     if (mounted) setState(() => _targetWeight = w);
   }
 
+  void _showValidationError(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(LucideIcons.circle_alert, color: Colors.white, size: 16),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.plusJakartaSans(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFB91C1C),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  bool _validateCurrentPage() {
+    switch (_currentPage) {
+      case 0:
+        if (_fitnessGoal.isEmpty) {
+          _showValidationError('Please select your body goal to continue.');
+          return false;
+        }
+        return true;
+      case 1:
+        if (_activityLevel.isEmpty) {
+          _showValidationError('Please select your activity level to continue.');
+          return false;
+        }
+        return true;
+      case 2:
+        if (_dietType.isEmpty) {
+          _showValidationError('Please select your diet type.');
+          return false;
+        }
+        if (_mealPrepTime.isEmpty) {
+          _showValidationError('Please select how much time you have to cook a meal.');
+          return false;
+        }
+        if (_cookingBy.isEmpty) {
+          _showValidationError('Please select who cooks your meals.');
+          return false;
+        }
+        if (_selectedFoods.isEmpty) {
+          _showValidationError('Pick at least one favourite food so we can personalize your plan.');
+          return false;
+        }
+        return true;
+      case 3:
+        if (_selectedEquipment.isEmpty) {
+          _showValidationError('Please select at least one piece of equipment.');
+          return false;
+        }
+        if (_workoutCycle.isEmpty) {
+          _showValidationError('Please select your training split.');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
   void _nextPage() {
-    if (_currentPage < 2) {
+    if (!_validateCurrentPage()) return;
+    if (_currentPage < 3) {
       setState(() => _currentPage++);
       _pageController.animateToPage(
         _currentPage,
@@ -168,6 +268,10 @@ class _FitnessOnboardingExtensionState
         'proteinLevel': _proteinLevel,
         'waterTargetMl': waterTargetMl,
         'preferredMeals': _preferredMeals.toList(),
+        'dietType': _dietType,
+        'mealPrepTime': _mealPrepTime,
+        'cookingBy': _cookingBy,
+        'preferredFoods': _selectedFoods.toList(),
         'profileCompleted': true,
       });
 
@@ -262,6 +366,7 @@ class _FitnessOnboardingExtensionState
               children: [
                 _buildGoalPage(),
                 _buildActivityPage(),
+                _buildDietPreferencesPage(),
                 _buildWorkoutSetupPage(),
               ],
             ),
@@ -837,6 +942,387 @@ class _FitnessOnboardingExtensionState
       ],
     );
   }
+
+  // ─── Page 5: Diet Preferences ────────────────────────────────────────
+
+  Widget _buildDietPreferencesPage() {
+    final foods = _dietFoods[_dietType] ?? _fallbackFoods[_dietType] ?? [];
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+
+    const dietOptions = [
+      ('vegetarian', 'Vegetarian', 'Dal, paneer, tofu, curd', '🌿'),
+      ('non_vegetarian', 'Non-Vegetarian', 'Chicken, eggs, fish + Indian staples', '🍗'),
+      ('vegan', 'Vegan', 'Strictly plant-based, no dairy', '🌱'),
+    ];
+
+    const prepOptions = [
+      ('15min', '15 min', 'Quick & easy'),
+      ('30min', '30 min', 'Standard home cook'),
+      ('1hour', '1 hour', 'Elaborate meals ok'),
+    ];
+
+    const cookOptions = [
+      ('myself', 'Myself', '👤'),
+      ('maid', 'Maid', '🧑‍🍳'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 32),
+                Text(
+                  'DIET PREFERENCES',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'How do you\neat?',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This shapes every meal suggestion — proteins, recipes, and timing.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Diet type
+                Text(
+                  'DIET TYPE',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...dietOptions.map((d) {
+                  final isSelected = _dietType == d.$1;
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      _dietType = d.$1;
+                      _selectedFoods = {};
+                    }),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary.withValues(alpha: 0.12)
+                            : AppTheme.cardDark,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color:
+                              isSelected ? AppTheme.primary : AppTheme.borderDark,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(d.$4, style: const TextStyle(fontSize: 22)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  d.$2,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: isSelected
+                                        ? AppTheme.textCream
+                                        : AppTheme.textSageMuted,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  d.$3,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.textSageMuted
+                                        .withValues(alpha: 0.7),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                LucideIcons.check,
+                                color: AppTheme.backgroundDark,
+                                size: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 24),
+
+                // Meal prep time
+                Text(
+                  'MEAL PREP TIME',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: prepOptions.map((p) {
+                    final isSelected = _mealPrepTime == p.$1;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _mealPrepTime = p.$1),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          margin: EdgeInsets.only(
+                            right: p.$1 != '1hour' ? 8 : 0,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primary.withValues(alpha: 0.12)
+                                : AppTheme.cardDark,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.primary
+                                  : AppTheme.borderDark,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                p.$2,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: isSelected
+                                      ? AppTheme.textCream
+                                      : AppTheme.textSageMuted,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                p.$3,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textSageMuted
+                                      .withValues(alpha: 0.6),
+                                  fontSize: 9,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+
+                // Who's cooking
+                Text(
+                  "WHO'S COOKING?",
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: cookOptions.map((c) {
+                    final isSelected = _cookingBy == c.$1;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _cookingBy = c.$1),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          margin: EdgeInsets.only(
+                            right: c.$1 != 'maid' ? 8 : 0,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primary.withValues(alpha: 0.12)
+                                : AppTheme.cardDark,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.primary
+                                  : AppTheme.borderDark,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                c.$3,
+                                style: const TextStyle(fontSize: 20),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                c.$2,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: isSelected
+                                      ? AppTheme.textCream
+                                      : AppTheme.textSageMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 28),
+
+                // Favourite food chips
+                if (foods.isNotEmpty) ...[
+                  Text(
+                    'FAVOURITE FOODS',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap to pick the ones you love — the AI will build your plan around them.',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted.withValues(alpha: 0.6),
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: foods.map((f) {
+                      final isSelected = _selectedFoods.contains(f);
+                      return GestureDetector(
+                        onTap: () => setState(() {
+                          if (isSelected) {
+                            _selectedFoods.remove(f);
+                          } else {
+                            _selectedFoods.add(f);
+                          }
+                        }),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.cardDark,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.primary
+                                  : AppTheme.borderDark,
+                            ),
+                          ),
+                          child: Text(
+                            f,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: isSelected
+                                  ? AppTheme.backgroundDark
+                                  : AppTheme.textSageMuted,
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  if (_selectedFoods.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '${_selectedFoods.length} selected',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
+        ),
+      ],
+    );
+  }
+
+  // Fallback food lists if API is unreachable
+  static const _fallbackFoods = {
+    'vegetarian': [
+      'Paneer', 'Tofu', 'Moong Dal', 'Masoor Dal', 'Chana Dal',
+      'Rajma', 'Chole', 'Dahi (Curd)', 'Greek Yogurt', 'Moong Sprouts',
+      'Sattu', 'Soya Chunks', 'Skimmed Milk', 'Peanut Butter', 'Makhana',
+    ],
+    'non_vegetarian': [
+      'Chicken Breast', 'Whole Eggs', 'Egg Whites', 'Tuna', 'Salmon',
+      'Prawn/Shrimp', 'Fish (Rohu/Catla)', 'Lean Mutton Keema', 'Turkey',
+      'Paneer', 'Moong Dal', 'Dahi (Curd)', 'Greek Yogurt', 'Soya Chunks', 'Rajma',
+    ],
+    'vegan': [
+      'Tofu', 'Tempeh', 'Seitan', 'Edamame', 'Moong Dal',
+      'Masoor Dal', 'Chole', 'Rajma', 'Quinoa', 'Hemp Seeds',
+      'Soya Chunks', 'Sattu', 'Peanut Butter', 'Lentil Sprouts', 'Black Beans',
+    ],
+  };
 
   // ─── Page 6: Workout Setup ───────────────────────────────────────────
 

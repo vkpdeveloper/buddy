@@ -79,6 +79,14 @@ class ApiClient {
     return _decode(res);
   }
 
+  static Future<Map<String, dynamic>> getDietFoods() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/diet/foods'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
   static Future<Map<String, dynamic>> updateMeal(
     int id,
     Map<String, dynamic> data,

@@ -1023,7 +1023,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   // ─── Shared Components ────────────────────────────────
 
-  static const int _totalSteps = 6;
+  static const int _totalSteps = 7;
 
   Widget _buildPageHeader(int activeIndex) {
     return Row(

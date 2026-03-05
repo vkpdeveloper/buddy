@@ -29,6 +29,13 @@
       "when": 1772653778712,
       "tag": "0003_strange_scarlet_spider",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1772700900171,
+      "tag": "0004_wet_pepper_potts",
+      "breakpoints": true
     }
   ]
 }
