@@ -11,6 +11,7 @@ import ttsRouter from './routes/tts';
 import logsRouter from './routes/logs';
 import progressRouter, { seedAchievements, ensureUserProgress } from './routes/progress';
 import bodyRouter from './routes/body';
+import generationRouter from './routes/generation';
 
 const app = new Hono();
 
@@ -40,6 +41,7 @@ app.route('/api/tts', ttsRouter);
 app.route('/api/logs', logsRouter);
 app.route('/api/progress', progressRouter);
 app.route('/api/body', bodyRouter);
+app.route('/api/generation', generationRouter);
 
 // ─── Startup tasks ────────────────────────────────────────────────────────────
 seedAchievements().catch(console.error);

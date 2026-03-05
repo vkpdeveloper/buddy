@@ -6,6 +6,7 @@ import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
+import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/pages/diet_plan_page.dart';
 import 'package:buddy/pages/workout_page.dart';
 import 'package:buddy/pages/growth_page.dart';
@@ -22,20 +23,20 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
-  final _pages = const [
-    _HealthDashboard(), // Center / Home
-    DietPlanPage(), // Diet
-    WorkoutPage(), // Workout
-    GrowthPage(), // Growth
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      _HealthDashboard(onNavigate: (i) => setState(() => _currentIndex = i)),
+      const DietPlanPage(),
+      const WorkoutPage(),
+      const GrowthPage(),
+    ];
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundDark,
       body: Stack(
         children: [
-          IndexedStack(index: _currentIndex, children: _pages),
+          IndexedStack(index: _currentIndex, children: pages),
           Positioned(
             left: 0,
             right: 0,
@@ -54,7 +55,8 @@ class _HomePageState extends State<HomePage> {
 // ─── Health Dashboard (original home content) ─────────────────────────────
 
 class _HealthDashboard extends ConsumerWidget {
-  const _HealthDashboard();
+  final void Function(int) onNavigate;
+  const _HealthDashboard({required this.onNavigate});
 
   Future<void> _refresh(WidgetRef ref) async {
     ref.invalidate(todayStepsProvider);
@@ -81,9 +83,10 @@ class _HealthDashboard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _HeaderSection(),
+            const GeneratingBanner(),
             const _PermissionBanner(),
             const _HeroHealthScore(),
-            const _QuickActionsRow(),
+            _QuickActionsRow(onNavigate: onNavigate),
             const _VitalsCarousel(),
             const _ProgressCard(),
             Padding(
@@ -184,31 +187,8 @@ class _PermissionBanner extends ConsumerWidget {
 // ─── Quick Actions Row ────────────────────────────────────────────────────────
 
 class _QuickActionsRow extends StatelessWidget {
-  const _QuickActionsRow();
-
-  void _openDietSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppTheme.cardDark,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => const _TodayDietSheet(),
-    );
-  }
-
-  void _openWorkoutSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppTheme.cardDark,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => const _TodayWorkoutSheet(),
-    );
-  }
+  final void Function(int) onNavigate;
+  const _QuickActionsRow({required this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
@@ -223,21 +203,78 @@ class _QuickActionsRow extends StatelessWidget {
                 icon: LucideIcons.utensils,
                 label: 'DIET',
                 subtitle: 'Today\'s meals',
-                onTap: () => _openDietSheet(context),
+                onTap: () => onNavigate(1),
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: _QuickActionCard(
-                icon: LucideIcons.dumbbell,
-                label: 'TRAIN',
-                subtitle: 'Workout plan',
-                onTap: () => _openWorkoutSheet(context),
-              ),
-            ),
+            Expanded(child: _TrainCard(onTap: () => onNavigate(2))),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TrainCard extends StatefulWidget {
+  final VoidCallback onTap;
+  const _TrainCard({required this.onTap});
+
+  @override
+  State<_TrainCard> createState() => _TrainCardState();
+}
+
+class _TrainCardState extends State<_TrainCard> {
+  bool? _isRestDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkRestDay();
+  }
+
+  Future<void> _checkRestDay() async {
+    try {
+      final res = await ApiClient.listWorkoutPlans();
+      final plans = (res['data'] as List?) ?? [];
+      final active = plans
+          .where((p) => p['isActive'] == true || p['is_active'] == 1)
+          .toList();
+      final planId = active.isNotEmpty
+          ? active.first['id']
+          : (plans.isNotEmpty ? plans.last['id'] : null);
+      if (planId == null) {
+        if (mounted) setState(() => _isRestDay = false);
+        return;
+      }
+      final detail = await ApiClient.getWorkoutPlan(planId as int);
+      final days = (detail['data']?['days'] as List?) ?? [];
+      final todayIdx = DateTime.now().weekday - 1;
+      if (days.length > todayIdx) {
+        final day = days[todayIdx];
+        if (mounted) {
+          setState(
+            () =>
+                _isRestDay =
+                    day['isRestDay'] == true || day['is_rest_day'] == 1,
+          );
+        }
+      } else {
+        if (mounted) setState(() => _isRestDay = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isRestDay = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isRest = _isRestDay ?? false;
+    return _QuickActionCard(
+      icon: isRest ? LucideIcons.moon : LucideIcons.dumbbell,
+      label: isRest ? 'REST DAY' : 'TRAIN',
+      subtitle: isRest ? 'Recover & recharge' : 'Workout plan',
+      onTap: widget.onTap,
+      muted: isRest,
     );
   }
 }
@@ -247,16 +284,19 @@ class _QuickActionCard extends StatelessWidget {
   final String label;
   final String subtitle;
   final VoidCallback onTap;
+  final bool muted;
 
   const _QuickActionCard({
     required this.icon,
     required this.label,
     required this.subtitle,
     required this.onTap,
+    this.muted = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final accent = muted ? AppTheme.textSageMuted : AppTheme.primary;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -279,10 +319,10 @@ class _QuickActionCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.12),
+                color: accent.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: AppTheme.primary, size: 18),
+              child: Icon(icon, color: accent, size: 18),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -292,7 +332,7 @@ class _QuickActionCard extends StatelessWidget {
                   Text(
                     label,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary,
+                      color: accent,
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.5,
@@ -311,566 +351,13 @@ class _QuickActionCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               LucideIcons.chevron_right,
               color: AppTheme.textSageMuted,
               size: 12,
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ─── Today's Diet Bottom Sheet ────────────────────────────────────────────────
-
-class _TodayDietSheet extends StatefulWidget {
-  const _TodayDietSheet();
-
-  @override
-  State<_TodayDietSheet> createState() => _TodayDietSheetState();
-}
-
-class _TodayDietSheetState extends State<_TodayDietSheet> {
-  bool _loading = true;
-  List<dynamic> _meals = [];
-  int _totalCals = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTodayMeals();
-  }
-
-  Future<void> _loadTodayMeals() async {
-    try {
-      final plansRes = await ApiClient.listDietPlans();
-      final plans = (plansRes['data'] as List?) ?? [];
-      final active = plans
-          .where((p) => p['isActive'] == true || p['is_active'] == 1)
-          .toList();
-      final planId = active.isNotEmpty
-          ? active.first['id']
-          : (plans.isNotEmpty ? plans.last['id'] : null);
-      if (planId == null) {
-        if (mounted) setState(() => _loading = false);
-        return;
-      }
-
-      final res = await ApiClient.getDietPlan(planId as int);
-      final days = (res['data']?['days'] as List?) ?? [];
-      final todayIdx = DateTime.now().weekday - 1;
-      if (days.length > todayIdx) {
-        final day = days[todayIdx];
-        if (mounted) {
-          setState(() {
-            _meals = (day['meals'] as List?) ?? [];
-            _totalCals = day['totalCalories'] ?? 0;
-            _loading = false;
-          });
-        }
-      } else {
-        if (mounted) setState(() => _loading = false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final weekdays = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    final todayName = weekdays[DateTime.now().weekday - 1];
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.6,
-      maxChildSize: 0.92,
-      builder: (_, controller) => Column(
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.borderDark,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'TODAY\'S MEALS',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.primary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      Text(
-                        todayName,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (_totalCals > 0)
-                        Text(
-                          '$_totalCals kcal target',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DietPlanPage()),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'FULL PLAN →',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: AppTheme.borderDark),
-          if (_loading)
-            const Expanded(
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.primary,
-                  strokeWidth: 2,
-                ),
-              ),
-            )
-          else if (_meals.isEmpty)
-            Expanded(
-              child: Center(
-                child: Text(
-                  'No meals planned for today',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
-                  ),
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.separated(
-                controller: controller,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                itemCount: _meals.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (_, i) {
-                  final meal = _meals[i];
-                  final name = meal['mealName'] ?? meal['meal_name'] ?? 'Meal';
-                  final cals = meal['calories'] ?? 0;
-                  final protein = meal['proteinG'] ?? meal['protein_g'] ?? 0;
-                  final type = (meal['mealType'] ?? meal['meal_type'] ?? '')
-                      .toString()
-                      .replaceAll('_', ' ')
-                      .toUpperCase();
-                  final isDone =
-                      meal['isCompleted'] == true || meal['is_completed'] == 1;
-                  return Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundDark,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isDone
-                            ? AppTheme.primary.withValues(alpha: 0.4)
-                            : AppTheme.borderDark,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                type,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.primary,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                name.toString(),
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textCream,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '$cals kcal',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textCream,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              '${protein}g protein',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textSageMuted,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Today's Workout Bottom Sheet ─────────────────────────────────────────────
-
-class _TodayWorkoutSheet extends StatefulWidget {
-  const _TodayWorkoutSheet();
-
-  @override
-  State<_TodayWorkoutSheet> createState() => _TodayWorkoutSheetState();
-}
-
-class _TodayWorkoutSheetState extends State<_TodayWorkoutSheet> {
-  bool _loading = true;
-  List<dynamic> _exercises = [];
-  String _dayLabel = '';
-  bool _isRest = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTodayWorkout();
-  }
-
-  Future<void> _loadTodayWorkout() async {
-    try {
-      final plansRes = await ApiClient.listWorkoutPlans();
-      final plans = (plansRes['data'] as List?) ?? [];
-      final active = plans
-          .where((p) => p['isActive'] == true || p['is_active'] == 1)
-          .toList();
-      final planId = active.isNotEmpty
-          ? active.first['id']
-          : (plans.isNotEmpty ? plans.last['id'] : null);
-      if (planId == null) {
-        if (mounted) setState(() => _loading = false);
-        return;
-      }
-
-      final res = await ApiClient.getWorkoutPlan(planId as int);
-      final days = (res['data']?['days'] as List?) ?? [];
-      final todayIdx = DateTime.now().weekday - 1;
-      if (days.length > todayIdx) {
-        final day = days[todayIdx];
-        if (mounted) {
-          setState(() {
-            _exercises = (day['exercises'] as List?) ?? [];
-            _dayLabel = day['dayLabel'] ?? day['day_label'] ?? 'Today';
-            _isRest = day['isRestDay'] == true || day['is_rest_day'] == 1;
-            _loading = false;
-          });
-        }
-      } else {
-        if (mounted) setState(() => _loading = false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final weekdays = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    final todayName = weekdays[DateTime.now().weekday - 1];
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.6,
-      maxChildSize: 0.92,
-      builder: (_, controller) => Column(
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.borderDark,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'TODAY\'S TRAINING',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.primary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      Text(
-                        todayName,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (_dayLabel.isNotEmpty)
-                        Text(
-                          _dayLabel.toUpperCase(),
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 12,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WorkoutPage()),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'FULL PLAN →',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: AppTheme.borderDark),
-          if (_loading)
-            const Expanded(
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.primary,
-                  strokeWidth: 2,
-                ),
-              ),
-            )
-          else if (_isRest)
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      LucideIcons.hotel,
-                      color: AppTheme.primary,
-                      size: 40,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Rest Day',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'Recovery is part of the plan',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else if (_exercises.isEmpty)
-            Expanded(
-              child: Center(
-                child: Text(
-                  'No exercises planned for today',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
-                  ),
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.separated(
-                controller: controller,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                itemCount: _exercises.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (_, i) {
-                  final ex = _exercises[i];
-                  final name = ex['name'] ?? 'Exercise';
-                  final sets = ex['sets'] ?? 0;
-                  final reps = ex['repsOrTime'] ?? ex['reps_or_time'] ?? '';
-                  final muscle = ex['muscleGroup'] ?? ex['muscle_group'] ?? '';
-                  return Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundDark,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.borderDark),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${i + 1}',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name.toString(),
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textCream,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              if (muscle.toString().isNotEmpty)
-                                Text(
-                                  muscle.toString().toUpperCase(),
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted,
-                                    fontSize: 9,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          '$sets × $reps',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
       ),
     );
   }

@@ -7,6 +7,8 @@ import 'package:buddy/services/api_client.dart';
 import 'package:buddy/pages/active_workout_page.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
+import 'package:buddy/widgets/generating_banner.dart';
+import 'package:buddy/providers/generation_provider.dart';
 
 class WorkoutPage extends ConsumerStatefulWidget {
   const WorkoutPage({super.key});
@@ -19,7 +21,6 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   int? _activePlanId;
   Map<String, dynamic>? _planData;
   bool _isLoading = true;
-  bool _isGenerating = false;
   int _selectedDayIndex = 0;
 
   @override
@@ -58,43 +59,20 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     } catch (_) {}
   }
 
-  Future<void> _generateNewPlan() async {
-    setState(() => _isGenerating = true);
-    try {
-      final res = await ApiClient.generateWorkoutPlan();
-      final planId = res['data']?['planId'];
-      if (planId != null) await _loadPlanDetail(planId);
-      setState(() => _selectedDayIndex = 0);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Couldn\'t generate a plan. Check your internet and try again.',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 13,
-              ),
-            ),
-            backgroundColor: AppTheme.cardDark,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    }
-    if (mounted) setState(() => _isGenerating = false);
-  }
-
   @override
   Widget build(BuildContext context) {
+    ref.listen<GenerationStatus>(generationStatusProvider, (prev, next) {
+      if (prev?.workout != 'done' && next.workout == 'done') {
+        _loadPlans();
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundDark,
       body: Column(
         children: [
           _buildHeader(),
+          const GeneratingBanner(watchType: 'workout'),
           if (_isLoading)
             Expanded(child: _buildSkeleton())
           else if (_planData == null)
@@ -113,12 +91,15 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Day tabs skeleton
-          Row(
-            children: List.generate(
-              7,
-              (i) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ShimmerBox(width: 48, height: 36, borderRadius: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(
+                7,
+                (i) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ShimmerBox(width: 48, height: 36, borderRadius: 12),
+                ),
               ),
             ),
           ),
@@ -265,66 +246,53 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   }
 
   Widget _buildEmptyState() {
+    final genStatus = ref.watch(generationStatusProvider);
+    final isGenerating =
+        genStatus.workout == 'pending' || genStatus.workout == 'generating';
+
     return Expanded(
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                LucideIcons.dumbbell,
-                color: AppTheme.primary,
-                size: 36,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'No workout plan yet',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Generate a plan built around\nyour equipment and goals',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-                fontSize: 13,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: _generateNewPlan,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(14),
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
                 ),
-                child: Text(
-                  'GENERATE WORKOUT',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.backgroundDark,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                  ),
+                child: const Icon(
+                  LucideIcons.dumbbell,
+                  color: AppTheme.primary,
+                  size: 36,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text(
+                isGenerating ? 'Building your plan…' : 'No workout plan yet',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isGenerating
+                    ? 'We\'re putting together a plan around your goals and equipment. It\'ll be ready in a moment.'
+                    : 'Your workout plan will appear here once it\'s been generated.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 13,
+                  height: 1.6,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -466,26 +434,117 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     final planId = _activePlanId;
 
     if (isRest) {
-      return Center(
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('😴', style: TextStyle(fontSize: 48)),
-            const SizedBox(height: 12),
-            Text(
-              'Rest Day',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.cardDark,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.borderDark),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppTheme.textSageMuted.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      LucideIcons.moon,
+                      color: AppTheme.textSageMuted,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Rest Day',
+                    style: GoogleFonts.crimsonPro(
+                      color: AppTheme.textCream,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Recovery is where the gains happen.\nLet your muscles rebuild and come back stronger.',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 20),
             Text(
-              'Recovery is part of the program.',
+              'TODAY\'S FOCUS',
               style: GoogleFonts.plusJakartaSans(
                 color: AppTheme.textSageMuted,
-                fontSize: 13,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ..._recoveryTips.map(
+              (tip) => Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.borderDark),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: tip.color.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(tip.icon, color: tip.color, size: 17),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tip.title,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            tip.subtitle,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -586,6 +645,48 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     );
   }
 }
+
+// ─── Recovery Tips ────────────────────────────────────────────────────────────
+
+class _RecoveryTip {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  const _RecoveryTip({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+  });
+}
+
+const _recoveryTips = [
+  _RecoveryTip(
+    icon: LucideIcons.activity,
+    title: 'Light Stretching',
+    subtitle: '10–15 min to ease muscle tension',
+    color: AppTheme.primary,
+  ),
+  _RecoveryTip(
+    icon: LucideIcons.droplets,
+    title: 'Stay Hydrated',
+    subtitle: 'Aim for at least 2–3 litres today',
+    color: Color(0xFF6BAED6),
+  ),
+  _RecoveryTip(
+    icon: LucideIcons.bed,
+    title: 'Prioritise Sleep',
+    subtitle: '7–9 hours for optimal recovery',
+    color: AppTheme.levelArc,
+  ),
+  _RecoveryTip(
+    icon: LucideIcons.salad,
+    title: 'Eat Well',
+    subtitle: 'Protein and whole foods fuel repair',
+    color: AppTheme.accent,
+  ),
+];
 
 // ─── Exercise Card ────────────────────────────────────────────────────────────
 

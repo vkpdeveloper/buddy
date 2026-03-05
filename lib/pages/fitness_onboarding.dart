@@ -9,6 +9,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/pages/home_page.dart';
+import 'package:buddy/providers/generation_provider.dart';
 
 // Equipment option data
 class _EquipmentOption {
@@ -327,20 +328,18 @@ class _FitnessOnboardingExtensionState
         'profileCompleted': true,
       });
 
-      if (mounted) {
-        setState(
-          () => _generatingMessage = 'Generating your plan...',
-        );
+      // Trigger async generation — returns immediately, worker runs in background
+      try {
+        await ApiClient.triggerGeneration();
+        ref.read(generationStatusProvider.notifier).startPolling();
+      } catch (_) {
+        // Non-fatal: user can still proceed; status will show idle
       }
-      await Future.wait([
-        ApiClient.generateDietPlan(),
-        ApiClient.generateWorkoutPlan(),
-      ]);
 
       if (mounted) {
-        setState(() => _generatingMessage = 'All set! Let\'s go! 💪');
+        setState(() => _generatingMessage = 'All set! Let\'s go!');
       }
-      await Future.delayed(const Duration(milliseconds: 800));
+      await Future.delayed(const Duration(milliseconds: 600));
 
       await widget.onComplete();
       if (mounted) {
@@ -369,7 +368,6 @@ class _FitnessOnboardingExtensionState
             ),
           ),
         );
-        // Still allow proceeding even if server is offline
         await Future.delayed(const Duration(milliseconds: 500));
         await widget.onComplete();
         if (mounted) {

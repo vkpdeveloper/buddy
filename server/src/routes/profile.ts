@@ -13,10 +13,10 @@ router.get('/', async (c) => {
         const profiles = await db.select().from(userProfile).limit(1);
 
         if (profiles.length === 0) {
-            return c.json({ success: true, data: null, exists: false });
+            return c.json({ success: false, error: 'Profile not found' }, 404);
         }
 
-        return c.json({ success: true, data: profiles[0], exists: true });
+        return c.json({ success: true, data: profiles[0] });
     } catch (err) {
         console.error('[profile GET]', err);
         return c.json({ success: false, error: String(err) }, 500);

@@ -7,6 +7,7 @@ const envSchema = z.object({
     TURSO_AUTH_TOKEN: z.string().optional(),
     PORT: z.string().default('3000'),
     FAL_API_KEY: z.string().min(1, 'FAL_API_KEY is required'),
+    REDIS_URL: z.string().default('redis://localhost:6379'),
 });
 
 export const env = envSchema.parse(Bun.env);

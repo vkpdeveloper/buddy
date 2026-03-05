@@ -26,18 +26,13 @@ class ApiClient {
 
   static Future<bool> isProfileCompleted() async {
     try {
-      final res = await _client.get(
-        Uri.parse('$baseUrl/api/profile'),
-        headers: _headers,
-      );
-      final json = jsonDecode(res.body) as Map<String, dynamic>;
-      if (res.statusCode >= 400) return false;
-      if (json['exists'] == false) return false;
-      final data = json['data'] as Map<String, dynamic>?;
+      final res = await getProfile();
+      final data = res['data'] as Map<String, dynamic>?;
       if (data == null) return false;
       return data['profile_completed'] == true ||
           data['profile_completed'] == 1;
     } catch (_) {
+      // 404 (no profile) or any other error → not completed
       return false;
     }
   }
@@ -303,6 +298,24 @@ class ApiClient {
   static Future<Map<String, dynamic>> getLatestBodyMeasurement() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/body/latest'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  // ─── Generation ──────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> triggerGeneration() async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/generation/trigger'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getGenerationStatus() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/generation/status'),
       headers: _headers,
     );
     return _decode(res);

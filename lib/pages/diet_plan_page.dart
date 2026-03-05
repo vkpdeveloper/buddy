@@ -6,6 +6,8 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
+import 'package:buddy/widgets/generating_banner.dart';
+import 'package:buddy/providers/generation_provider.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 class DietPlanPage extends ConsumerStatefulWidget {
@@ -21,7 +23,6 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage>
   Map<String, dynamic>? _planData;
   Map<int, bool> _todayLog = {}; // mealId -> isCompleted
   bool _isLoading = true;
-  bool _isGenerating = false;
   int _selectedDayIndex = 0;
 
   String get _todayDate {
@@ -74,42 +75,20 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage>
     } catch (_) {}
   }
 
-  Future<void> _generateNewPlan() async {
-    setState(() => _isGenerating = true);
-    try {
-      final res = await ApiClient.generateDietPlan();
-      final planId = res['data']?['planId'];
-      if (planId != null) await _loadPlanDetail(planId);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to generate. Check your connection.',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 13,
-              ),
-            ),
-            backgroundColor: AppTheme.cardDark,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    }
-    if (mounted) setState(() => _isGenerating = false);
-  }
-
   @override
   Widget build(BuildContext context) {
+    ref.listen<GenerationStatus>(generationStatusProvider, (prev, next) {
+      if (prev?.diet != 'done' && next.diet == 'done') {
+        _loadPlans();
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundDark,
       body: Column(
         children: [
           _buildHeader(),
+          const GeneratingBanner(watchType: 'diet'),
           if (_isLoading)
             Expanded(child: _buildSkeleton())
           else if (_planData == null)
@@ -146,12 +125,15 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage>
           ),
           const SizedBox(height: 16),
           // Day tabs skeleton
-          Row(
-            children: List.generate(
-              7,
-              (i) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ShimmerBox(width: 44, height: 36, borderRadius: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(
+                7,
+                (i) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ShimmerBox(width: 44, height: 36, borderRadius: 12),
+                ),
               ),
             ),
           ),
@@ -243,66 +225,53 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage>
   }
 
   Widget _buildEmptyState() {
+    final genStatus = ref.watch(generationStatusProvider);
+    final isGenerating =
+        genStatus.diet == 'pending' || genStatus.diet == 'generating';
+
     return Expanded(
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                LucideIcons.utensils,
-                color: AppTheme.primary,
-                size: 36,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'No diet plan yet',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Generate a personalised 7-day\nIndian vegetarian plan',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-                fontSize: 13,
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: _generateNewPlan,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(14),
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
                 ),
-                child: Text(
-                  'GENERATE PLAN',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.backgroundDark,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                  ),
+                child: const Icon(
+                  LucideIcons.utensils,
+                  color: AppTheme.primary,
+                  size: 36,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text(
+                isGenerating ? 'Building your plan…' : 'No diet plan yet',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isGenerating
+                    ? 'We\'re crafting a personalised meal plan based on your preferences. It\'ll be ready shortly.'
+                    : 'Your diet plan will appear here once it\'s been generated.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 13,
+                  height: 1.6,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

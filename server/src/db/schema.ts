@@ -191,6 +191,17 @@ export const userAchievements = sqliteTable('user_achievements', {
     sessionId: integer('session_id').references(() => workoutSessions.id),
 });
 
+// ─── Generation Jobs (async plan generation tracking) ────────────────────────
+
+export const generationJobs = sqliteTable('generation_jobs', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    type: text('type', { enum: ['diet', 'workout'] }).notNull(),
+    status: text('status', { enum: ['pending', 'generating', 'done', 'failed'] }).notNull().default('pending'),
+    error: text('error'),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+});
+
 // ─── Body Measurements (Growth tracking) ─────────────────────────────────────
 
 export const bodyMeasurements = sqliteTable('body_measurements', {

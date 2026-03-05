@@ -82,8 +82,9 @@ class _SplashScreenState extends State<SplashScreen>
 
     try {
       final res = await ApiClient.getProfile();
-      hasProfile = res['exists'] == true && res['data'] != null;
+      hasProfile = res['data'] != null;
     } catch (_) {
+      // 404 = no profile yet, any other error → treat as no profile
       hasProfile = false;
     }
 
