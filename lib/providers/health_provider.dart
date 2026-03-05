@@ -12,11 +12,13 @@ const healthTypes = [
   HealthDataType.HEART_RATE,
   HealthDataType.SLEEP_SESSION,
   HealthDataType.ACTIVE_ENERGY_BURNED,
+  HealthDataType.TOTAL_CALORIES_BURNED,
   HealthDataType.WEIGHT,
   HealthDataType.HEIGHT,
 ];
 
 const healthPermissionsList = [
+  HealthDataAccess.READ,
   HealthDataAccess.READ,
   HealthDataAccess.READ,
   HealthDataAccess.READ,
@@ -69,7 +71,7 @@ final todayStepsProvider = FutureProvider<int>((ref) async {
   }
 });
 
-final latestHeartRateProvider = FutureProvider<HealthDataPoint?>((ref) async {
+final latestHeartRateProvider = FutureProvider<int?>((ref) async {
   final hasPermission = await ref.watch(healthPermissionProvider.future);
   if (!hasPermission) return null;
 
@@ -84,9 +86,13 @@ final latestHeartRateProvider = FutureProvider<HealthDataPoint?>((ref) async {
     );
     if (data.isEmpty) return null;
     data.sort((a, b) => b.dateTo.compareTo(a.dateTo));
-    return data.first;
+    final value = data.first.value;
+    if (value is NumericHealthValue) {
+      return value.numericValue.toInt();
+    }
+    return 0;
   } catch (e) {
-    return null;
+    return 0;
   }
 });
 
@@ -99,6 +105,7 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
   final midnight = DateTime(now.year, now.month, now.day);
 
   try {
+    // Try ACTIVE_ENERGY_BURNED first (exercise-only calories)
     List<HealthDataPoint> data = await health.getHealthDataFromTypes(
       startTime: midnight,
       endTime: now,
@@ -111,6 +118,24 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
         totalEnergy += value.numericValue.toDouble();
       }
     }
+
+    // Fall back to TOTAL_CALORIES_BURNED if active energy is unavailable.
+    // Google Fit stores calories as total (active + BMR), so this ensures
+    // data synced from Google Fit is picked up.
+    if (totalEnergy == 0.0) {
+      final totalData = await health.getHealthDataFromTypes(
+        startTime: midnight,
+        endTime: now,
+        types: [HealthDataType.TOTAL_CALORIES_BURNED],
+      );
+      for (var point in totalData) {
+        final value = point.value;
+        if (value is NumericHealthValue) {
+          totalEnergy += value.numericValue.toDouble();
+        }
+      }
+    }
+
     return totalEnergy;
   } catch (e) {
     return 0.0;
@@ -174,8 +199,14 @@ final sleepDurationProvider = FutureProvider<Duration>((ref) async {
   final health = ref.read(healthProvider);
   final now = DateTime.now();
   // Extend window to catch sleep sessions that start yesterday evening and end today morning
-  final sleepStart = DateTime(now.year, now.month, now.day - 1, 20, 0); // yesterday 8pm
-  final sleepEnd = DateTime(now.year, now.month, now.day, 14, 0);       // today 2pm
+  final sleepStart = DateTime(
+    now.year,
+    now.month,
+    now.day - 1,
+    20,
+    0,
+  ); // yesterday 8pm
+  final sleepEnd = DateTime(now.year, now.month, now.day, 14, 0); // today 2pm
 
   try {
     List<HealthDataPoint> data = await health.getHealthDataFromTypes(

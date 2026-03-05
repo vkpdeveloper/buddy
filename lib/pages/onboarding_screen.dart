@@ -546,26 +546,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   value: _formatDate(_birthDate),
                   unit: '',
                   icon: LucideIcons.calendar,
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _birthDate,
-                      firstDate: DateTime(1940),
-                      lastDate: DateTime.now(),
-                      builder: (context, child) {
-                        return Theme(
-                          data: AppTheme.darkTheme.copyWith(
-                            colorScheme: const ColorScheme.dark(
-                              primary: AppTheme.primary,
-                              surface: AppTheme.cardDark,
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (picked != null) setState(() => _birthDate = picked);
-                  },
+                  onTap: _showBirthDatePicker,
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -1104,6 +1085,197 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       'DEC',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  void _showBirthDatePicker() {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+
+    final now = DateTime.now();
+    final minYear = 1940;
+    final maxYear = now.year - 5;
+
+    int selMonth = _birthDate.month; // 1-12
+    int selDay = _birthDate.day;
+    int selYear = _birthDate.year;
+
+    int daysInMonth(int month, int year) {
+      return DateTime(year, month + 1, 0).day;
+    }
+
+    final years = List.generate(maxYear - minYear + 1, (i) => minYear + i);
+    final monthController = FixedExtentScrollController(initialItem: selMonth - 1);
+    final dayController = FixedExtentScrollController(initialItem: selDay - 1);
+    final yearController = FixedExtentScrollController(
+      initialItem: years.indexOf(selYear),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final dayCount = daysInMonth(selMonth, selYear);
+
+            // Clamp day if month/year changes make current day invalid
+            if (selDay > dayCount) {
+              selDay = dayCount;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (dayController.hasClients) {
+                  dayController.jumpToItem(selDay - 1);
+                }
+              });
+            }
+
+            Widget column({
+              required FixedExtentScrollController controller,
+              required List<String> items,
+              required ValueChanged<int> onChanged,
+              double fontSize = 20,
+            }) {
+              return Expanded(
+                child: CupertinoPicker(
+                  backgroundColor: Colors.transparent,
+                  itemExtent: 52,
+                  scrollController: controller,
+                  selectionOverlay: const SizedBox.shrink(),
+                  onSelectedItemChanged: (i) {
+                    onChanged(i);
+                    setSheetState(() {});
+                  },
+                  children: items
+                      .map(
+                        (label) => Center(
+                          child: Text(
+                            label,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: fontSize,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              );
+            }
+
+            return SizedBox(
+              height: 420,
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.borderDark,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Date of Birth',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textCream,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Selection highlight bar
+                        Positioned(
+                          left: 24,
+                          right: 24,
+                          child: Container(
+                            height: 52,
+                            decoration: BoxDecoration(
+                              border: Border.symmetric(
+                                horizontal: BorderSide(
+                                  color: AppTheme.primary.withValues(alpha: 0.4),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            children: [
+                              column(
+                                controller: monthController,
+                                items: monthNames,
+                                fontSize: 17,
+                                onChanged: (i) => selMonth = i + 1,
+                              ),
+                              column(
+                                controller: dayController,
+                                items: List.generate(
+                                  dayCount,
+                                  (i) => (i + 1).toString().padLeft(2, '0'),
+                                ),
+                                onChanged: (i) => selDay = i + 1,
+                              ),
+                              column(
+                                controller: yearController,
+                                items: years.map((y) => y.toString()).toList(),
+                                onChanged: (i) => selYear = years[i],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                    child: GestureDetector(
+                      onTap: () {
+                        final clamped = selDay.clamp(1, daysInMonth(selMonth, selYear));
+                        setState(() {
+                          _birthDate = DateTime(selYear, selMonth, clamped);
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'CONFIRM',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.backgroundDark,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showNumberPicker({

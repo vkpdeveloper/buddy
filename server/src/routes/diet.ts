@@ -42,6 +42,24 @@ export const HIGH_PROTEIN_FOODS = {
     ],
 } as const;
 
+// Foods that should ONLY appear in plans if the user explicitly selected them in preferences
+const NICHE_FOODS = new Set([
+    'sattu',
+    'makhana',
+    'tempeh',
+    'seitan',
+    'quinoa',
+    'hemp seeds',
+    'chia seeds',
+    'pumpkin seeds',
+    'edamame',
+    'turkey',
+    'soya chunks',
+    'mung bean sprouts',
+    'lentil sprouts',
+    'black beans',
+]);
+
 // Canonical eating-time order for all meal types
 const MEAL_ORDER: Record<string, number> = {
     breakfast: 1,
@@ -124,6 +142,7 @@ router.post('/generate', async (c) => {
         const mealPrepTime = profile.mealPrepTime ?? '30min';
         const cookingBy = profile.cookingBy ?? 'myself';
         const preferredFoods: string[] = JSON.parse(profile.preferredFoods ?? '[]');
+        const preferredFoodsLower = new Set(preferredFoods.map(f => f.toLowerCase()));
 
         const dietLabels: Record<string, string> = {
             vegetarian: 'Indian vegetarian',
@@ -131,7 +150,17 @@ router.post('/generate', async (c) => {
             vegan: 'Indian vegan (strictly plant-based)',
         };
         const dietLabel = dietLabels[dietType];
-        const proteinFoods = HIGH_PROTEIN_FOODS[dietType].join(', ');
+
+        // Only include niche foods in the allowed protein list if the user selected them
+        const allowedProteinFoods = HIGH_PROTEIN_FOODS[dietType].filter(
+            food => !NICHE_FOODS.has(food.toLowerCase()) || preferredFoodsLower.has(food.toLowerCase())
+        );
+        const proteinFoods = allowedProteinFoods.join(', ');
+
+        // Build an explicit exclusion list for niche foods the user did NOT select
+        const excludedNicheFoods = HIGH_PROTEIN_FOODS[dietType]
+            .filter(food => NICHE_FOODS.has(food.toLowerCase()) && !preferredFoodsLower.has(food.toLowerCase()));
+
 
         const mealPrepLabels: Record<string, string> = {
             '15min': '15 minutes or less per meal',
@@ -147,13 +176,13 @@ router.post('/generate', async (c) => {
         const cookingContext = cookingContexts[cookingBy];
 
         const dietRules: Record<string, string> = {
-            vegetarian: `- ONLY vegetarian Indian foods: dal varieties, paneer, tofu, curd/dahi, sprouts, rajma, chana, roti, rice, oats, upma, poha, sattu, makhana, soya chunks, etc.
+            vegetarian: `- ONLY vegetarian Indian foods: dal varieties, paneer, tofu, curd/dahi, sprouts, rajma, chana, roti, rice, oats, upma, poha, etc.
 - NO meat, fish, or eggs AT ALL`,
             non_vegetarian: `- Indian non-vegetarian foods allowed: chicken breast, eggs, fish (rohu, catla, tuna), prawns, lean mutton keema, etc.
 - Combine with Indian carbs: roti, rice, oats, poha, upma
 - Prioritize lean proteins: chicken breast and eggs over fatty cuts`,
             vegan: `- STRICTLY plant-based: NO dairy (no paneer, no curd, no milk, no ghee), NO eggs, NO meat
-- Use tofu, tempeh, soya chunks, all dal varieties, legumes, sprouts, quinoa, plant milks
+- Use tofu, all dal varieties, legumes, sprouts, and the high-protein staples listed above
 - Replace ghee/butter with cold-pressed oils (coconut, mustard, groundnut)`,
         };
         const dietRule = dietRules[dietType];
@@ -164,6 +193,10 @@ router.post('/generate', async (c) => {
             vegan: '7-Day High Protein Indian Vegan Plan',
         }[dietType];
 
+        const nicheFoodExclusionNote = excludedNicheFoods.length > 0
+            ? `\nSPECIALTY / NICHE FOODS — DO NOT USE:\nThe following foods are niche or region-specific and have NOT been selected by the user. You MUST NOT include them anywhere in the plan:\n${excludedNicheFoods.map(f => `  - ${f}`).join('\n')}\n`
+            : '';
+
         const systemPrompt = `You are an expert ${dietLabel} sports nutritionist. Generate a detailed, practical 7-day high-protein ${dietLabel} diet plan calibrated for South Asian physiology.
 
 DIET TYPE: ${dietLabel.toUpperCase()}
@@ -173,7 +206,7 @@ MEAL PREPARATION CONSTRAINTS:
 - Maximum prep time: ${mealPrepLabel}
 - Cooking context: ${cookingContext}
 - High-protein staples available for this diet type: ${proteinFoods}
-${preferredFoods.length > 0 ? `
+${nicheFoodExclusionNote}${preferredFoods.length > 0 ? `
 FAVOURITE FOODS (treat these as the user's preferred ingredients — build meals around them as much as possible across the 7 days):
 ${preferredFoods.map(f => `  - ${f}`).join('\n')}
 These are foods the user loves and eats regularly. Feature them prominently in breakfast, lunch, dinner and snacks. Rotate creatively but keep them as the backbone of the plan.
@@ -205,18 +238,40 @@ Return ONLY a valid JSON object in this EXACT structure (no markdown, no explana
       "meals": [
         {
           "mealType": "breakfast",
-          "mealName": "Moong Dal Chilla with Mint Chutney",
-          "description": "3 moong dal chillas (100g batter each) with homemade mint-coriander chutney",
+          "mealName": "Moong Dal Chilla",
+          "ingredients": [
+            { "name": "Green moong dal", "quantity": "100g" },
+            { "name": "Onion", "quantity": "30g" },
+            { "name": "Tomato", "quantity": "20g" },
+            { "name": "Green chilli", "quantity": "1 piece" },
+            { "name": "Mint-coriander chutney", "quantity": "2 tbsp (30g)" }
+          ],
           "calories": 380,
           "proteinG": 22,
           "carbsG": 45,
           "fatG": 8,
-          "notes": "Use green moong dal soaked overnight"
+          "notes": "Soak dal overnight",
+          "recipe": "A light, high-protein Indian crepe made from ground moong dal. Quick to prep and perfect as a filling breakfast — crispy outside, soft inside.\n\n- Soak moong dal 4–6 hrs, then blend with onion, green chilli, ginger and salt into a smooth thick batter.\n- Heat a non-stick tawa on medium. Pour a ladle of batter and spread into a thin circle.\n- Drizzle ½ tsp oil around the edges. Cook 2–3 min until the base is golden and edges lift.\n- Flip and cook for 1 min. Serve hot with mint-coriander chutney."
         }
       ]
     }
   ]
 }
+
+INGREDIENT RULES:
+- Each ingredient must have a RAW "name" (no quality adjectives like "fresh", "good quality") and an exact "quantity" (e.g., "100g", "2 medium pieces", "1 tbsp", "200ml")
+- List every ingredient by its raw weight/volume as it would be measured before cooking
+- Do NOT include a "description" field — ingredients replace it
+
+RECIPE RULES:
+- Include a "recipe" field for every meal written in markdown, formatted like a proper recipe book entry
+- Start with 2–3 sentences introducing the dish: what it is, its flavour/texture, and why it fits the plan
+- Then add a blank line, followed by the full cooking method as a markdown bullet list (use "- " prefix)
+- Cover every meaningful step: soaking/marinating, prep work, cooking sequence, heat levels, timing cues, seasoning adjustments, and how to plate or serve
+- Be specific — mention exact pan types, flame levels (low/medium/high), visual doneness cues ("until golden", "until oil separates"), and small tips that make the dish better
+- Do NOT artificially limit the number of steps — use as many bullets as the recipe genuinely needs
+- Total length: 350–500 words; do NOT exceed 550 words
+- Use plain language; bold (**word**) only key technique words or timing cues if helpful
 
 STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not add any other meal types.`;
 
@@ -268,12 +323,16 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not
                         dayId: insertedDay.id,
                         mealType: meal.mealType ?? 'breakfast',
                         mealName: meal.mealName ?? meal.name ?? 'Meal',
-                        description: meal.description ?? '',
+                        description: '',
+                        ingredients: JSON.stringify(
+                            Array.isArray(meal.ingredients) ? meal.ingredients : []
+                        ),
                         calories: meal.calories ?? 300,
                         proteinG: meal.proteinG ?? meal.protein_g ?? 20,
                         carbsG: meal.carbsG ?? meal.carbs_g ?? 30,
                         fatG: meal.fatG ?? meal.fat_g ?? 10,
                         notes: meal.notes ?? '',
+                        recipe: meal.recipe ?? '',
                     });
                 }
             }
@@ -316,6 +375,7 @@ router.delete('/plans/:id', async (c) => {
 router.put('/meals/:id', zValidator('json', z.object({
     mealName: z.string().optional(),
     description: z.string().optional(),
+    ingredients: z.array(z.object({ name: z.string(), quantity: z.string() })).optional(),
     calories: z.number().optional(),
     proteinG: z.number().optional(),
     carbsG: z.number().optional(),
@@ -325,7 +385,9 @@ router.put('/meals/:id', zValidator('json', z.object({
 })), async (c) => {
     try {
         const id = parseInt(c.req.param('id'));
-        const body = c.req.valid('json');
+        const { ingredients, ...rest } = c.req.valid('json');
+        const body: Record<string, any> = { ...rest };
+        if (ingredients !== undefined) body.ingredients = JSON.stringify(ingredients);
         const updated = await db.update(dietMeals).set(body).where(eq(dietMeals.id, id)).returning();
         if (updated.length === 0) return c.json({ success: false, error: 'Meal not found' }, 404);
         return c.json({ success: true, data: updated[0] });

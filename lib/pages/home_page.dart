@@ -1090,7 +1090,7 @@ class _HeroHealthScore extends ConsumerWidget {
                       loading: () => null,
                       error: (_, _) => null,
                     );
-                final hrRaw = hrPoint?.value;
+                final hrRaw = hrPoint;
                 String hrText = '--';
                 if (hrRaw != null) {
                   final s = hrRaw.toString();
@@ -1202,7 +1202,7 @@ class _VitalsCarousel extends ConsumerWidget {
             data: (data) => _VitalCard(
               title: 'HEART RHYTHM',
               icon: LucideIcons.heart,
-              value: data != null ? data.value.toString() : '--',
+              value: data.toString(),
               unit: 'BPM',
               trend: 'Stable',
               trendIcon: LucideIcons.arrow_down,

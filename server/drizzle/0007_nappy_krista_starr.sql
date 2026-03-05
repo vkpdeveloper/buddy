@@ -1,0 +1,1 @@
+ALTER TABLE `diet_meals` ADD `recipe` text DEFAULT '' NOT NULL;

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,6 +50,20 @@ class _FitnessOnboardingExtensionState
   int _currentPage = 0;
   late final PageController _pageController = PageController();
 
+  static const _quotes = [
+    'Your body can do it.',
+    'Progress, not perfection.',
+    'Strong starts here.',
+    'Move. Fuel. Thrive.',
+    'Every rep counts.',
+    'Build the life you want.',
+    'Consistency is strength.',
+    'Show up for yourself.',
+  ];
+  int _quoteIndex = 0;
+  bool _quoteFadeVisible = true;
+  Timer? _quoteTimer;
+
   // Page 1: Weight Goal
   String _fitnessGoal = '';
   double _targetWeight = 75.0;
@@ -77,15 +93,29 @@ class _FitnessOnboardingExtensionState
   // Diet defaults (sent to API)
   final bool _useProteinPowder = true;
   final String _proteinLevel = 'high';
-  final Set<String> _preferredMeals = {
-    'breakfast',
-    'morning_snack',
-    'lunch',
-    'pre_workout',
-    'post_workout',
-    'dinner',
-    'evening_snack',
+
+  // Always-on meals that cannot be deselected
+  static const _requiredMeals = {'breakfast', 'lunch', 'dinner'};
+
+  // User-selected meals (starts with just the required three)
+  final Set<String> _selectedMeals = {'breakfast', 'lunch', 'dinner'};
+
+  // Canonical meal order for sorting before sending to API
+  static const _mealOrder = {
+    'breakfast': 0,
+    'morning_snack': 1,
+    'lunch': 2,
+    'pre_workout': 3,
+    'post_workout': 4,
+    'dinner': 5,
+    'evening_snack': 6,
   };
+
+  List<String> get _preferredMeals {
+    final sorted = _selectedMeals.toList()
+      ..sort((a, b) => (_mealOrder[a] ?? 9) - (_mealOrder[b] ?? 9));
+    return sorted;
+  }
 
   bool _isGenerating = false;
   String? _generatingMessage;
@@ -93,8 +123,28 @@ class _FitnessOnboardingExtensionState
   @override
   void initState() {
     super.initState();
+    _quoteIndex = Random().nextInt(_quotes.length);
     _loadCurrentWeight();
     _fetchDietFoods();
+  }
+
+  void _startQuoteCycle() {
+    _quoteTimer?.cancel();
+    _quoteTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (!mounted) return;
+      setState(() => _quoteFadeVisible = false);
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      setState(() {
+        _quoteIndex = (_quoteIndex + 1) % _quotes.length;
+        _quoteFadeVisible = true;
+      });
+    });
+  }
+
+  void _stopQuoteCycle() {
+    _quoteTimer?.cancel();
+    _quoteTimer = null;
   }
 
   Future<void> _fetchDietFoods() async {
@@ -115,6 +165,7 @@ class _FitnessOnboardingExtensionState
 
   @override
   void dispose() {
+    _quoteTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -232,6 +283,7 @@ class _FitnessOnboardingExtensionState
       _isGenerating = true;
       _generatingMessage = 'Saving your profile...';
     });
+    _startQuoteCycle();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -267,7 +319,7 @@ class _FitnessOnboardingExtensionState
         'useProteinPowder': _useProteinPowder,
         'proteinLevel': _proteinLevel,
         'waterTargetMl': waterTargetMl,
-        'preferredMeals': _preferredMeals.toList(),
+        'preferredMeals': _preferredMeals,
         'dietType': _dietType,
         'mealPrepTime': _mealPrepTime,
         'cookingBy': _cookingBy,
@@ -299,6 +351,7 @@ class _FitnessOnboardingExtensionState
       }
     } catch (e) {
       if (mounted) {
+        _stopQuoteCycle();
         setState(() => _isGenerating = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -409,13 +462,19 @@ class _FitnessOnboardingExtensionState
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            Text(
-              'Powered by Gemini AI',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
-                fontSize: 12,
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.w600,
+            AnimatedOpacity(
+              opacity: _quoteFadeVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 400),
+              child: Text(
+                _quotes[_quoteIndex],
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.primary,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w500,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -1086,6 +1145,105 @@ class _FitnessOnboardingExtensionState
                     ),
                   );
                 }),
+                const SizedBox(height: 24),
+
+                // How you eat — meals per day
+                Text(
+                  'HOW YOU EAT',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Pick the meals that fit your day. Breakfast, lunch & dinner are always included.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted.withValues(alpha: 0.6),
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ('breakfast', 'Breakfast', '🌅'),
+                    ('morning_snack', 'Morning Snack', '🍎'),
+                    ('lunch', 'Lunch', '🥗'),
+                    ('pre_workout', 'Pre-Workout', '💪'),
+                    ('post_workout', 'Post-Workout', '🥤'),
+                    ('dinner', 'Dinner', '🍽️'),
+                    ('evening_snack', 'Evening Snack', '🌙'),
+                  ].map((meal) {
+                    final id = meal.$1;
+                    final label = meal.$2;
+                    final emoji = meal.$3;
+                    final isRequired = _requiredMeals.contains(id);
+                    final isSelected = _selectedMeals.contains(id);
+                    return GestureDetector(
+                      onTap: isRequired
+                          ? null
+                          : () => setState(() {
+                                if (isSelected) {
+                                  _selectedMeals.remove(id);
+                                } else {
+                                  _selectedMeals.add(id);
+                                }
+                              }),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primary.withValues(alpha: 0.12)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(emoji, style: const TextStyle(fontSize: 14)),
+                            const SizedBox(width: 6),
+                            Text(
+                              label,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: isSelected ? AppTheme.textCream : AppTheme.textSageMuted,
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                            if (isRequired) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primary.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'required',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.primary,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
                 const SizedBox(height: 24),
 
                 // Meal prep time

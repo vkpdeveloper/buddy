@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 class DietPlanPage extends ConsumerStatefulWidget {
   const DietPlanPage({super.key});
@@ -654,12 +656,265 @@ class _MealCardState extends State<_MealCard>
     await widget.onToggle(newValue);
   }
 
+  List<Map<String, String>> _parseIngredients(dynamic raw) {
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = raw is String ? jsonDecode(raw) : raw as List;
+      return list
+          .map(
+            (e) => {
+              'name': (e['name'] ?? '').toString(),
+              'quantity': (e['quantity'] ?? '').toString(),
+            },
+          )
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  void _showDetailSheet(BuildContext context) {
+    final meal = widget.meal;
+    final name = meal['mealName'] ?? meal['meal_name'] ?? 'Meal';
+    final calories = meal['calories'] ?? 0;
+    final protein = (meal['proteinG'] ?? meal['protein_g'] ?? 0).toDouble();
+    final carbs = (meal['carbsG'] ?? meal['carbs_g'] ?? 0).toDouble();
+    final fat = (meal['fatG'] ?? meal['fat_g'] ?? 0).toDouble();
+    final notes = meal['notes'] ?? '';
+    final recipe = (meal['recipe'] ?? '').toString();
+    final ingredients = _parseIngredients(meal['ingredients']);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        builder: (_, scrollCtrl) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.borderDark,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollCtrl,
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                children: [
+                  // Header
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textCream,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showEditSheet(context);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.borderDark,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            LucideIcons.pencil,
+                            color: AppTheme.textSageMuted,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Macros row
+                  Row(
+                    children: [
+                      _MacroChip(
+                        label: 'KCAL',
+                        value: '$calories',
+                        color: AppTheme.textCream,
+                      ),
+                      const SizedBox(width: 16),
+                      _MacroChip(
+                        label: 'PROTEIN',
+                        value: '${protein.toInt()}g',
+                        color: AppTheme.primary,
+                      ),
+                      const SizedBox(width: 16),
+                      _MacroChip(
+                        label: 'CARBS',
+                        value: '${carbs.toInt()}g',
+                        color: const Color(0xFFB5C9AD),
+                      ),
+                      const SizedBox(width: 16),
+                      _MacroChip(
+                        label: 'FAT',
+                        value: '${fat.toInt()}g',
+                        color: AppTheme.textSageMuted,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Ingredients
+                  Text(
+                    'INGREDIENTS',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (ingredients.isEmpty)
+                    Text(
+                      'No ingredient details available.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 13,
+                      ),
+                    )
+                  else
+                    ...ingredients.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final ing = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              margin: const EdgeInsets.only(right: 12, top: 1),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary.withValues(
+                                  alpha: 0.6 - (i * 0.05).clamp(0, 0.5),
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                ing['name'] ?? '',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textCream,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              ing['quantity'] ?? '',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+
+                  if (notes.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'NOTE',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      notes,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+
+                  if (recipe.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'HOW TO MAKE',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    MarkdownBody(
+                      data: recipe,
+                      styleSheet: MarkdownStyleSheet(
+                        p: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 13,
+                          height: 1.65,
+                        ),
+                        listBullet: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.primary,
+                          fontSize: 13,
+                          height: 1.65,
+                        ),
+                        listIndent: 16,
+                        blockSpacing: 4,
+                        strong: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textCream,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.65,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showEditSheet(BuildContext context) {
     final meal = widget.meal;
     final nameCtrl = TextEditingController(
       text: meal['mealName'] ?? meal['meal_name'] ?? '',
     );
-    final descCtrl = TextEditingController(text: meal['description'] ?? '');
     final calCtrl = TextEditingController(
       text: (meal['calories'] ?? 0).toString(),
     );
@@ -703,7 +958,7 @@ class _MealCardState extends State<_MealCard>
             ),
             const SizedBox(height: 20),
             Text(
-              'EDIT MEAL',
+              'EDIT MACROS',
               style: GoogleFonts.plusJakartaSans(
                 color: AppTheme.primary,
                 fontSize: 10,
@@ -713,8 +968,6 @@ class _MealCardState extends State<_MealCard>
             ),
             const SizedBox(height: 16),
             _EditField(controller: nameCtrl, label: 'Meal Name'),
-            const SizedBox(height: 12),
-            _EditField(controller: descCtrl, label: 'Description', maxLines: 2),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -760,7 +1013,6 @@ class _MealCardState extends State<_MealCard>
               onTap: () async {
                 await ApiClient.updateMeal(meal['id'], {
                   'mealName': nameCtrl.text,
-                  'description': descCtrl.text,
                   'calories': int.tryParse(calCtrl.text) ?? meal['calories'],
                   'proteinG':
                       double.tryParse(protCtrl.text) ?? meal['proteinG'],
@@ -798,13 +1050,13 @@ class _MealCardState extends State<_MealCard>
   Widget build(BuildContext context) {
     final meal = widget.meal;
     final name = meal['mealName'] ?? meal['meal_name'] ?? 'Meal';
-    final desc = meal['description'] ?? '';
     final calories = meal['calories'] ?? 0;
     final protein = (meal['proteinG'] ?? meal['protein_g'] ?? 0).toDouble();
     final mealType = (meal['mealType'] ?? meal['meal_type'] ?? '')
         .toString()
         .replaceAll('_', ' ')
         .toUpperCase();
+    final ingredients = _parseIngredients(meal['ingredients']);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -824,7 +1076,7 @@ class _MealCardState extends State<_MealCard>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => _showEditSheet(context),
+          onTap: () => _showDetailSheet(context),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -897,13 +1149,19 @@ class _MealCardState extends State<_MealCard>
                               : null,
                         ),
                       ),
-                      if (desc.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                      if (ingredients.isNotEmpty) ...[
+                        const SizedBox(height: 3),
                         Text(
-                          desc,
+                          ingredients
+                              .take(2)
+                              .map((i) => i['name'] ?? '')
+                              .join(', ') +
+                              (ingredients.length > 2
+                                  ? ' +${ingredients.length - 2} more'
+                                  : ''),
                           style: GoogleFonts.plusJakartaSans(
                             color: AppTheme.textSageMuted.withValues(
-                              alpha: 0.7,
+                              alpha: 0.65,
                             ),
                             fontSize: 11,
                           ),

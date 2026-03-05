@@ -80,6 +80,8 @@ export const dietMeals = sqliteTable('diet_meals', {
     }).notNull(),
     mealName: text('meal_name').notNull(),
     description: text('description').notNull().default(''),
+    ingredients: text('ingredients').notNull().default('[]'),  // JSON: [{ name, quantity }]
+    recipe: text('recipe').notNull().default(''),
     calories: integer('calories').notNull(),
     proteinG: real('protein_g').notNull(),
     carbsG: real('carbs_g').notNull(),
