@@ -237,51 +237,6 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage>
               ],
             ),
           ),
-          _isGenerating
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    color: AppTheme.primary,
-                    strokeWidth: 2,
-                  ),
-                )
-              : GestureDetector(
-                  onTap: _generateNewPlan,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.primary.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          LucideIcons.sparkles,
-                          color: AppTheme.primary,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'GENERATE',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
         ],
       ),
     );

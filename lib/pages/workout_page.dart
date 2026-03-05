@@ -127,37 +127,49 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           ...List.generate(
             5,
             (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 12),
               child: Container(
-                height: 76,
+                height: 110,
                 decoration: BoxDecoration(
                   color: AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppTheme.borderDark),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ShimmerBox(width: 32, height: 32, borderRadius: 16),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ShimmerBox(
-                              width: double.infinity,
-                              height: 14,
-                              borderRadius: 6,
+                      Row(
+                        children: [
+                          ShimmerBox(width: 22, height: 22, borderRadius: 11),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ShimmerBox(
+                                  width: double.infinity,
+                                  height: 14,
+                                  borderRadius: 5,
+                                ),
+                                const SizedBox(height: 6),
+                                ShimmerBox(
+                                  width: 70,
+                                  height: 9,
+                                  borderRadius: 4,
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 6),
-                            ShimmerBox(width: 80, height: 10, borderRadius: 4),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 14),
-                      ShimmerBox(width: 48, height: 32, borderRadius: 8),
+                      const SizedBox(height: 12),
+                      ShimmerBox(
+                        width: double.infinity,
+                        height: 36,
+                        borderRadius: 11,
+                      ),
                     ],
                   ),
                 ),
@@ -247,51 +259,6 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               );
             },
           ),
-          _isGenerating
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    color: AppTheme.primary,
-                    strokeWidth: 2,
-                  ),
-                )
-              : GestureDetector(
-                  onTap: _generateNewPlan,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppTheme.primary.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          LucideIcons.sparkles,
-                          color: AppTheme.primary,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'GENERATE',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
         ],
       ),
     );
@@ -384,29 +351,6 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderDark),
-                ),
-                child: Text(
-                  (_planData?['cycleType'] ?? _planData?['cycle_type'] ?? 'PPL')
-                      .toString()
-                      .toUpperCase()
-                      .replaceAll('_', ' '),
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                  ),
                 ),
               ),
             ],
@@ -645,6 +589,14 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
 
 // ─── Exercise Card ────────────────────────────────────────────────────────────
 
+String _formatRest(int seconds) {
+  if (seconds < 60) return '${seconds}s';
+  final mins = seconds ~/ 60;
+  final secs = seconds % 60;
+  if (secs == 0) return '${mins} min';
+  return '${mins}m ${secs}s';
+}
+
 class _ExerciseCard extends StatelessWidget {
   final Map<String, dynamic> exercise;
   final int index;
@@ -721,7 +673,7 @@ class _ExerciseCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _Field(ctrl: restCtrl, label: 'Rest (s)'),
+                  child: _Field(ctrl: restCtrl, label: 'Rest (seconds)'),
                 ),
               ],
             ),
@@ -767,125 +719,197 @@ class _ExerciseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = exercise['name'] ?? 'Exercise';
-    final muscle = exercise['muscleGroup'] ?? exercise['muscle_group'] ?? '';
+    final muscle =
+        (exercise['muscleGroup'] ?? exercise['muscle_group'] ?? '') as String;
     final sets = exercise['sets'] ?? 3;
-    final reps = exercise['repsOrTime'] ?? exercise['reps_or_time'] ?? '10-12';
-    final rest = exercise['restSeconds'] ?? exercise['rest_seconds'] ?? 60;
+    final reps = (exercise['repsOrTime'] ?? exercise['reps_or_time'] ?? '10–12')
+        .toString();
+    final restRaw = exercise['restSeconds'] ?? exercise['rest_seconds'] ?? 60;
+    final restSecs = (restRaw is int)
+        ? restRaw
+        : int.tryParse('$restRaw') ?? 60;
+    const accentColor = AppTheme.primary;
+    final isTimeBased = RegExp(
+      r'\d+\s*(s|sec|min)',
+      caseSensitive: false,
+    ).hasMatch(reps);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.borderDark),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           onTap: () => _showEditSheet(context),
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Index number
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppTheme.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${index + 1}',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
+                // Top row: index + name + edit icon
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      margin: const EdgeInsets.only(top: 1, right: 10),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${index + 1}',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          color: accentColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      if (muscle.isNotEmpty)
-                        Container(
-                          margin: const EdgeInsets.only(top: 3),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            muscle.toString().toUpperCase(),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.primary,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
+                              color: AppTheme.textCream,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$sets × $reps',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                          if (muscle.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: accentColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  muscle.toUpperCase(),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: accentColor.withValues(alpha: 0.75),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    Row(
-                      children: [
-                        Icon(
-                          LucideIcons.timer,
-                          color: AppTheme.textSageMuted,
-                          size: 12,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${rest}s',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Icon(
+                        LucideIcons.pencil,
+                        color: AppTheme.textSageMuted.withValues(alpha: 0.45),
+                        size: 13,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(width: 8),
-                const Icon(
-                  LucideIcons.pencil,
-                  color: AppTheme.textSageMuted,
-                  size: 16,
+                const SizedBox(height: 12),
+                // Stats row
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 9,
+                    horizontal: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Row(
+                    children: [
+                      _StatBlock(
+                        value: '$sets',
+                        label: 'SETS',
+                        color: accentColor,
+                      ),
+                      Container(
+                        width: 1,
+                        height: 26,
+                        color: AppTheme.borderDark,
+                      ),
+                      _StatBlock(
+                        value: reps,
+                        label: isTimeBased ? 'DURATION' : 'REPS',
+                        color: AppTheme.textCream,
+                      ),
+                      Container(
+                        width: 1,
+                        height: 26,
+                        color: AppTheme.borderDark,
+                      ),
+                      _StatBlock(
+                        value: _formatRest(restSecs),
+                        label: 'REST',
+                        color: AppTheme.textSageMuted,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatBlock extends StatelessWidget {
+  final String value;
+  final String label;
+  final Color color;
+
+  const _StatBlock({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              color: color,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted.withValues(alpha: 0.55),
+              fontSize: 8,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+            ),
+          ),
+        ],
       ),
     );
   }
