@@ -400,7 +400,7 @@ class _FitnessOnboardingExtensionState
 
     final topPad = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -443,7 +443,7 @@ class _FitnessOnboardingExtensionState
 
   Widget _buildGeneratingScreen() {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

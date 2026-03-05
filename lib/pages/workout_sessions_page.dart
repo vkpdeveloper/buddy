@@ -76,7 +76,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: Column(
         children: [
           _buildHeader(context),

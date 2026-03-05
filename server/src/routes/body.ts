@@ -349,11 +349,25 @@ router.post('/photos', async (c) => {
       return c.json({ success: false, error: 'file is required' }, 400);
     }
 
-    const effectiveMimeType = file.type.length > 0 ? file.type : mimeTypeFromField;
+    const normalizedFromField = mimeTypeFromField.trim().toLowerCase();
+    const normalizedFromFile = file.type.trim().toLowerCase();
+
+    // Prefer explicit mimeType from client field because multipart part types
+    // can arrive as application/octet-stream on some platforms.
+    const effectiveMimeType = normalizedFromField.startsWith('image/')
+      ? normalizedFromField
+      : normalizedFromFile;
+
     const isImage = effectiveMimeType.startsWith('image/');
-    const isBlocked = BLOCKED_MIME_TYPES.has(effectiveMimeType.toLowerCase());
+    const isBlocked = BLOCKED_MIME_TYPES.has(effectiveMimeType);
     if (!isImage || isBlocked) {
-      return c.json({ success: false, error: 'Only non-GIF images are allowed' }, 400);
+      return c.json(
+        {
+          success: false,
+          error: `Only non-GIF images are allowed (received file.type="${file.type}" mimeType="${mimeTypeFromField}")`,
+        },
+        400,
+      );
     }
 
     if (file.size > MAX_PHOTO_BYTES) {

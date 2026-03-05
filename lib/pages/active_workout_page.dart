@@ -1371,7 +1371,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     final streak = ref.watch(progressProvider).asData?.value.currentStreak ?? 0;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: Stack(
         children: [
           AnimatedContainer(
@@ -1387,7 +1387,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                           ? AppTheme.phaseCompleted
                           : AppTheme.phaseExercise)
                       .withValues(alpha: 0.8),
-                  AppTheme.backgroundDark,
+                  AppTheme.oledBlack,
                 ],
               ),
             ),

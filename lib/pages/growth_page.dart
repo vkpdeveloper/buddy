@@ -1266,10 +1266,12 @@ class _HistoryTimeline extends ConsumerWidget {
   String _measurementSummary(BodyMeasurement m) {
     final parts = <String>[];
     if (m.weightKg != null) parts.add('${m.weightKg!.toStringAsFixed(1)}kg');
-    if (m.bodyFatPercent != null)
+    if (m.bodyFatPercent != null) {
       parts.add('${m.bodyFatPercent!.toStringAsFixed(1)}% BF');
-    if (m.waistCm != null)
+    }
+    if (m.waistCm != null) {
       parts.add('${m.waistCm!.toStringAsFixed(1)}cm waist');
+    }
     return parts.isEmpty ? 'No measurements' : parts.join(' • ');
   }
 }

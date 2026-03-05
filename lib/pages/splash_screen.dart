@@ -109,7 +109,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Stack(
@@ -121,9 +121,9 @@ class _SplashScreenState extends State<SplashScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      AppTheme.backgroundDark,
+                      AppTheme.oledBlack,
                       AppTheme.cardDark,
-                      AppTheme.backgroundDark,
+                      AppTheme.oledBlack,
                     ],
                   ),
                 ),
