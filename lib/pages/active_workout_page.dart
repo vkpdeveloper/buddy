@@ -805,7 +805,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     await Future.delayed(const Duration(milliseconds: 700));
     await _levelPanelCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 600));
-    if (result.newAchievements.isNotEmpty) await _achievementCtrl.forward();
+    if (result.newAchievements.isNotEmpty) {
+      HapticFeedback.mediumImpact();
+      await _achievementCtrl.forward();
+    }
     await Future.delayed(const Duration(milliseconds: 300));
     if (mounted) await _doneButtonCtrl.forward();
   }
@@ -1148,6 +1151,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
   void _doneExercise() {
     _timer?.cancel();
     _ringController.stop();
+    HapticFeedback.lightImpact();
     _updateSetLog(_SetStatus.completed, weightKg: _currentWeightInput());
     setState(() => _completedSets++);
     _startRest(_exerciseIndex, _setIndex);

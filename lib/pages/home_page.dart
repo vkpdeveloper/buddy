@@ -24,28 +24,64 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goToTab(int index, {bool animate = true}) {
+    if (_currentIndex == index && _pageController.hasClients) {
+      return;
+    }
+    if (mounted) {
+      setState(() => _currentIndex = index);
+    }
+    if (!_pageController.hasClients) return;
+    if (animate) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _pageController.jumpToPage(index);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      _HealthDashboard(onNavigate: (i) => setState(() => _currentIndex = i)),
+      _HealthDashboard(onNavigate: _goToTab),
       const DietPlanPage(),
       const WorkoutPage(),
       const GrowthPage(),
     ];
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: Stack(
         children: [
-          IndexedStack(index: _currentIndex, children: pages),
+          PageView(
+            controller: _pageController,
+            onPageChanged: (index) => setState(() => _currentIndex = index),
+            children: pages,
+          ),
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: _BottomNavigation(
               currentIndex: _currentIndex,
-              onTap: (i) => setState(() => _currentIndex = i),
+              onTap: _goToTab,
             ),
           ),
         ],
@@ -408,16 +444,9 @@ class _QuickActionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(18),
+          color: AppTheme.cardRaised,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppTheme.borderDark),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primary.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Row(
           children: [
@@ -684,13 +713,6 @@ class _HeroHealthScore extends ConsumerWidget {
           color: AppTheme.cardDark,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: Column(
           children: [
@@ -700,16 +722,7 @@ class _HeroHealthScore extends ConsumerWidget {
                 Container(
                   width: 192,
                   height: 192,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primary.withValues(alpha: 0.05),
-                        blurRadius: 40,
-                        spreadRadius: 20,
-                      ),
-                    ],
-                  ),
+                  decoration: const BoxDecoration(shape: BoxShape.circle),
                 ),
                 SizedBox(
                   width: 180,
@@ -725,8 +738,8 @@ class _HeroHealthScore extends ConsumerWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '$score',
+                    _CountUpIntText(
+                      value: score,
                       style: const TextStyle(
                         color: AppTheme.textCream,
                         fontSize: 60,
@@ -769,11 +782,13 @@ class _HeroHealthScore extends ConsumerWidget {
                       error: (_, _) => null,
                     );
                 final hrRaw = hrPoint;
-                String hrText = '--';
+                int? hrValue;
                 if (hrRaw != null) {
                   final s = hrRaw.toString();
                   final match = RegExp(r'\d+\.?\d*').firstMatch(s);
-                  if (match != null) hrText = match.group(0)!.split('.').first;
+                  if (match != null) {
+                    hrValue = int.tryParse(match.group(0)!.split('.').first);
+                  }
                 }
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -782,19 +797,20 @@ class _HeroHealthScore extends ConsumerWidget {
                     children: [
                       _LiveStat(
                         label: 'STEPS',
-                        value: steps.toString(),
+                        value: steps,
                         icon: LucideIcons.footprints,
                       ),
                       _StatDivider(),
                       _LiveStat(
                         label: 'KCAL',
-                        value: kcal.toInt().toString(),
+                        value: kcal.toInt(),
                         icon: LucideIcons.flame,
                       ),
                       _StatDivider(),
                       _LiveStat(
                         label: 'BPM',
-                        value: hrText,
+                        value: hrValue,
+                        fallbackText: '--',
                         icon: LucideIcons.heart,
                       ),
                     ],
@@ -812,12 +828,14 @@ class _HeroHealthScore extends ConsumerWidget {
 
 class _LiveStat extends StatelessWidget {
   final String label;
-  final String value;
+  final int? value;
+  final String fallbackText;
   final IconData icon;
   const _LiveStat({
     required this.label,
     required this.value,
     required this.icon,
+    this.fallbackText = '0',
   });
 
   @override
@@ -842,15 +860,63 @@ class _LiveStat extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 2),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textCream,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        value == null
+            ? Text(
+                fallbackText,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              )
+            : _CountUpIntText(
+                value: value!,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ],
+    );
+  }
+}
+
+class _CountUpIntText extends StatefulWidget {
+  final int value;
+  final TextStyle style;
+
+  const _CountUpIntText({required this.value, required this.style});
+
+  @override
+  State<_CountUpIntText> createState() => _CountUpIntTextState();
+}
+
+class _CountUpIntTextState extends State<_CountUpIntText> {
+  late int _fromValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _fromValue = 0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _CountUpIntText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      _fromValue = oldWidget.value;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<int>(
+      tween: IntTween(begin: _fromValue, end: widget.value),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      onEnd: () => _fromValue = widget.value,
+      builder: (_, value, child) => Text('$value', style: widget.style),
     );
   }
 }
@@ -971,13 +1037,6 @@ class _VitalCard extends StatelessWidget {
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1103,13 +1162,6 @@ class _SleepCard extends ConsumerWidget {
             color: AppTheme.cardDark,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1323,13 +1375,6 @@ class _WeeklyTrendsCard extends StatelessWidget {
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1451,13 +1496,6 @@ class _HydrationCardState extends ConsumerState<_HydrationCard> {
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1567,13 +1605,6 @@ class _BodyMetricsCard extends StatelessWidget {
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2012,9 +2043,9 @@ class _BottomNavigation extends StatelessWidget {
       height: 76 + bottomInset,
       padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundDark.withValues(alpha: 0.95),
+        color: AppTheme.oledBlack.withValues(alpha: 0.95),
         border: Border(
-          top: BorderSide(color: AppTheme.accent.withValues(alpha: 0.2)),
+          top: BorderSide(color: AppTheme.borderDark.withValues(alpha: 0.9)),
         ),
       ),
       child: Row(
@@ -2038,23 +2069,19 @@ class _BottomNavigation extends StatelessWidget {
             child: Transform.translate(
               offset: const Offset(0, -20),
               child: Container(
-                width: 64,
-                height: 64,
+                width: 66,
+                height: 66,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: AppTheme.cardRaised,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: AppTheme.borderDark.withValues(alpha: 0.9),
+                  ),
                 ),
                 child: const Icon(
                   LucideIcons.brain,
-                  color: AppTheme.backgroundDark,
-                  size: 32,
+                  color: AppTheme.textCream,
+                  size: 30,
                 ),
               ),
             ),
@@ -2096,26 +2123,48 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+      child: SizedBox(
+        width: 66,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                child: Icon(icon, color: color, size: 24),
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 3,
+                child: Center(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    opacity: isActive ? 1 : 0,
+                    child: Container(
+                      width: 14,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

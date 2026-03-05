@@ -9,6 +9,7 @@ import 'package:buddy/models/body_measurement.dart';
 import 'package:buddy/providers/body_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/api_client.dart';
+import 'package:buddy/widgets/app_empty_state.dart';
 
 // ─── Growth Page ─────────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
   }
 
   void _showXpCelebration(BodyLogResult result) {
+    HapticFeedback.mediumImpact();
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.7),
@@ -51,8 +53,11 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
 
   @override
   Widget build(BuildContext context) {
+    final hasLoggedData =
+        ref.watch(bodyHistoryProvider).asData?.value.isNotEmpty ?? false;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: SafeArea(
         child: Column(
           children: [
@@ -67,21 +72,40 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                   ref.invalidate(latestBodyMeasurementProvider);
                   await Future.delayed(const Duration(milliseconds: 400));
                 },
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(bottom: 120),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 16),
-                      const _StatsStrip(),
-                      const SizedBox(height: 20),
-                      _MetricsGrid(),
-                      const SizedBox(height: 24),
-                      const _HistoryTimeline(),
-                    ],
-                  ),
-                ),
+                child: hasLoggedData
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(bottom: 120),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const SizedBox(height: 16),
+                            const _StatsStrip(),
+                            const SizedBox(height: 20),
+                            _MetricsGrid(),
+                            const SizedBox(height: 24),
+                            const _HistoryTimeline(),
+                          ],
+                        ),
+                      )
+                    : ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(
+                          top: 20,
+                          left: 16,
+                          right: 16,
+                          bottom: 120,
+                        ),
+                        children: const [
+                          SizedBox(height: 90),
+                          AppEmptyState(
+                            icon: LucideIcons.trending_up,
+                            title: 'No growth logs yet',
+                            subtitle:
+                                'Start tracking measurements to unlock trend lines, progression insights, and XP milestones.',
+                          ),
+                        ],
+                      ),
               ),
             ),
           ],

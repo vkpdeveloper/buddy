@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:buddy/app_theme.dart';
 
 class ShimmerBox extends StatefulWidget {
   final double width;
@@ -12,8 +13,8 @@ class ShimmerBox extends StatefulWidget {
     required this.width,
     required this.height,
     this.borderRadius = 8.0,
-    this.baseColor = const Color(0xFF1E293B), // Example dark base
-    this.highlightColor = const Color(0xFF334155), // Example dark highlight
+    this.baseColor = AppTheme.cardDark,
+    this.highlightColor = AppTheme.cardRaised,
   });
 
   @override

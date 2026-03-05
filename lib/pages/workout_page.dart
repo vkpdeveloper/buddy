@@ -11,7 +11,9 @@ import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
+import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:buddy/providers/generation_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum _TodayWorkoutState { none, inProgress, completed }
 
@@ -27,6 +29,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   Map<String, dynamic>? _planData;
   bool _isLoading = true;
   int _selectedDayIndex = 0;
+  bool _hasRestoredDaySelection = false;
   final Map<int, _TodayWorkoutState> _todaySessionStateByDayId = {};
   Timer? _stretchTimer;
   int _stretchSecondsLeft = 0;
@@ -72,14 +75,56 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   Future<void> _loadPlanDetail(int id) async {
     try {
       final res = await ApiClient.getWorkoutPlan(id);
+      final days =
+          ((res['data'] as Map<String, dynamic>?)?['days'] as List?) ??
+          const [];
+      final nowDayIndex = DateTime.now().weekday - 1;
+      final fallbackIndex = days.isEmpty
+          ? 0
+          : nowDayIndex.clamp(0, days.length - 1);
+      final shouldRestoreFromPrefs =
+          !_hasRestoredDaySelection || _activePlanId != id;
+      final restoredIndex = !shouldRestoreFromPrefs
+          ? _selectedDayIndex
+                .clamp(0, (days.isEmpty ? 0 : days.length - 1))
+                .toInt()
+          : await _loadSavedDayIndex(
+              planId: id,
+              maxLength: days.length,
+              fallbackIndex: fallbackIndex,
+            );
       setState(() {
         _planData = res['data'];
         _activePlanId = id;
-        // Auto-select today's weekday (Mon=0 ... Sun=6)
-        _selectedDayIndex = DateTime.now().weekday - 1;
+        _selectedDayIndex = restoredIndex;
+        _hasRestoredDaySelection = true;
       });
       await _refreshTodaySessionStatus();
     } catch (_) {}
+  }
+
+  Future<int> _loadSavedDayIndex({
+    required int planId,
+    required int maxLength,
+    required int fallbackIndex,
+  }) async {
+    if (maxLength <= 0) return 0;
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getInt('workout_selected_day_$planId');
+    if (stored == null) return fallbackIndex;
+    return stored.clamp(0, maxLength - 1).toInt();
+  }
+
+  Future<void> _persistSelectedDayIndex(int index) async {
+    final planId = _activePlanId;
+    if (planId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('workout_selected_day_$planId', index);
+  }
+
+  void _onSelectDay(int index) {
+    setState(() => _selectedDayIndex = index);
+    _persistSelectedDayIndex(index);
   }
 
   Future<void> _refreshTodaySessionStatus() async {
@@ -292,7 +337,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     });
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: Column(
         children: [
           _buildHeader(),
@@ -475,49 +520,12 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         genStatus.workout == 'pending' || genStatus.workout == 'generating';
 
     return Expanded(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  LucideIcons.dumbbell,
-                  color: AppTheme.primary,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                isGenerating ? 'Building your plan…' : 'No workout plan yet',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                isGenerating
-                    ? 'We\'re putting together a plan around your goals and equipment. It\'ll be ready in a moment.'
-                    : 'Your workout plan will appear here once it\'s been generated.',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 13,
-                  height: 1.6,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+      child: AppEmptyState(
+        icon: LucideIcons.dumbbell,
+        title: isGenerating ? 'Building your plan…' : 'No workout plan yet',
+        subtitle: isGenerating
+            ? 'We\'re putting together a plan around your goals and equipment. It\'ll be ready in a moment.'
+            : 'Your workout plan will appear here once it\'s been generated.',
       ),
     );
   }
@@ -616,7 +624,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               ];
               final weekday = i < 7 ? weekdays[i] : '';
               return GestureDetector(
-                onTap: () => setState(() => _selectedDayIndex = i),
+                onTap: () => _onSelectDay(i),
                 child: Column(
                   children: [
                     AnimatedContainer(
@@ -945,15 +953,6 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                 sessionState == _TodayWorkoutState.completed
                             ? Border.all(color: AppTheme.borderDark)
                             : null,
-                        boxShadow: [
-                          if (!(isTodayPlanDay &&
-                              sessionState == _TodayWorkoutState.completed))
-                            BoxShadow(
-                              color: AppTheme.primary.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                        ],
                       ),
                       child: Row(
                         children: [

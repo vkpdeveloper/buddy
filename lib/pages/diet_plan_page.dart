@@ -6,6 +6,7 @@ import 'package:buddy/services/api_client.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
+import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -391,7 +392,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     });
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundDark,
+      backgroundColor: AppTheme.oledBlack,
       body: Column(
         children: [
           _buildHeader(),
@@ -497,49 +498,12 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         genStatus.diet == 'pending' || genStatus.diet == 'generating';
 
     return Expanded(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  LucideIcons.utensils,
-                  color: AppTheme.primary,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                isGenerating ? 'Building your plan…' : 'No diet plan yet',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                isGenerating
-                    ? 'Creating a measurable macro-first plan for your goals.'
-                    : 'Generate a plan to unlock meal timing, macro tracking, and actual logging.',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 13,
-                  height: 1.6,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+      child: AppEmptyState(
+        icon: LucideIcons.utensils,
+        title: isGenerating ? 'Building your plan…' : 'No diet plan yet',
+        subtitle: isGenerating
+            ? 'Creating a measurable macro-first plan for your goals.'
+            : 'Generate a plan to unlock meal timing, macro tracking, and actual logging.',
       ),
     );
   }
