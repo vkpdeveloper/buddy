@@ -152,7 +152,7 @@ class _PermissionBanner extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Grant Health Connect access to see live data',
+                      'Connect Health to see your steps, sleep, and calories',
                       style: GoogleFonts.plusJakartaSans(
                         color: AppTheme.textCream,
                         fontSize: 12,
@@ -161,7 +161,7 @@ class _PermissionBanner extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    'GRANT →',
+                    'Allow →',
                     style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.primary,
                       fontSize: 10,
@@ -486,7 +486,7 @@ class _TodayDietSheetState extends State<_TodayDietSheet> {
             Expanded(
               child: Center(
                 child: Text(
-                  'No meals for today',
+                  'No meals planned for today',
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textSageMuted,
                   ),
@@ -781,7 +781,7 @@ class _TodayWorkoutSheetState extends State<_TodayWorkoutSheet> {
             Expanded(
               child: Center(
                 child: Text(
-                  'No exercises for today',
+                  'No exercises planned for today',
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textSageMuted,
                   ),
@@ -1043,7 +1043,7 @@ class _HeroHealthScore extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'HARMONY',
+                          'HEALTH SCORE',
                           style: TextStyle(
                             color: AppTheme.primary,
                             fontSize: 10,
@@ -1388,6 +1388,20 @@ class _VitalCard extends StatelessWidget {
 class _SleepCard extends ConsumerWidget {
   const _SleepCard();
 
+  String _sleepQualityLabel(int hours) {
+    if (hours >= 8) return 'Great';
+    if (hours >= 7) return 'Good';
+    if (hours >= 6) return 'Fair';
+    return 'Low';
+  }
+
+  Color _sleepQualityColor(int hours) {
+    if (hours >= 8) return const Color(0xFF6FCF97);
+    if (hours >= 7) return AppTheme.primary;
+    if (hours >= 6) return AppTheme.xpGold;
+    return const Color(0xFFEB5757);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sleepAsync = ref.watch(sleepDurationProvider);
@@ -1396,7 +1410,14 @@ class _SleepCard extends ConsumerWidget {
       data: (sleepDuration) {
         final hours = sleepDuration.inHours;
         final minutes = sleepDuration.inMinutes.remainder(60);
-        final sleepText = '${hours}h ${minutes}m';
+        final qualityLabel = _sleepQualityLabel(hours);
+        final qualityColor = _sleepQualityColor(hours);
+
+        // Approximate stage breakdown based on total sleep
+        final totalMins = sleepDuration.inMinutes;
+        final deepMins = (totalMins * 0.20).round();
+        final remMins = (totalMins * 0.22).round();
+        final lightMins = totalMins - deepMins - remMins;
 
         return Container(
           padding: const EdgeInsets.all(24),
@@ -1417,13 +1438,13 @@ class _SleepCard extends ConsumerWidget {
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'RESTFUL SLUMBER',
+                        'LAST NIGHT',
                         style: TextStyle(
                           color: AppTheme.textSageMuted,
                           fontSize: 9,
@@ -1431,87 +1452,107 @@ class _SleepCard extends ConsumerWidget {
                           letterSpacing: 1.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        sleepText,
-                        style: const TextStyle(
-                          color: AppTheme.textCream,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.5,
-                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '${hours}h',
+                            style: const TextStyle(
+                              color: AppTheme.textCream,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${minutes}m',
+                            style: const TextStyle(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: const [
-                      Text(
-                        'RESTORATIVE',
-                        style: TextStyle(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: qualityColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: qualityColor.withValues(alpha: 0.3),
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        '88%',
-                        style: TextStyle(
-                          color: AppTheme.primary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    ),
+                    child: Text(
+                      qualityLabel,
+                      style: TextStyle(
+                        color: qualityColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              // Sleep stage bar
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
                 child: Row(
                   children: [
                     Expanded(
-                      flex: 20,
+                      flex: deepMins,
                       child: Container(
-                        height: 10,
-                        color: AppTheme.primary.withValues(alpha: 0.2),
+                        height: 8,
+                        color: const Color(0xFF4A6FA5), // deep blue
                       ),
                     ),
                     Expanded(
-                      flex: 55,
+                      flex: lightMins,
                       child: Container(
-                        height: 10,
-                        color: AppTheme.primary.withValues(alpha: 0.8),
+                        height: 8,
+                        color: AppTheme.primary.withValues(alpha: 0.7),
                       ),
                     ),
                     Expanded(
-                      flex: 25,
+                      flex: remMins,
                       child: Container(
-                        height: 10,
-                        color: AppTheme.primary.withValues(alpha: 0.5),
+                        height: 8,
+                        color: const Color(0xFF9B7EC8), // soft purple for REM
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+              // Stage breakdown with times
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _LegendItem(
-                    color: AppTheme.primary.withValues(alpha: 0.2),
-                    label: 'DEEP',
+                  _SleepStageItem(
+                    color: const Color(0xFF4A6FA5),
+                    label: 'Deep',
+                    duration: '${deepMins ~/ 60}h ${deepMins % 60}m',
                   ),
-                  _LegendItem(
-                    color: AppTheme.primary.withValues(alpha: 0.8),
-                    label: 'LIGHT',
+                  _SleepStageItem(
+                    color: AppTheme.primary.withValues(alpha: 0.7),
+                    label: 'Light',
+                    duration: '${lightMins ~/ 60}h ${lightMins % 60}m',
                   ),
-                  _LegendItem(
-                    color: AppTheme.primary.withValues(alpha: 0.5),
+                  _SleepStageItem(
+                    color: const Color(0xFF9B7EC8),
                     label: 'REM',
+                    duration: '${remMins ~/ 60}h ${remMins % 60}m',
                   ),
                 ],
               ),
@@ -1542,10 +1583,15 @@ class _SleepCard extends ConsumerWidget {
   }
 }
 
-class _LegendItem extends StatelessWidget {
+class _SleepStageItem extends StatelessWidget {
   final Color color;
   final String label;
-  const _LegendItem({required this.color, required this.label});
+  final String duration;
+  const _SleepStageItem({
+    required this.color,
+    required this.label,
+    required this.duration,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1557,14 +1603,27 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppTheme.textSageMuted,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1,
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppTheme.textSageMuted,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+            Text(
+              duration,
+              style: const TextStyle(
+                color: AppTheme.textCream,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1598,7 +1657,7 @@ class _WeeklyTrendsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'SERENITY ARC',
+            'THIS WEEK',
             style: TextStyle(
               color: AppTheme.textSageMuted,
               fontSize: 9,
@@ -1821,7 +1880,7 @@ class _BodyMetricsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'PHYSICAL FORM',
+            'BODY WEIGHT',
             style: TextStyle(
               color: AppTheme.textSageMuted,
               fontSize: 9,
@@ -1964,7 +2023,7 @@ class _MindfulnessCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
               Text(
-                'INNER STILLNESS',
+                'MINDFULNESS',
                 style: TextStyle(
                   color: AppTheme.textSageMuted,
                   fontSize: 9,
@@ -1974,7 +2033,7 @@ class _MindfulnessCard extends StatelessWidget {
               ),
               SizedBox(height: 4),
               Text(
-                'Very Calm',
+                'Feeling Calm',
                 style: TextStyle(
                   color: AppTheme.textCream,
                   fontSize: 18,
@@ -2007,7 +2066,7 @@ class _MindfulnessCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [
                   Text(
-                    'ZEN',
+                    'CALM',
                     style: TextStyle(
                       color: AppTheme.primary,
                       fontSize: 7,
@@ -2016,7 +2075,7 @@ class _MindfulnessCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'ACTIVE',
+                    'STRESSED',
                     style: TextStyle(
                       color: AppTheme.textSageMuted,
                       fontSize: 7,

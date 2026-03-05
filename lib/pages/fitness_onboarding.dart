@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -43,21 +44,29 @@ class FitnessOnboardingExtension extends ConsumerStatefulWidget {
 }
 
 class _FitnessOnboardingExtensionState
-    extends ConsumerState<FitnessOnboardingExtension>
-    with TickerProviderStateMixin {
-  final PageController _pageController = PageController();
+    extends ConsumerState<FitnessOnboardingExtension> {
   int _currentPage = 0;
 
-  // Page 1: Activity Level
+  // Page 1: Weight Goal
+  String _fitnessGoal = 'build_muscle'; // lose_fat | build_muscle | recomp | maintain
+  double _targetWeight = 75.0;
+
+  // Page 2: Activity Level
   String _activityLevel = 'moderately_active';
 
-  // Page 2: Workout Setup
+  // Page 3: Workout Setup
   final Set<String> _selectedEquipment = {'dumbbells', 'bodyweight'};
-  int _daysPerWeek = 4;
   String _workoutCycle = 'ppl';
 
+  // Derived from the chosen split — no need to ask separately
+  int get _daysPerWeek => const {
+    'ppl': 6,
+    'upper_lower': 4,
+    'ppl_upper': 5,
+    'full_body': 3,
+  }[_workoutCycle]!;
+
   // Diet defaults (sent to API)
-  final String _dietGoal = 'muscle_gain';
   final bool _useProteinPowder = true;
   final String _proteinLevel = 'high';
   final Set<String> _preferredMeals = {
@@ -73,39 +82,21 @@ class _FitnessOnboardingExtensionState
   bool _isGenerating = false;
   String? _generatingMessage;
 
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
-
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOut,
-    );
-    _fadeController.forward();
+    _loadCurrentWeight();
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    _fadeController.dispose();
-    super.dispose();
+  Future<void> _loadCurrentWeight() async {
+    final prefs = await SharedPreferences.getInstance();
+    final w = prefs.getDouble('user_weight') ?? 75.0;
+    if (mounted) setState(() => _targetWeight = w);
   }
 
   void _nextPage() {
-    if (_currentPage < 1) {
-      _pageController.animateToPage(
-        _currentPage + 1,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
-      _fadeController.reset();
-      _fadeController.forward();
+    if (_currentPage < 2) {
+      setState(() => _currentPage++);
     } else {
       _finalize();
     }
@@ -129,12 +120,21 @@ class _FitnessOnboardingExtensionState
 
       final waterTargetMl = prefs.getInt('water_target_ml') ?? 2500;
 
+      // Map UI goal to API goal value
+      final goalMap = {
+        'lose_fat': 'fat_loss',
+        'build_muscle': 'muscle_gain',
+        'recomp': 'recomp',
+        'maintain': 'maintain',
+      };
+
       await ApiClient.updateProfile({
         'weight': weight,
         'height': height,
         'age': age,
         'sex': sex.toLowerCase(),
-        'goal': _dietGoal,
+        'goal': goalMap[_fitnessGoal] ?? 'muscle_gain',
+        'targetWeight': _targetWeight,
         'activityLevel': _activityLevel,
         'weeklyWorkoutDays': _daysPerWeek,
         'equipment': _selectedEquipment.toList(),
@@ -204,24 +204,42 @@ class _FitnessOnboardingExtensionState
   Widget build(BuildContext context) {
     if (_isGenerating) return _buildGeneratingScreen();
 
+    final topPad = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: AppTheme.backgroundDark,
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: PageView(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            onPageChanged: (page) {
-              setState(() => _currentPage = page);
-              _fadeController.reset();
-              _fadeController.forward();
-            },
-            children: [
-              _buildActivityPage(),
-              _buildWorkoutSetupPage(),
-            ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: topPad + 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _buildPageHeader(),
           ),
-        ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 320),
+              transitionBuilder: (child, animation) {
+                final slide = Tween<Offset>(
+                  begin: const Offset(0, 0.06),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: slide, child: child),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey(_currentPage),
+                child: [
+                  _buildGoalPage(),
+                  _buildActivityPage(),
+                  _buildWorkoutSetupPage(),
+                ][_currentPage],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -297,34 +315,381 @@ class _FitnessOnboardingExtensionState
     );
   }
 
+  // ─── Drum Picker ─────────────────────────────────────────────────────
+
+  void _showDrumPicker({
+    required String title,
+    required List<String> labels,
+    required int initialIndex,
+    required ValueChanged<int> onConfirm,
+  }) {
+    int selectedIndex = initialIndex;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SizedBox(
+          height: 380,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.borderDark,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: CupertinoPicker(
+                  backgroundColor: Colors.transparent,
+                  itemExtent: 52,
+                  scrollController: FixedExtentScrollController(
+                    initialItem: initialIndex,
+                  ),
+                  selectionOverlay: Container(
+                    decoration: BoxDecoration(
+                      border: Border.symmetric(
+                        horizontal: BorderSide(
+                          color: AppTheme.primary.withValues(alpha: 0.4),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  onSelectedItemChanged: (i) => selectedIndex = i,
+                  children: labels
+                      .map(
+                        (l) => Center(
+                          child: Text(
+                            l,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                child: GestureDetector(
+                  onTap: () {
+                    onConfirm(selectedIndex);
+                    Navigator.pop(ctx);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'CONFIRM',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.backgroundDark,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── Page 4: Weight Goal ─────────────────────────────────────────────
+
+  Widget _buildGoalPage() {
+    final goals = [
+      (
+        'lose_fat',
+        'Lose Fat',
+        'Burn body fat, get leaner',
+        '🔥',
+        'Calorie deficit + cardio focus',
+      ),
+      (
+        'build_muscle',
+        'Build Muscle',
+        'Gain size and strength',
+        '💪',
+        'Calorie surplus + progressive overload',
+      ),
+      (
+        'recomp',
+        'Recomp',
+        'Lose fat and build muscle at the same time',
+        '⚖️',
+        'Maintenance calories + high protein',
+      ),
+      (
+        'maintain',
+        'Maintain',
+        'Keep current physique, stay healthy',
+        '📊',
+        'Balanced macros + consistency',
+      ),
+    ];
+
+    final showTargetWeight = _fitnessGoal == 'lose_fat' || _fitnessGoal == 'build_muscle';
+
+    // Target weight picker values: 30–200 kg in 0.5 steps
+    final weightValues = List.generate(341, (i) => 30.0 + i * 0.5);
+    final weightIndex = weightValues.indexWhere((v) => (v - _targetWeight).abs() < 0.01);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 32),
+          Text(
+            'BODY GOAL',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'What\'s your\nprimary goal?',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textCream,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This determines your calorie target, macro split, and how hard your workouts will push you.',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 28),
+          ...goals.map((g) {
+            final isSelected = _fitnessGoal == g.$1;
+            return GestureDetector(
+              onTap: () => setState(() => _fitnessGoal = g.$1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primary.withValues(alpha: 0.12)
+                      : AppTheme.cardDark,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text(g.$4, style: const TextStyle(fontSize: 24)),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            g.$2,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: isSelected
+                                  ? AppTheme.textCream
+                                  : AppTheme.textSageMuted,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            isSelected ? g.$5 : g.$3,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted.withValues(alpha: 0.7),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isSelected)
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          LucideIcons.check,
+                          color: AppTheme.backgroundDark,
+                          size: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: showTargetWeight
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      Text(
+                        'TARGET WEIGHT',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () => _showDrumPicker(
+                          title: 'Target Weight',
+                          labels: weightValues
+                              .map((v) => '${v.toStringAsFixed(1)} kg')
+                              .toList(),
+                          initialIndex: weightIndex < 0 ? 90 : weightIndex,
+                          onConfirm: (i) =>
+                              setState(() => _targetWeight = weightValues[i]),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardDark,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.borderDark),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      _targetWeight.toStringAsFixed(1),
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textCream,
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'kg',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textSageMuted,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  LucideIcons.chevrons_up_down,
+                                  color: AppTheme.primary,
+                                  size: 17,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _fitnessGoal == 'lose_fat'
+                            ? 'Set a realistic target — aim for 0.5–1 kg/week.'
+                            : 'Muscle gain is slow — 0.25–0.5 kg/week is great progress.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted.withValues(alpha: 0.6),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 24),
+          _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
   // ─── Page 5: Activity Level ──────────────────────────────────────────
 
   Widget _buildActivityPage() {
     final levels = [
-      ('sedentary', 'Sedentary', 'Desk job, little to no exercise', '🪑'),
+      ('sedentary', 'Mostly Sitting', 'Desk job or little daily movement', '🪑'),
       (
         'lightly_active',
         'Lightly Active',
-        'Light exercise 1-3 days/week',
+        'Short walks, occasional workouts (1–3×/week)',
         '🚶',
       ),
       (
         'moderately_active',
         'Moderately Active',
-        'Exercise 3-5 days/week',
+        'Regular workouts most days (3–5×/week)',
         '🏃',
       ),
-      ('very_active', 'Very Active', 'Hard exercise 6-7 days/week', '🏋️'),
-      ('athlete', 'Athlete', '2× daily training, physical job', '⚡'),
+      ('very_active', 'Very Active', 'Intense training almost every day', '🏋️'),
+      ('athlete', 'Athlete', 'Training twice a day or physical job', '⚡'),
     ];
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
-          _buildPageHeader(),
           const SizedBox(height: 32),
           Text(
             'ACTIVITY LEVEL',
@@ -347,7 +712,7 @@ class _FitnessOnboardingExtensionState
           ),
           const SizedBox(height: 8),
           Text(
-            'This calibrates your calorie targets accurately.',
+            'Be honest — a more accurate answer means a better calorie target for you.',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.textSageMuted,
               fontSize: 13,
@@ -438,12 +803,10 @@ class _FitnessOnboardingExtensionState
     ];
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
-          _buildPageHeader(),
           const SizedBox(height: 32),
           Text(
             'WORKOUT SETUP',
@@ -541,50 +904,6 @@ class _FitnessOnboardingExtensionState
             },
           ),
           const SizedBox(height: 24),
-
-          // Days per week
-          Text(
-            'DAYS PER WEEK',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.cardDark,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.borderDark),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  '$_daysPerWeek days',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Expanded(
-                  child: Slider(
-                    value: _daysPerWeek.toDouble(),
-                    min: 2,
-                    max: 6,
-                    divisions: 4,
-                    activeColor: AppTheme.primary,
-                    inactiveColor: AppTheme.borderDark,
-                    onChanged: (v) => setState(() => _daysPerWeek = v.round()),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
 
           // Cycle selector
           Text(

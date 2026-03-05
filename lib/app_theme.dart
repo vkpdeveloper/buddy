@@ -20,8 +20,10 @@ class AppTheme {
   ); // Implicitly inferred for borders
 
   // Gamification
-  static const Color xpGold = Color(0xFFD4A853);   // muted amber for XP/streak
-  static const Color levelArc = Color(0xFF6B8F71);  // deeper sage for progress bars
+  static const Color xpGold = Color(0xFFD4A853); // muted amber for XP/streak
+  static const Color levelArc = Color(
+    0xFF6B8F71,
+  ); // deeper sage for progress bars
 
   // Re-map the old generic text names to the new theme for easier migration
   static const Color textGray888 = textSageMuted;

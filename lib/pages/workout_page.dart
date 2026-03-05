@@ -70,7 +70,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Failed to generate. Check your connection.',
+              'Couldn\'t generate a plan. Check your internet and try again.',
               style: GoogleFonts.plusJakartaSans(
                 color: AppTheme.textCream,
                 fontSize: 13,
@@ -327,7 +327,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Generate a personalised plan\nbased on your equipment & goals',
+              'Generate a plan built around\nyour equipment and goals',
               style: GoogleFonts.plusJakartaSans(
                 color: AppTheme.textSageMuted,
                 fontSize: 13,

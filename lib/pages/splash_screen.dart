@@ -27,9 +27,9 @@ class _SplashScreenState extends State<SplashScreen>
   int _dotsCount = 0;
 
   final List<String> _phrases = const [
-    'Dialing in your rhythm',
-    'Syncing workouts and fuel',
-    'Tuning your daily balance',
+    'Loading your workouts',
+    'Pulling in your health data',
+    'Getting your plan ready',
   ];
 
   @override
@@ -147,7 +147,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Your calm performance partner',
+                      'Your personal fitness companion',
                       style: GoogleFonts.plusJakartaSans(
                         color: AppTheme.textSageMuted,
                         fontSize: 14,

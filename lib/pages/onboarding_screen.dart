@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,9 +15,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
-    with TickerProviderStateMixin {
-  final PageController _pageController = PageController();
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
 
   // Connection state
@@ -39,36 +38,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   double _sleepTarget = 7.5;
   double _waterTargetMl = 2500;
 
-  late AnimationController _fadeController;
-  late Animation<double> _fadeAnimation;
-
   @override
   void initState() {
     super.initState();
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOut,
-    );
-    _fadeController.forward();
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    _fadeController.dispose();
-    super.dispose();
   }
 
   void _goToPage(int page) {
-    _pageController.animateToPage(
-      page,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-    );
+    setState(() => _currentPage = page);
   }
 
   void _nextPage() {
@@ -179,25 +155,42 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: AppTheme.backgroundDark,
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: PageView(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            onPageChanged: (page) {
-              setState(() => _currentPage = page);
-              _fadeController.reset();
-              _fadeController.forward();
-            },
-            children: [
-              _buildSyncPage(),
-              _buildCoreMetricsPage(),
-              _buildBaselinePage(),
-            ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: topPad + 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _buildPageHeader(_currentPage),
           ),
-        ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 320),
+              transitionBuilder: (child, animation) {
+                final slide = Tween<Offset>(
+                  begin: const Offset(0, 0.06),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: slide, child: child),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey(_currentPage),
+                child: [
+                  _buildSyncPage(),
+                  _buildCoreMetricsPage(),
+                  _buildBaselinePage(),
+                ][_currentPage],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -205,15 +198,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   Widget _buildSyncPage() {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
-          _buildPageHeader(0),
           const SizedBox(height: 40),
           Text(
-            'SYNC YOUR',
+            'CONNECT YOUR',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.textCream,
               fontSize: 32,
@@ -222,7 +213,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             ),
           ),
           Text(
-            'BIOMETRICS',
+            'HEALTH DATA',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.primary,
               fontSize: 32,
@@ -232,7 +223,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            'Connect your health ecosystem to calibrate your personal performance baseline.',
+            'We\'ll pull your stats from Health Connect so you don\'t have to type them all in manually.',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.textSageMuted,
               fontSize: 14,
@@ -349,7 +340,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           ),
           const SizedBox(height: 4),
           Text(
-            _isConnected ? 'CONNECTED' : 'READY TO INTEGRATE',
+            _isConnected ? 'CONNECTED' : 'TAP TO CONNECT',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.primary,
               fontSize: 10,
@@ -436,7 +427,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            'By connecting, we auto-fill your profile with precise biometric data. Your privacy is protected with end-to-end encryption.',
+            'Your data stays on your device. We only read what you allow, and never share it.',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.textSageMuted.withValues(alpha: 0.6),
               fontSize: 11,
@@ -452,15 +443,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   Widget _buildCoreMetricsPage() {
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
-          _buildPageHeader(1, showBack: true),
           const SizedBox(height: 32),
           Text(
-            'CORE METRICS',
+            'ABOUT YOU',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.textCream,
               fontSize: 28,
@@ -470,7 +459,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'We\'ve synced your baseline data from Health Connect. Verify your core metrics to calibrate your initial plan.',
+            'Here\'s what we pulled from Health Connect. Tap any value to correct it.',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.textSageMuted,
               fontSize: 14,
@@ -601,7 +590,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
           ),
           const SizedBox(width: 6),
           Text(
-            isSynced ? 'HEALTH CONNECT SYNCED' : 'NOT CONNECTED',
+            isSynced ? 'HEALTH DATA SYNCED' : 'NOT CONNECTED',
             style: GoogleFonts.plusJakartaSans(
               color: isSynced ? AppTheme.primary : AppTheme.textSageMuted,
               fontSize: 10,
@@ -733,13 +722,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   Widget _buildBaselinePage() {
     final burnTarget = (_weight * 30).toInt();
 
+    // Step values
+    final stepValues = List.generate(47, (i) => 2000 + i * 500);
+    final stepIndex = stepValues.indexWhere((v) => v >= _stepGoal.toInt());
+    final stepDisplay = _stepGoal.toInt().toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
+
+    // Sleep values: 4.0 to 12.0 in 0.5 steps
+    final sleepValues = List.generate(17, (i) => 4.0 + i * 0.5);
+    final sleepIndex = sleepValues.indexWhere((v) => v >= _sleepTarget);
+
+    // Water values: 1500 to 4000 in 250 ml steps
+    final waterValues = List.generate(11, (i) => 1500 + i * 250);
+    final waterIndex = waterValues.indexWhere((v) => v >= _waterTargetMl.toInt());
+
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top, 24, 0),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
-          _buildPageHeader(2, showBack: true),
           const SizedBox(height: 32),
           Text(
             'SET YOUR',
@@ -751,7 +754,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             ),
           ),
           Text(
-            'BASELINE',
+            'DAILY GOALS',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.primary,
               fontSize: 28,
@@ -759,51 +762,54 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               letterSpacing: 2,
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            'These set your daily targets. Tap any card to adjust. You can change them later in settings.',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 13,
+            ),
+          ),
           const SizedBox(height: 28),
-          _buildSliderCard(
+          _buildPickerCard(
             label: 'DAILY STEP GOAL',
             badge: 'ACTIVE',
-            value: _stepGoal,
-            displayValue: _stepGoal.toInt().toString().replaceAllMapped(
-              RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-              (m) => '${m[1]},',
-            ),
+            displayValue: stepDisplay,
             unit: 'steps',
-            min: 2000,
-            max: 25000,
-            divisions: 23,
-            minLabel: 'SEDENTARY',
-            maxLabel: 'ATHLETE',
-            onChanged: (v) => setState(() => _stepGoal = v),
+            onTap: () => _showDrumPicker(
+              title: 'Daily Step Goal',
+              labels: stepValues.map((v) => v.toString().replaceAllMapped(
+                RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},',
+              )).toList(),
+              initialIndex: stepIndex < 0 ? 16 : stepIndex,
+              onConfirm: (i) => setState(() => _stepGoal = stepValues[i].toDouble()),
+            ),
           ),
           const SizedBox(height: 16),
-          _buildSliderCard(
+          _buildPickerCard(
             label: 'SLEEP TARGET',
             badge: 'RECOVERY',
-            value: _sleepTarget,
             displayValue: _sleepTarget.toStringAsFixed(1),
             unit: 'hours',
-            min: 4,
-            max: 12,
-            divisions: 16,
-            minLabel: 'MINIMAL',
-            maxLabel: 'EXTENDED',
-            onChanged: (v) =>
-                setState(() => _sleepTarget = (v * 2).round() / 2),
+            onTap: () => _showDrumPicker(
+              title: 'Sleep Target',
+              labels: sleepValues.map((v) => '${v.toStringAsFixed(1)} hrs').toList(),
+              initialIndex: sleepIndex < 0 ? 7 : sleepIndex,
+              onConfirm: (i) => setState(() => _sleepTarget = sleepValues[i]),
+            ),
           ),
           const SizedBox(height: 16),
-          _buildSliderCard(
+          _buildPickerCard(
             label: 'DAILY WATER TARGET',
             badge: 'HYDRATION',
-            value: _waterTargetMl,
             displayValue: (_waterTargetMl / 1000).toStringAsFixed(1),
             unit: 'L',
-            min: 1500,
-            max: 4000,
-            divisions: 25,
-            minLabel: 'MINIMUM',
-            maxLabel: 'ATHLETE',
-            onChanged: (v) => setState(() => _waterTargetMl = (v / 250).round() * 250),
+            onTap: () => _showDrumPicker(
+              title: 'Daily Water Target',
+              labels: waterValues.map((v) => '${(v / 1000).toStringAsFixed(1)} L  ($v ml)').toList(),
+              initialIndex: waterIndex < 0 ? 4 : waterIndex,
+              onConfirm: (i) => setState(() => _waterTargetMl = waterValues[i].toDouble()),
+            ),
           ),
           const SizedBox(height: 16),
           _buildSmallMetric(
@@ -813,136 +819,107 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             unit: 'kcal',
           ),
           const SizedBox(height: 32),
-          _buildPrimaryButton(label: 'FINALIZE SETUP', onTap: _finalizeSetup),
+          _buildPrimaryButton(label: 'LOOKS GOOD, LET\'S GO', onTap: _finalizeSetup),
           const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _buildSliderCard({
+  Widget _buildPickerCard({
     required String label,
     required String badge,
-    required double value,
     required String displayValue,
     required String unit,
-    required double min,
-    required double max,
-    required int divisions,
-    required String minLabel,
-    required String maxLabel,
-    required ValueChanged<double> onChanged,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.borderDark),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  badge,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        label,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          badge,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.primary,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                displayValue,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                unit,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: AppTheme.primary,
-              inactiveTrackColor: AppTheme.borderDark,
-              thumbColor: AppTheme.primary,
-              overlayColor: AppTheme.primary.withValues(alpha: 0.1),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 8,
-                elevation: 2,
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        displayValue,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textCream,
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        unit,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            child: Slider(
-              value: value,
-              min: min,
-              max: max,
-              divisions: divisions,
-              onChanged: onChanged,
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                LucideIcons.chevrons_up_down,
+                color: AppTheme.primary,
+                size: 18,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                minLabel,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              Text(
-                maxLabel,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1005,9 +982,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   // ─── Shared Components ────────────────────────────────
 
-  static const int _totalSteps = 5;
+  static const int _totalSteps = 6;
 
-  Widget _buildPageHeader(int activeIndex, {bool showBack = false}) {
+  Widget _buildPageHeader(int activeIndex) {
     return Row(
       children: List.generate(_totalSteps, (i) {
         return Expanded(
@@ -1096,7 +1073,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     bool decimals = false,
     required ValueChanged<double> onChanged,
   }) {
-    double current = initial;
+    final step = decimals ? 0.5 : 1.0;
+    final count = ((max - min) / step).round() + 1;
+    final values = List.generate(count, (i) => min + i * step);
+    final initialIndex = values.indexWhere((v) => (v - initial).abs() < 0.01);
+
+    _showDrumPicker(
+      title: title,
+      labels: values.map((v) => decimals ? v.toStringAsFixed(1) : v.toStringAsFixed(0)).toList(),
+      initialIndex: initialIndex < 0 ? 0 : initialIndex,
+      onConfirm: (i) => onChanged(values[i]),
+    );
+  }
+
+  void _showDrumPicker({
+    required String title,
+    required List<String> labels,
+    required int initialIndex,
+    required ValueChanged<int> onConfirm,
+  }) {
+    int selectedIndex = initialIndex;
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.cardDark,
@@ -1104,90 +1100,92 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
+        return SizedBox(
+          height: 380,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.borderDark,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: CupertinoPicker(
+                  backgroundColor: Colors.transparent,
+                  itemExtent: 52,
+                  scrollController: FixedExtentScrollController(
+                    initialItem: initialIndex,
+                  ),
+                  selectionOverlay: Container(
                     decoration: BoxDecoration(
-                      color: AppTheme.borderDark,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    title,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    decimals
-                        ? current.toStringAsFixed(1)
-                        : current.toStringAsFixed(0),
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
-                      fontSize: 48,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SliderTheme(
-                    data: SliderThemeData(
-                      activeTrackColor: AppTheme.primary,
-                      inactiveTrackColor: AppTheme.borderDark,
-                      thumbColor: AppTheme.primary,
-                      overlayColor: AppTheme.primary.withValues(alpha: 0.1),
-                    ),
-                    child: Slider(
-                      value: current,
-                      min: min,
-                      max: max,
-                      divisions: decimals
-                          ? ((max - min) * 10).toInt()
-                          : (max - min).toInt(),
-                      onChanged: (v) {
-                        setModalState(() => current = v);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: () {
-                      onChanged(current);
-                      Navigator.pop(ctx);
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'CONFIRM',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.backgroundDark,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2,
+                      border: Border.symmetric(
+                        horizontal: BorderSide(
+                          color: AppTheme.primary.withValues(alpha: 0.4),
+                          width: 1.5,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                ],
+                  onSelectedItemChanged: (i) => selectedIndex = i,
+                  children: labels
+                      .map(
+                        (l) => Center(
+                          child: Text(
+                            l,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
-            );
-          },
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                child: GestureDetector(
+                  onTap: () {
+                    onConfirm(selectedIndex);
+                    Navigator.pop(ctx);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'CONFIRM',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.backgroundDark,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

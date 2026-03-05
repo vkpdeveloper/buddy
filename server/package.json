@@ -11,7 +11,8 @@
         "db:generate": "bunx drizzle-kit generate",
         "db:migrate": "bunx drizzle-kit migrate",
         "db:studio": "bunx drizzle-kit studio",
-        "db:fix-migrations": "bun run scripts/fix-migrations.ts"
+        "db:fix-migrations": "bun run scripts/fix-migrations.ts",
+        "db:reset": "bun run scripts/reset-db.ts"
     },
     "dependencies": {
         "@ai-sdk/google": "^3.0.37",

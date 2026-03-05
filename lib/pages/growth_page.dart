@@ -1294,7 +1294,7 @@ class _XpCelebrationDialogState extends State<_XpCelebrationDialog>
               ),
               const SizedBox(height: 20),
               Text(
-                'Check-In Logged!',
+                'Check-in Logged!',
                 style: GoogleFonts.plusJakartaSans(
                   color: AppTheme.textCream,
                   fontSize: 20,
@@ -1303,7 +1303,7 @@ class _XpCelebrationDialogState extends State<_XpCelebrationDialog>
               ),
               const SizedBox(height: 8),
               Text(
-                'Keep tracking your progress',
+                'Consistency is how the body changes.',
                 style: GoogleFonts.plusJakartaSans(
                   color: AppTheme.textSageMuted,
                   fontSize: 13,

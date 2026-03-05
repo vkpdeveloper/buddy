@@ -588,7 +588,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           ),
           const SizedBox(height: 8),
           Text(
-            'DAY WORKOUT',
+            'Today\'s Session',
             style: GoogleFonts.crimsonPro(
               color: AppTheme.textCream,
               fontSize: 32,
@@ -598,7 +598,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           ),
           const SizedBox(height: 16),
           Text(
-            '${widget.exercises.length} exercises • Let\'s make it count',
+            '${widget.exercises.length} exercises — let\'s make it count',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.textSageMuted,
               fontSize: 13,
