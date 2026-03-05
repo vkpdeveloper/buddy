@@ -7,7 +7,10 @@ import 'package:buddy/providers/body_provider.dart';
 import 'package:buddy/providers/growth_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/progress_share_service.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
+import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/progress_share_cards.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -65,9 +68,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
       final mimeType = _mimeFromName(file.name);
       if (mimeType == 'image/gif') {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('GIF uploads are not supported')),
-          );
+          AppSnackbar.error(context, 'GIF uploads are not supported');
         }
         return;
       }
@@ -79,16 +80,12 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
         date: today,
       );
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Progress photo added')));
+        AppSnackbar.success(context, 'Progress photo added');
       }
       _refresh();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload photo: $e')));
+      AppSnackbar.error(context, 'Failed to upload photo: $e');
     }
   }
 
@@ -131,6 +128,136 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
     );
   }
 
+  Future<void> _handleGrowthShare(
+    AsyncValue<GrowthOverviewData> overview,
+  ) async {
+    if (overview.isLoading) {
+      AppSnackbar.info(context, 'Fetching latest growth stats...');
+      return;
+    }
+    if (overview.hasError) {
+      AppSnackbar.error(context, 'Unable to load growth snapshot');
+      return;
+    }
+    final data = overview.asData?.value;
+    if (data == null || data.totalLogs == 0) {
+      AppSnackbar.info(context, 'Log a check-in first to share your progress');
+      return;
+    }
+    await _openGrowthSharePreview(data);
+  }
+
+  Future<void> _openGrowthSharePreview(GrowthOverviewData overview) async {
+    final captureKey = GlobalKey();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.cardDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        var sharing = false;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    RepaintBoundary(
+                      key: captureKey,
+                      child: GrowthShareCard(overview: overview),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Preview your progress card before sharing.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: sharing
+                                ? null
+                                : () => Navigator.pop(sheetContext),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: AppTheme.borderDark,
+                              ),
+                              foregroundColor: AppTheme.textSageMuted,
+                            ),
+                            child: const Text('Close'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: sharing
+                                ? null
+                                : () async {
+                                    setModalState(() => sharing = true);
+                                    try {
+                                      final bytes =
+                                          await ProgressShareService.captureBoundaryPng(
+                                            captureKey,
+                                          );
+                                      await ProgressShareService.sharePngBytes(
+                                        pngBytes: bytes,
+                                        fileStem:
+                                            'growth_snapshot_${DateTime.now().millisecondsSinceEpoch}',
+                                        text:
+                                            'Tracking progress with Buddy. #fitness',
+                                        subject: 'My growth snapshot',
+                                      );
+                                    } catch (e) {
+                                      if (sheetContext.mounted) {
+                                        AppSnackbar.error(
+                                          sheetContext,
+                                          'Could not share snapshot: $e',
+                                        );
+                                      }
+                                    } finally {
+                                      if (sheetContext.mounted) {
+                                        setModalState(() => sharing = false);
+                                      }
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              foregroundColor: AppTheme.backgroundDark,
+                            ),
+                            icon: sharing
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.backgroundDark,
+                                    ),
+                                  )
+                                : const Icon(LucideIcons.send, size: 16),
+                            label: Text(sharing ? 'Sharing...' : 'Share'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final overviewAsync = ref.watch(growthOverviewProvider);
@@ -143,6 +270,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
             _GrowthHeader(
               onLogTap: _openLogSheet,
               onPhotoTap: _pickAndUploadPhoto,
+              onShareTap: () => _handleGrowthShare(overviewAsync),
             ),
             Expanded(
               child: RefreshIndicator(
@@ -230,8 +358,13 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
 class _GrowthHeader extends StatelessWidget {
   final VoidCallback onLogTap;
   final VoidCallback onPhotoTap;
+  final VoidCallback onShareTap;
 
-  const _GrowthHeader({required this.onLogTap, required this.onPhotoTap});
+  const _GrowthHeader({
+    required this.onLogTap,
+    required this.onPhotoTap,
+    required this.onShareTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +396,8 @@ class _GrowthHeader extends StatelessWidget {
               ],
             ),
           ),
+          _IconAction(icon: LucideIcons.share_2, onTap: onShareTap),
+          const SizedBox(width: 10),
           _IconAction(icon: LucideIcons.image_plus, onTap: onPhotoTap),
           const SizedBox(width: 10),
           _IconAction(icon: LucideIcons.plus, onTap: onLogTap),
@@ -304,49 +439,27 @@ class _StatsStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              _StatChip(
-                label: 'LOGS',
-                value: '${overview.totalLogs}',
-                icon: LucideIcons.clipboard_list,
-              ),
-              const SizedBox(width: 10),
-              _StatChip(
-                label: 'WEIGHT',
-                value: overview.currentWeightKg == null
-                    ? '—'
-                    : '${overview.currentWeightKg!.toStringAsFixed(1)} kg',
-                icon: LucideIcons.scale,
-              ),
-              const SizedBox(width: 10),
-              _StatChip(
-                label: 'LAST LOG',
-                value: overview.lastLogDate ?? 'Never',
-                icon: LucideIcons.calendar,
-              ),
-            ],
+          _StatChip(
+            label: 'LOGS',
+            value: '${overview.totalLogs}',
+            icon: LucideIcons.clipboard_list,
           ),
-          if (overview.weightTrend.length >= 2) ...[
-            const SizedBox(height: 10),
-            Container(
-              height: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.cardDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderDark),
-              ),
-              child: CustomPaint(
-                painter: _SparklinePainter(
-                  overview.weightTrend.map((e) => e.value).toList(),
-                ),
-                size: Size.infinite,
-              ),
-            ),
-          ],
+          const SizedBox(width: 10),
+          _StatChip(
+            label: 'WEIGHT',
+            value: overview.currentWeightKg == null
+                ? '—'
+                : '${overview.currentWeightKg!.toStringAsFixed(1)} kg',
+            icon: LucideIcons.scale,
+          ),
+          const SizedBox(width: 10),
+          _StatChip(
+            label: 'LAST LOG',
+            value: overview.lastLogDate ?? 'Never',
+            icon: LucideIcons.calendar,
+          ),
         ],
       ),
     );
@@ -897,28 +1010,61 @@ class _CompositionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fatSeries = series.map((e) => e.fatMassKg).toList();
+    final leanSeries = series.map((e) => e.leanMassKg).toList();
+    final firstPoint = series.isNotEmpty ? series.first : null;
+    final lastPoint = series.isNotEmpty ? series.last : null;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppTheme.cardRaised.withValues(alpha: 0.72),
+              AppTheme.cardDark,
+            ],
+          ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppTheme.borderDark),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'BODY COMPOSITION',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-              ),
+            Row(
+              children: [
+                Text(
+                  'BODY COMPOSITION',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const Spacer(),
+                if (firstPoint != null && lastPoint != null)
+                  Text(
+                    '${_formatDateLabel(firstPoint.date)} - ${_formatDateLabel(lastPoint.date)}',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             if (series.length < 2)
               Text(
                 'Log weight + body fat for at least two entries to view composition trend.',
@@ -927,19 +1073,186 @@ class _CompositionCard extends StatelessWidget {
                   fontSize: 12,
                 ),
               )
-            else
-              SizedBox(
-                height: 120,
-                child: CustomPaint(
-                  painter: _DualLinePainter(
-                    first: series.map((e) => e.fatMassKg).toList(),
-                    second: series.map((e) => e.leanMassKg).toList(),
+            else ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  height: 164,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppTheme.backgroundDark.withValues(alpha: 0.8),
+                        AppTheme.backgroundDark.withValues(alpha: 0.5),
+                      ],
+                    ),
                   ),
-                  size: Size.infinite,
+                  child: Stack(
+                    children: [
+                      CustomPaint(
+                        painter: _CompositionChartPainter(
+                          first: fatSeries,
+                          second: leanSeries,
+                          firstColor: AppTheme.warning,
+                          secondColor: AppTheme.info,
+                        ),
+                        size: Size.infinite,
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Row(
+                          children: const [
+                            _CompositionLegendDot(
+                              label: 'Fat Mass',
+                              color: AppTheme.warning,
+                            ),
+                            SizedBox(width: 10),
+                            _CompositionLegendDot(
+                              label: 'Lean Mass',
+                              color: AppTheme.info,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _CompositionStatChip(
+                      label: 'Fat Mass',
+                      value: '${fatSeries.last.toStringAsFixed(1)} kg',
+                      delta: fatSeries.last - fatSeries.first,
+                      color: AppTheme.warning,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _CompositionStatChip(
+                      label: 'Lean Mass',
+                      value: '${leanSeries.last.toStringAsFixed(1)} kg',
+                      delta: leanSeries.last - leanSeries.first,
+                      color: AppTheme.info,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  String _formatDateLabel(String raw) {
+    final d = DateTime.tryParse(raw);
+    if (d == null) return raw;
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${d.day} ${months[d.month - 1]}';
+  }
+}
+
+class _CompositionLegendDot extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _CompositionLegendDot({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textMain,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompositionStatChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final double delta;
+  final Color color;
+
+  const _CompositionStatChip({
+    required this.label,
+    required this.value,
+    required this.delta,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isUp = delta >= 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundDark.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textCream,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${isUp ? '+' : ''}${delta.toStringAsFixed(1)} kg',
+            style: GoogleFonts.plusJakartaSans(
+              color: color.withValues(alpha: 0.95),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1114,9 +1427,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to save goals: $e')));
+      AppSnackbar.error(context, 'Failed to save goals: $e');
     }
   }
 
@@ -1315,47 +1626,138 @@ class _SparklinePainter extends CustomPainter {
   bool shouldRepaint(_SparklinePainter oldDelegate) => oldDelegate.data != data;
 }
 
-class _DualLinePainter extends CustomPainter {
+class _CompositionChartPainter extends CustomPainter {
   final List<double> first;
   final List<double> second;
+  final Color firstColor;
+  final Color secondColor;
 
-  _DualLinePainter({required this.first, required this.second});
+  _CompositionChartPainter({
+    required this.first,
+    required this.second,
+    required this.firstColor,
+    required this.secondColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (first.length < 2 || second.length < 2) return;
-    _drawLine(canvas, size, first, AppTheme.primary);
-    _drawLine(canvas, size, second, AppTheme.levelArc);
-  }
+    const left = 10.0;
+    const right = 10.0;
+    const top = 12.0;
+    const bottom = 16.0;
+    final chartRect = Rect.fromLTWH(
+      left,
+      top,
+      size.width - left - right,
+      size.height - top - bottom,
+    );
 
-  void _drawLine(Canvas canvas, Size size, List<double> points, Color color) {
-    final minV = points.reduce(math.min);
-    final maxV = points.reduce(math.max);
-    final range = maxV - minV == 0 ? 1.0 : maxV - minV;
+    final allValues = [...first, ...second];
+    final minValue = allValues.reduce(math.min);
+    final maxValue = allValues.reduce(math.max);
+    final range = (maxValue - minValue).abs();
+    final padding = math.max(0.8, range * 0.18);
+    final lower = minValue - padding;
+    final upper = maxValue + padding;
+    final safeRange = upper - lower == 0 ? 1.0 : upper - lower;
 
-    final path = Path();
-    for (int i = 0; i < points.length; i++) {
-      final x = (i / (points.length - 1)) * size.width;
-      final y = size.height - ((points[i] - minV) / range) * size.height;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
+    final gridPaint = Paint()
+      ..color = AppTheme.borderDark.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (int i = 0; i < 4; i++) {
+      final y = chartRect.top + (i / 3) * chartRect.height;
+      canvas.drawLine(
+        Offset(chartRect.left, y),
+        Offset(chartRect.right, y),
+        gridPaint,
+      );
     }
 
+    final firstPoints = _buildPoints(first, chartRect, lower, safeRange);
+    final secondPoints = _buildPoints(second, chartRect, lower, safeRange);
+
+    _drawArea(canvas, chartRect, firstPoints, firstColor);
+    _drawArea(canvas, chartRect, secondPoints, secondColor);
+    _drawLine(canvas, firstPoints, firstColor);
+    _drawLine(canvas, secondPoints, secondColor);
+    _drawMarker(canvas, firstPoints.last, firstColor);
+    _drawMarker(canvas, secondPoints.last, secondColor);
+  }
+
+  List<Offset> _buildPoints(
+    List<double> values,
+    Rect rect,
+    double lower,
+    double range,
+  ) {
+    final points = <Offset>[];
+    for (int i = 0; i < values.length; i++) {
+      final x = rect.left + (i / (values.length - 1)) * rect.width;
+      final normalized = ((values[i] - lower) / range).clamp(0.0, 1.0);
+      final y = rect.bottom - normalized * rect.height;
+      points.add(Offset(x, y));
+    }
+    return points;
+  }
+
+  Path _smoothPath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (int i = 1; i < points.length; i++) {
+      final current = points[i];
+      final prev = points[i - 1];
+      final cpX = (prev.dx + current.dx) / 2;
+      path.quadraticBezierTo(cpX, prev.dy, current.dx, current.dy);
+    }
+    return path;
+  }
+
+  void _drawArea(Canvas canvas, Rect rect, List<Offset> points, Color color) {
+    final stroke = _smoothPath(points);
+    final fillPath = Path.from(stroke)
+      ..lineTo(points.last.dx, rect.bottom)
+      ..lineTo(points.first.dx, rect.bottom)
+      ..close();
+
     canvas.drawPath(
-      path,
+      fillPath,
       Paint()
-        ..color = color
-        ..strokeWidth = 1.8
-        ..style = PaintingStyle.stroke,
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: 0.18),
+            color.withValues(alpha: 0.02),
+          ],
+        ).createShader(rect),
     );
   }
 
+  void _drawLine(Canvas canvas, List<Offset> points, Color color) {
+    canvas.drawPath(
+      _smoothPath(points),
+      Paint()
+        ..color = color.withValues(alpha: 0.95)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  void _drawMarker(Canvas canvas, Offset point, Color color) {
+    canvas.drawCircle(point, 7, Paint()..color = color.withValues(alpha: 0.22));
+    canvas.drawCircle(point, 3.2, Paint()..color = color);
+  }
+
   @override
-  bool shouldRepaint(_DualLinePainter oldDelegate) =>
-      oldDelegate.first != first || oldDelegate.second != second;
+  bool shouldRepaint(covariant _CompositionChartPainter oldDelegate) {
+    return oldDelegate.first != first ||
+        oldDelegate.second != second ||
+        oldDelegate.firstColor != firstColor ||
+        oldDelegate.secondColor != secondColor;
+  }
 }
 
 class _LogMeasurementSheet extends StatefulWidget {
@@ -1394,9 +1796,7 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
     final mime = _mimeFromName(file.name);
     if (mime == 'image/gif') {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('GIF uploads are not supported')),
-      );
+      AppSnackbar.error(context, 'GIF uploads are not supported');
       return;
     }
     if (!mounted) return;
@@ -1461,9 +1861,7 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      AppSnackbar.error(context, 'Error: $e');
     }
   }
 
@@ -1526,7 +1924,10 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
                             ),
                           ),
                         ),
-                        TextButton(onPressed: _pickPhoto, child: const Text('Add')),
+                        TextButton(
+                          onPressed: _pickPhoto,
+                          child: const Text('Add'),
+                        ),
                       ],
                     )
                   : Row(
@@ -1551,8 +1952,14 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
                             ),
                           ),
                         ),
-                        TextButton(onPressed: _pickPhoto, child: const Text('Change')),
-                        TextButton(onPressed: _removePhoto, child: const Text('Remove')),
+                        TextButton(
+                          onPressed: _pickPhoto,
+                          child: const Text('Change'),
+                        ),
+                        TextButton(
+                          onPressed: _removePhoto,
+                          child: const Text('Remove'),
+                        ),
                       ],
                     ),
             ),

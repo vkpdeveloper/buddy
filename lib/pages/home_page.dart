@@ -5,6 +5,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/models/home_dashboard.dart';
+import 'package:buddy/models/gamification.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
@@ -1859,6 +1860,7 @@ class _ProgressCard extends ConsumerWidget {
         error: (_, _) => const SizedBox.shrink(),
         data: (prog) {
           final recentAchievements = prog.recentAchievements;
+          final leaderboard = prog.soloLeaderboard;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -2016,10 +2018,297 @@ class _ProgressCard extends ConsumerWidget {
                   ),
                 ),
               ],
+              if (leaderboard != null) ...[
+                const SizedBox(height: 10),
+                _SoloLeaderboardCard(data: leaderboard),
+              ],
             ],
           );
         },
       ),
+    );
+  }
+}
+
+class _SoloLeaderboardCard extends StatelessWidget {
+  final SoloLeaderboardData data;
+  const _SoloLeaderboardCard({required this.data});
+
+  String _formatWeekRange(String startIso, String endIso) {
+    DateTime? start;
+    DateTime? endExclusive;
+    try {
+      start = DateTime.parse(startIso);
+      endExclusive = DateTime.parse(endIso);
+    } catch (_) {
+      return startIso;
+    }
+    final end = endExclusive.subtract(const Duration(days: 1));
+    final startMonth = _monthShort(start.month);
+    final endMonth = _monthShort(end.month);
+    if (start.month == end.month) {
+      return '$startMonth ${start.day}-${end.day}';
+    }
+    return '$startMonth ${start.day}-$endMonth ${end.day}';
+  }
+
+  String _monthShort(int month) {
+    const names = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final index = month - 1;
+    if (index < 0 || index >= names.length) return '-';
+    return names[index];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topWeeks = data.topWeeks;
+    final current = data.currentWeek;
+    final trajectory = data.trajectory;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.trophy, color: AppTheme.xpGold, size: 14),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'BEST WEEKS',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.xpGold,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+              ),
+              Text(
+                data.metricLabel,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (topWeeks.isEmpty)
+            Text(
+              'Finish your first complete week to unlock your personal leaderboard.',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 12,
+              ),
+            )
+          else
+            Column(
+              children: topWeeks.map((week) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _LeaderboardWeekRow(
+                    rank: week.rank,
+                    label: _formatWeekRange(
+                      week.weekStart,
+                      week.weekEndExclusive,
+                    ),
+                    score: week.score,
+                    sessions: week.sessionsCompleted,
+                    xp: week.totalXp,
+                  ),
+                );
+              }).toList(),
+            ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundDark.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderDark),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'THIS WEEK',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${current.score} score',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '${current.sessionsCompleted} sessions',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'RANK',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          current.rank == null ? '-' : '#${current.rank}',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.xpGold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  trajectory.daysRemaining > 0
+                      ? 'Projection: ${trajectory.projectedScore} (with ${trajectory.daysRemaining} day${trajectory.daysRemaining == 1 ? '' : 's'} left)'
+                      : 'Week closes today: projected ${trajectory.projectedScore}',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 11,
+                  ),
+                ),
+                if (current.projectedGapToBest > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${current.projectedGapToBest} points from your best week',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LeaderboardWeekRow extends StatelessWidget {
+  final int rank;
+  final String label;
+  final int score;
+  final int sessions;
+  final int xp;
+
+  const _LeaderboardWeekRow({
+    required this.rank,
+    required this.label,
+    required this.score,
+    required this.sessions,
+    required this.xp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: AppTheme.xpGold.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '$rank',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.xpGold,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textCream,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          '$sessions • $xp XP',
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textSageMuted,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          '$score',
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textCream,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

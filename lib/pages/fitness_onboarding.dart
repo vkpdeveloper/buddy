@@ -10,6 +10,7 @@ import 'package:buddy/app_theme.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/providers/generation_provider.dart';
+import 'package:buddy/widgets/app_snackbar.dart';
 
 // Equipment option data
 class _EquipmentOption {
@@ -180,35 +181,7 @@ class _FitnessOnboardingExtensionState
   }
 
   void _showValidationError(String message) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              LucideIcons.circle_alert,
-              color: AppTheme.textCream,
-              size: 16,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppTheme.dangerBg,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    AppSnackbar.error(context, message);
   }
 
   bool _validateCurrentPage() {
@@ -366,21 +339,9 @@ class _FitnessOnboardingExtensionState
       if (mounted) {
         _stopQuoteCycle();
         setState(() => _isGenerating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Could not connect to server. Starting offline.',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 13,
-              ),
-            ),
-            backgroundColor: AppTheme.cardDark,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        AppSnackbar.info(
+          context,
+          'Could not connect to server. Starting offline.',
         );
         await Future.delayed(const Duration(milliseconds: 500));
         await widget.onComplete();

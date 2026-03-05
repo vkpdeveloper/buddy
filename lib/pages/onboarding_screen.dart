@@ -7,6 +7,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/pages/fitness_onboarding.dart';
+import 'package:buddy/widgets/app_snackbar.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -79,15 +80,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (!granted) {
         if (mounted) {
           setState(() => _isConnecting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Health Connect permissions denied. You can grant them later in Settings.',
-                style: GoogleFonts.plusJakartaSans(),
-              ),
-              backgroundColor: AppTheme.cardDark,
-              behavior: SnackBarBehavior.floating,
-            ),
+          AppSnackbar.info(
+            context,
+            'Health Connect permissions denied. You can grant them later in Settings.',
           );
         }
         _nextPage();

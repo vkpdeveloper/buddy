@@ -320,7 +320,11 @@ router.post('/log', async (c) => {
 
 router.get('/history', async (c) => {
   try {
-    const rows = await db.select().from(bodyMeasurements).orderBy(desc(bodyMeasurements.date)).limit(120);
+    const rows = await db
+      .select()
+      .from(bodyMeasurements)
+      .orderBy(desc(bodyMeasurements.date), desc(bodyMeasurements.createdAt), desc(bodyMeasurements.id))
+      .limit(120);
     return c.json({ success: true, data: rows });
   } catch (err) {
     return c.json({ success: false, error: String(err) }, 500);
@@ -329,7 +333,11 @@ router.get('/history', async (c) => {
 
 router.get('/latest', async (c) => {
   try {
-    const rows = await db.select().from(bodyMeasurements).orderBy(desc(bodyMeasurements.date)).limit(1);
+    const rows = await db
+      .select()
+      .from(bodyMeasurements)
+      .orderBy(desc(bodyMeasurements.date), desc(bodyMeasurements.createdAt), desc(bodyMeasurements.id))
+      .limit(1);
     return c.json({ success: true, data: rows[0] ?? null });
   } catch (err) {
     return c.json({ success: false, error: String(err) }, 500);
@@ -441,7 +449,13 @@ router.get('/photos', async (c) => {
 router.get('/goals', async (c) => {
   try {
     const profile = await ensureProfileRow();
-    const latest = (await db.select().from(bodyMeasurements).orderBy(desc(bodyMeasurements.date)).limit(1))[0] ?? null;
+    const latest = (
+      await db
+        .select()
+        .from(bodyMeasurements)
+        .orderBy(desc(bodyMeasurements.date), desc(bodyMeasurements.createdAt), desc(bodyMeasurements.id))
+        .limit(1)
+    )[0] ?? null;
 
     const weightCurrent = latest?.weightKg ?? null;
     const bodyFatCurrent = latest?.bodyFatPercent ?? null;
@@ -502,8 +516,11 @@ router.get('/growth', async (c) => {
     const profile = await ensureProfileRow();
     const progress = await ensureProgressRow();
 
-    const historyDesc = await db.select().from(bodyMeasurements).orderBy(desc(bodyMeasurements.date)).limit(120);
-    const history = [...historyDesc].reverse();
+    const history = await db
+      .select()
+      .from(bodyMeasurements)
+      .orderBy(asc(bodyMeasurements.date), asc(bodyMeasurements.createdAt), asc(bodyMeasurements.id))
+      .limit(120);
 
     const totalLogs = history.length;
     const latest = history.length > 0 ? history[history.length - 1] : null;
@@ -610,7 +627,7 @@ router.get('/growth', async (c) => {
           xpReward: m.xpReward,
           createdAt: m.createdAt,
         })),
-        history: historyDesc,
+        history: [...history].reverse(),
       },
     });
   } catch (err) {

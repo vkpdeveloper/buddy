@@ -12,6 +12,7 @@ import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
+import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:buddy/providers/generation_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -185,26 +186,13 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           (data['waterMl'] as num?)?.toInt() ?? _todayHydrationMl + 250;
       setState(() => _todayHydrationMl = updated);
       ref.invalidate(homeDashboardProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '+250 ml logged ($_todayHydrationMl ml today)',
-            style: GoogleFonts.plusJakartaSans(fontSize: 12),
-          ),
-          backgroundColor: AppTheme.cardDark,
-        ),
+      AppSnackbar.success(
+        context,
+        '+250 ml logged ($_todayHydrationMl ml today)',
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not log hydration right now.',
-            style: GoogleFonts.plusJakartaSans(fontSize: 12),
-          ),
-          backgroundColor: AppTheme.errorBg,
-        ),
-      );
+      AppSnackbar.error(context, 'Could not log hydration right now.');
     } finally {
       if (mounted) setState(() => _isHydrationLogging = false);
     }
@@ -218,14 +206,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
       if (_stretchSecondsLeft <= 1) {
         timer.cancel();
         setState(() => _stretchSecondsLeft = 0);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Stretch timer complete. Nice recovery block.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12),
-            ),
-            backgroundColor: AppTheme.cardDark,
-          ),
+        AppSnackbar.success(
+          context,
+          'Stretch timer complete. Nice recovery block.',
         );
         return;
       }
@@ -305,26 +288,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
       if (!mounted) return;
       await _loadPlanDetail(_activePlanId!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Exercise swapped successfully.',
-            style: GoogleFonts.plusJakartaSans(fontSize: 12),
-          ),
-          backgroundColor: AppTheme.cardDark,
-        ),
-      );
+      AppSnackbar.success(context, 'Exercise swapped successfully.');
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not swap this exercise right now.',
-            style: GoogleFonts.plusJakartaSans(fontSize: 12),
-          ),
-          backgroundColor: AppTheme.errorBg,
-        ),
-      );
+      AppSnackbar.error(context, 'Could not swap this exercise right now.');
     }
   }
 

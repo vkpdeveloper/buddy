@@ -15,6 +15,9 @@ import 'package:buddy/services/api_client.dart';
 import 'package:buddy/services/tts_service.dart';
 import 'package:buddy/services/tts_cache.dart';
 import 'package:buddy/services/beep_service.dart';
+import 'package:buddy/services/progress_share_service.dart';
+import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/progress_share_cards.dart';
 
 enum _WorkoutPhase {
   intro,
@@ -791,6 +794,138 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       debugPrint('Gamification error: $e');
       if (mounted) setState(() => _gamificationLoaded = true);
     }
+  }
+
+  Future<void> _openWorkoutSharePreview() async {
+    final captureKey = GlobalKey();
+    final duration = DateTime.now().difference(_startTime);
+    final completedExercises = widget.exercises.length - _skippedExercises;
+    final totalXp = _gamResult == null
+        ? 0
+        : _gamResult!.xpEarned + _gamResult!.achievementXp;
+    final achievements =
+        _gamResult?.newAchievements
+            .map((achievement) => achievement.name)
+            .toList() ??
+        const <String>[];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.cardDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        var sharing = false;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    RepaintBoundary(
+                      key: captureKey,
+                      child: WorkoutShareCard(
+                        dayLabel: widget.dayLabel,
+                        durationMinutes: duration.inMinutes,
+                        completedExercises: completedExercises,
+                        totalExercises: widget.exercises.length,
+                        xpEarned: totalXp,
+                        currentStreak: _gamResult?.currentStreak ?? 0,
+                        newLevel: _gamResult?.newLevel ?? 1,
+                        levelLabel: _gamResult?.levelLabel ?? 'Beginner',
+                        unlockedAchievements: achievements,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Preview your workout card before sharing.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: sharing
+                                ? null
+                                : () => Navigator.pop(sheetContext),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: AppTheme.borderDark,
+                              ),
+                              foregroundColor: AppTheme.textSageMuted,
+                            ),
+                            child: const Text('Close'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: sharing
+                                ? null
+                                : () async {
+                                    setModalState(() => sharing = true);
+                                    try {
+                                      final bytes =
+                                          await ProgressShareService.captureBoundaryPng(
+                                            captureKey,
+                                          );
+                                      await ProgressShareService.sharePngBytes(
+                                        pngBytes: bytes,
+                                        fileStem:
+                                            'workout_completion_${DateTime.now().millisecondsSinceEpoch}',
+                                        text:
+                                            'Workout complete with Buddy. #fitness',
+                                        subject: 'My workout result',
+                                      );
+                                    } catch (e) {
+                                      if (sheetContext.mounted) {
+                                        AppSnackbar.error(
+                                          sheetContext,
+                                          'Could not share workout card: $e',
+                                        );
+                                      }
+                                    } finally {
+                                      if (sheetContext.mounted) {
+                                        setModalState(() => sharing = false);
+                                      }
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              foregroundColor: AppTheme.backgroundDark,
+                            ),
+                            icon: sharing
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.backgroundDark,
+                                    ),
+                                  )
+                                : const Icon(LucideIcons.send, size: 16),
+                            label: Text(sharing ? 'Sharing...' : 'Share'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _playCompletionAnimation(SessionGamificationResult result) async {
@@ -2173,110 +2308,125 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                         24,
                         kToolbarHeight,
                         24,
-                        32,
+                        24,
                       ),
-                      child: Row(
-                        children: [
-                          if (!isRest) ...[
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: _doneExercise,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.cardDark,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: AppTheme.borderDark,
-                                    ),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    'DONE ✓',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textCream,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1.5,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                          ],
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () async {
-                                final confirmed = await _confirmAction(
-                                  title: isRest
-                                      ? 'Skip rest?'
-                                      : 'Skip this set?',
-                                  body: isRest
-                                      ? 'Jump immediately to the next set.'
-                                      : 'This set will be logged as skipped.',
-                                  actionLabel: isRest
-                                      ? 'Skip Rest'
-                                      : 'Skip Set',
-                                );
-                                if (!confirmed) return;
-                                isRest ? _skipRest() : _skipExerciseToRest();
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [AppTheme.primary, AppTheme.accent],
-                                  ),
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppTheme.primary.withValues(
-                                        alpha: 0.3,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardDark.withValues(alpha: 0.84),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppTheme.borderDark),
+                        ),
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height: 52,
+                              child: Row(
+                                children: [
+                                  if (!isRest) ...[
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: _doneExercise,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.backgroundDark,
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            border: Border.all(
+                                              color: AppTheme.borderDark,
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            'DONE ✓',
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: AppTheme.textCream,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 1.2,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
                                     ),
+                                    const SizedBox(width: 10),
                                   ],
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () async {
+                                        final confirmed = await _confirmAction(
+                                          title: isRest
+                                              ? 'Skip rest?'
+                                              : 'Skip this set?',
+                                          body: isRest
+                                              ? 'Jump immediately to the next set.'
+                                              : 'This set will be logged as skipped.',
+                                          actionLabel: isRest
+                                              ? 'Skip Rest'
+                                              : 'Skip Set',
+                                        );
+                                        if (!confirmed) return;
+                                        isRest
+                                            ? _skipRest()
+                                            : _skipExerciseToRest();
+                                      },
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primary.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: AppTheme.primary.withValues(
+                                              alpha: 0.45,
+                                            ),
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          isRest ? 'SKIP REST →' : 'SKIP SET →',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: AppTheme.textCream,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 46,
+                              child: OutlinedButton(
+                                onPressed: _skipCurrentExerciseCompletely,
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: AppTheme.accent.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                  ),
+                                  backgroundColor: AppTheme.oledBlack,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
-                                alignment: Alignment.center,
                                 child: Text(
-                                  isRest ? 'SKIP REST →' : 'SKIP SET →',
+                                  'SKIP EXERCISE',
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.backgroundDark,
+                                    color: AppTheme.textSageMuted,
                                     fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.5,
+                                    letterSpacing: 1.3,
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: _skipCurrentExerciseCompletely,
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: AppTheme.accent.withValues(alpha: 0.6),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: Text(
-                            'SKIP EXERCISE',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.accent,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.4,
-                            ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
@@ -2590,6 +2740,43 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
             ],
 
             const SizedBox(height: 32),
+
+            FadeTransition(
+              opacity: _doneButtonCtrl,
+              child: GestureDetector(
+                onTap: _openWorkoutSharePreview,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardDark,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.borderDark),
+                  ),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.share_2,
+                        size: 16,
+                        color: AppTheme.textCream,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'SHARE PROGRESS',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textCream,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
 
             // DONE button
             FadeTransition(

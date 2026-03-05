@@ -7,6 +7,7 @@ import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
+import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -217,11 +218,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         );
       } catch (_) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not schedule reminder right now.'),
-          ),
-        );
+        AppSnackbar.error(context, 'Could not schedule reminder right now.');
       }
     } else {
       await NotificationService.cancelPreWorkoutReminder();
