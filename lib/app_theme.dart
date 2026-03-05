@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   // AMOLED-first palette with grayscale-only accents.
   static const Color primary = Color(0xFF9A9A9A); // Neutral highlight
-  static const Color accent = Color(0xFF6F6F6F); // Secondary neutral
+  static const Color accent = Color(0xFF7C776F); // Secondary neutral (refined)
   static const Color backgroundDark = Color(
     0xFF0B1016,
   ); // Fallback dark surface
