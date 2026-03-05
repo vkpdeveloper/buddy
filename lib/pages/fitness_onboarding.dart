@@ -46,6 +46,7 @@ class FitnessOnboardingExtension extends ConsumerStatefulWidget {
 class _FitnessOnboardingExtensionState
     extends ConsumerState<FitnessOnboardingExtension> {
   int _currentPage = 0;
+  late final PageController _pageController = PageController();
 
   // Page 1: Weight Goal
   String _fitnessGoal = 'build_muscle'; // lose_fat | build_muscle | recomp | maintain
@@ -88,6 +89,12 @@ class _FitnessOnboardingExtensionState
     _loadCurrentWeight();
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadCurrentWeight() async {
     final prefs = await SharedPreferences.getInstance();
     final w = prefs.getDouble('user_weight') ?? 75.0;
@@ -97,8 +104,26 @@ class _FitnessOnboardingExtensionState
   void _nextPage() {
     if (_currentPage < 2) {
       setState(() => _currentPage++);
+      _pageController.animateToPage(
+        _currentPage,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
     } else {
       _finalize();
+    }
+  }
+
+  void _previousPage() {
+    if (_currentPage > 0) {
+      setState(() => _currentPage--);
+      _pageController.animateToPage(
+        _currentPage,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      Navigator.of(context).pop();
     }
   }
 
@@ -213,29 +238,32 @@ class _FitnessOnboardingExtensionState
           SizedBox(height: topPad + 24),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _buildPageHeader(),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: _previousPage,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 14),
+                    child: Icon(
+                      LucideIcons.chevron_left,
+                      color: AppTheme.textSageMuted,
+                      size: 22,
+                    ),
+                  ),
+                ),
+                Expanded(child: _buildPageHeader()),
+              ],
+            ),
           ),
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
-              transitionBuilder: (child, animation) {
-                final slide = Tween<Offset>(
-                  begin: const Offset(0, 0.06),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: slide, child: child),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey(_currentPage),
-                child: [
-                  _buildGoalPage(),
-                  _buildActivityPage(),
-                  _buildWorkoutSetupPage(),
-                ][_currentPage],
-              ),
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildGoalPage(),
+                _buildActivityPage(),
+                _buildWorkoutSetupPage(),
+              ],
             ),
           ),
         ],
@@ -462,11 +490,16 @@ class _FitnessOnboardingExtensionState
     final weightValues = List.generate(341, (i) => 30.0 + i * 0.5);
     final weightIndex = weightValues.indexWhere((v) => (v - _targetWeight).abs() < 0.01);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           const SizedBox(height: 32),
           Text(
             'BODY GOAL',
@@ -656,11 +689,15 @@ class _FitnessOnboardingExtensionState
                   )
                 : const SizedBox.shrink(),
           ),
-          const SizedBox(height: 24),
-          _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
-          const SizedBox(height: 32),
-        ],
-      ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
+        ),
+      ],
     );
   }
 
@@ -685,11 +722,16 @@ class _FitnessOnboardingExtensionState
       ('athlete', 'Athlete', 'Training twice a day or physical job', '⚡'),
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           const SizedBox(height: 32),
           Text(
             'ACTIVITY LEVEL',
@@ -784,11 +826,15 @@ class _FitnessOnboardingExtensionState
               ),
             );
           }),
-          const SizedBox(height: 24),
-          _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
-          const SizedBox(height: 32),
-        ],
-      ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
+        ),
+      ],
     );
   }
 
@@ -802,11 +848,16 @@ class _FitnessOnboardingExtensionState
       ('full_body', 'Full Body', 'Beginner friendly'),
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           const SizedBox(height: 32),
           Text(
             'WORKOUT SETUP',
@@ -974,11 +1025,15 @@ class _FitnessOnboardingExtensionState
               ),
             );
           }),
-          const SizedBox(height: 24),
-          _buildGenerateButton(),
-          const SizedBox(height: 32),
-        ],
-      ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: _buildGenerateButton(),
+        ),
+      ],
     );
   }
 

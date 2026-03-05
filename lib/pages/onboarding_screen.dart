@@ -17,6 +17,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
+  late final PageController _pageController = PageController();
 
   // Connection state
   bool _isConnecting = false;
@@ -43,13 +44,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.initState();
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   void _goToPage(int page) {
     setState(() => _currentPage = page);
+    _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _nextPage() {
     if (_currentPage < 2) {
       _goToPage(_currentPage + 1);
+    }
+  }
+
+  void _previousPage() {
+    if (_currentPage > 0) {
+      _goToPage(_currentPage - 1);
     }
   }
 
@@ -139,7 +157,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     if (!mounted) return;
     // Navigate to fitness onboarding extension (activity, equipment, diet goal)
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => FitnessOnboardingExtension(
           totalSteps: _totalSteps,
@@ -164,29 +182,36 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           SizedBox(height: topPad + 24),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _buildPageHeader(_currentPage),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: _currentPage > 0 ? _previousPage : null,
+                  child: AnimatedOpacity(
+                    opacity: _currentPage > 0 ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 14),
+                      child: Icon(
+                        LucideIcons.chevron_left,
+                        color: AppTheme.textSageMuted,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(child: _buildPageHeader(_currentPage)),
+              ],
+            ),
           ),
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
-              transitionBuilder: (child, animation) {
-                final slide = Tween<Offset>(
-                  begin: const Offset(0, 0.06),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: slide, child: child),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey(_currentPage),
-                child: [
-                  _buildSyncPage(),
-                  _buildCoreMetricsPage(),
-                  _buildBaselinePage(),
-                ][_currentPage],
-              ),
+            child: PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _buildSyncPage(),
+                _buildCoreMetricsPage(),
+                _buildBaselinePage(),
+              ],
             ),
           ),
         ],
@@ -197,59 +222,72 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // ─── PAGE 1: Sync Biometrics ───────────────────────────
 
   Widget _buildSyncPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 40),
-          Text(
-            'CONNECT YOUR',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
-            ),
-          ),
-          Text(
-            'HEALTH DATA',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'We\'ll pull your stats from Health Connect so you don\'t have to type them all in manually.',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 32),
-          _buildHealthConnectCard(),
-          const SizedBox(height: 32),
-          _isConnected
-              ? _buildPrimaryButton(
-                  label: 'CONNECTED',
-                  onTap: _nextPage,
-                  icon: LucideIcons.circle_check,
-                )
-              : _isConnecting
-              ? _buildLoadingButton()
-              : _buildPrimaryButton(
-                  label: 'CONNECT HEALTH DATA',
-                  onTap: _connectHealthData,
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 40),
+                Text(
+                  'CONNECT YOUR',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
                 ),
-          const SizedBox(height: 24),
-          _buildPrivacyFooter(),
-          const SizedBox(height: 32),
-        ],
-      ),
+                Text(
+                  'HEALTH DATA',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'We\'ll pull your stats from Health Connect so you don\'t have to type them all in manually.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                _buildHealthConnectCard(),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: Column(
+            children: [
+              _buildPrivacyFooter(),
+              const SizedBox(height: 16),
+              _isConnected
+                  ? _buildPrimaryButton(
+                      label: 'CONNECTED',
+                      onTap: _nextPage,
+                      icon: LucideIcons.circle_check,
+                    )
+                  : _isConnecting
+                  ? _buildLoadingButton()
+                  : _buildPrimaryButton(
+                      label: 'CONNECT HEALTH DATA',
+                      onTap: _connectHealthData,
+                    ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -442,126 +480,120 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // ─── PAGE 2: Core Metrics ─────────────────────────────
 
   Widget _buildCoreMetricsPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 32),
-          Text(
-            'ABOUT YOU',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Here\'s what we pulled from Health Connect. Tap any value to correct it.',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildSyncBadge(),
-          const SizedBox(height: 24),
-          _buildMetricCard(
-            label: 'HEIGHT',
-            value: _height.toStringAsFixed(0),
-            unit: 'CM',
-            synced: _heightSynced,
-            onTap: () => _showNumberPicker(
-              title: 'Height (cm)',
-              initial: _height,
-              min: 100,
-              max: 250,
-              onChanged: (v) => setState(() => _height = v),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildMetricCard(
-            label: 'WEIGHT',
-            value: _weight.toStringAsFixed(1),
-            unit: 'KG',
-            synced: _weightSynced,
-            onTap: () => _showNumberPicker(
-              title: 'Weight (kg)',
-              initial: _weight,
-              min: 30,
-              max: 200,
-              decimals: true,
-              onChanged: (v) => setState(() => _weight = v),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildMetricCard(
-            label: 'BIRTH DATE',
-            value: _formatDate(_birthDate),
-            unit: '',
-            icon: LucideIcons.calendar,
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _birthDate,
-                firstDate: DateTime(1940),
-                lastDate: DateTime.now(),
-                builder: (context, child) {
-                  return Theme(
-                    data: AppTheme.darkTheme.copyWith(
-                      colorScheme: const ColorScheme.dark(
-                        primary: AppTheme.primary,
-                        surface: AppTheme.cardDark,
-                      ),
-                    ),
-                    child: child!,
-                  );
-                },
-              );
-              if (picked != null) setState(() => _birthDate = picked);
-            },
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'BIOLOGICAL SEX',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _buildSexButton('Male', _sex == 'Male')),
-              const SizedBox(width: 12),
-              Expanded(child: _buildSexButton('Female', _sex == 'Female')),
-            ],
-          ),
-          const SizedBox(height: 32),
-          _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
-          const SizedBox(height: 12),
-          Center(
-            child: GestureDetector(
-              onTap: _nextPage,
-              child: Text(
-                'SKIP FOR NOW',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 2,
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 32),
+                Text(
+                  'ABOUT YOU',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Text(
+                  'Here\'s what we pulled from Health Connect. Tap any value to correct it.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildSyncBadge(),
+                const SizedBox(height: 24),
+                _buildMetricCard(
+                  label: 'HEIGHT',
+                  value: _height.toStringAsFixed(0),
+                  unit: 'CM',
+                  synced: _heightSynced,
+                  onTap: () => _showNumberPicker(
+                    title: 'Height (cm)',
+                    initial: _height,
+                    min: 100,
+                    max: 250,
+                    onChanged: (v) => setState(() => _height = v),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildMetricCard(
+                  label: 'WEIGHT',
+                  value: _weight.toStringAsFixed(1),
+                  unit: 'KG',
+                  synced: _weightSynced,
+                  onTap: () => _showNumberPicker(
+                    title: 'Weight (kg)',
+                    initial: _weight,
+                    min: 30,
+                    max: 200,
+                    decimals: true,
+                    onChanged: (v) => setState(() => _weight = v),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildMetricCard(
+                  label: 'BIRTH DATE',
+                  value: _formatDate(_birthDate),
+                  unit: '',
+                  icon: LucideIcons.calendar,
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _birthDate,
+                      firstDate: DateTime(1940),
+                      lastDate: DateTime.now(),
+                      builder: (context, child) {
+                        return Theme(
+                          data: AppTheme.darkTheme.copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: AppTheme.primary,
+                              surface: AppTheme.cardDark,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) setState(() => _birthDate = picked);
+                  },
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'BIOLOGICAL SEX',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _buildSexButton('Male', _sex == 'Male')),
+                    const SizedBox(width: 12),
+                    Expanded(child: _buildSexButton('Female', _sex == 'Female')),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
-        ],
-      ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
+        ),
+      ],
     );
   }
 
@@ -720,6 +752,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // ─── PAGE 3: Baseline ─────────────────────────────────
 
   Widget _buildBaselinePage() {
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
     final burnTarget = (_weight * 30).toInt();
 
     // Step values
@@ -738,91 +771,99 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final waterValues = List.generate(11, (i) => 1500 + i * 250);
     final waterIndex = waterValues.indexWhere((v) => v >= _waterTargetMl.toInt());
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 32),
-          Text(
-            'SET YOUR',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 32),
+                Text(
+                  'SET YOUR',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+                Text(
+                  'DAILY GOALS',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'These set your daily targets. Tap any card to adjust. You can change them later in settings.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                _buildPickerCard(
+                  label: 'DAILY STEP GOAL',
+                  badge: 'ACTIVE',
+                  displayValue: stepDisplay,
+                  unit: 'steps',
+                  onTap: () => _showDrumPicker(
+                    title: 'Daily Step Goal',
+                    labels: stepValues.map((v) => v.toString().replaceAllMapped(
+                      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},',
+                    )).toList(),
+                    initialIndex: stepIndex < 0 ? 16 : stepIndex,
+                    onConfirm: (i) => setState(() => _stepGoal = stepValues[i].toDouble()),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildPickerCard(
+                  label: 'SLEEP TARGET',
+                  badge: 'RECOVERY',
+                  displayValue: _sleepTarget.toStringAsFixed(1),
+                  unit: 'hours',
+                  onTap: () => _showDrumPicker(
+                    title: 'Sleep Target',
+                    labels: sleepValues.map((v) => '${v.toStringAsFixed(1)} hrs').toList(),
+                    initialIndex: sleepIndex < 0 ? 7 : sleepIndex,
+                    onConfirm: (i) => setState(() => _sleepTarget = sleepValues[i]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildPickerCard(
+                  label: 'DAILY WATER TARGET',
+                  badge: 'HYDRATION',
+                  displayValue: (_waterTargetMl / 1000).toStringAsFixed(1),
+                  unit: 'L',
+                  onTap: () => _showDrumPicker(
+                    title: 'Daily Water Target',
+                    labels: waterValues.map((v) => '${(v / 1000).toStringAsFixed(1)} L  ($v ml)').toList(),
+                    initialIndex: waterIndex < 0 ? 4 : waterIndex,
+                    onConfirm: (i) => setState(() => _waterTargetMl = waterValues[i].toDouble()),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildSmallMetric(
+                  icon: LucideIcons.flame,
+                  label: 'DAILY BURN',
+                  value: '$burnTarget',
+                  unit: 'kcal',
+                ),
+              ],
             ),
           ),
-          Text(
-            'DAILY GOALS',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'These set your daily targets. Tap any card to adjust. You can change them later in settings.',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 28),
-          _buildPickerCard(
-            label: 'DAILY STEP GOAL',
-            badge: 'ACTIVE',
-            displayValue: stepDisplay,
-            unit: 'steps',
-            onTap: () => _showDrumPicker(
-              title: 'Daily Step Goal',
-              labels: stepValues.map((v) => v.toString().replaceAllMapped(
-                RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},',
-              )).toList(),
-              initialIndex: stepIndex < 0 ? 16 : stepIndex,
-              onConfirm: (i) => setState(() => _stepGoal = stepValues[i].toDouble()),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildPickerCard(
-            label: 'SLEEP TARGET',
-            badge: 'RECOVERY',
-            displayValue: _sleepTarget.toStringAsFixed(1),
-            unit: 'hours',
-            onTap: () => _showDrumPicker(
-              title: 'Sleep Target',
-              labels: sleepValues.map((v) => '${v.toStringAsFixed(1)} hrs').toList(),
-              initialIndex: sleepIndex < 0 ? 7 : sleepIndex,
-              onConfirm: (i) => setState(() => _sleepTarget = sleepValues[i]),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildPickerCard(
-            label: 'DAILY WATER TARGET',
-            badge: 'HYDRATION',
-            displayValue: (_waterTargetMl / 1000).toStringAsFixed(1),
-            unit: 'L',
-            onTap: () => _showDrumPicker(
-              title: 'Daily Water Target',
-              labels: waterValues.map((v) => '${(v / 1000).toStringAsFixed(1)} L  ($v ml)').toList(),
-              initialIndex: waterIndex < 0 ? 4 : waterIndex,
-              onConfirm: (i) => setState(() => _waterTargetMl = waterValues[i].toDouble()),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildSmallMetric(
-            icon: LucideIcons.flame,
-            label: 'DAILY BURN',
-            value: '$burnTarget',
-            unit: 'kcal',
-          ),
-          const SizedBox(height: 32),
-          _buildPrimaryButton(label: 'LOOKS GOOD, LET\'S GO', onTap: _finalizeSetup),
-          const SizedBox(height: 32),
-        ],
-      ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: _buildPrimaryButton(label: 'LOOKS GOOD, LET\'S GO', onTap: _finalizeSetup),
+        ),
+      ],
     );
   }
 
