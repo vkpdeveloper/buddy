@@ -205,6 +205,18 @@ class ApiClient {
     return _decode(res);
   }
 
+  static Future<Map<String, dynamic>> replaceWorkoutExercise(
+    int id,
+    Map<String, dynamic> data,
+  ) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/workout/exercises/$id/replace'),
+      headers: _headers,
+      body: jsonEncode(data),
+    );
+    return _decode(res);
+  }
+
   static Future<Map<String, dynamic>> startSession(
     int planId,
     int dayId, {
@@ -235,6 +247,16 @@ class ApiClient {
       Uri.parse('$baseUrl/api/workout/sessions/$id'),
       headers: _headers,
     );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getWorkoutSessionHistory({
+    String range = '30d',
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/api/workout/sessions/history',
+    ).replace(queryParameters: {'range': range});
+    final res = await _client.get(uri, headers: _headers);
     return _decode(res);
   }
 

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { and, desc, eq, gte, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import { env } from '../lib/env';
@@ -12,6 +12,8 @@ import { ensureUserProgress } from './progress';
 
 const router = new Hono();
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
+
+type WorkoutExerciseRow = typeof workoutExercises.$inferSelect;
 
 const safeParseArray = (value: string | null | undefined): any[] => {
     if (!value) return [];
@@ -41,6 +43,123 @@ const sessionWithParsedPayload = (session: typeof workoutSessions.$inferSelect) 
     sessionNotes: safeParseArray(session.sessionNotes),
     hrSnapshots: safeParseArray(session.hrSnapshots),
 });
+
+const parseSeconds = (value: string): number | null => {
+    const raw = value.toLowerCase().trim();
+    const minMatch = raw.match(/(\d+(?:\.\d+)?)\s*(m|min|minute|minutes)/);
+    if (minMatch) return Math.round(Number(minMatch[1]) * 60);
+    const secMatch = raw.match(/(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds)/);
+    if (secMatch) return Math.round(Number(secMatch[1]));
+    if (/^\d+$/.test(raw)) return Number(raw);
+    return null;
+};
+
+const averageRepCount = (repsOrTime: string): number | null => {
+    const rangeMatch = repsOrTime.match(/(\d+)\s*[-–]\s*(\d+)/);
+    if (rangeMatch) {
+        const low = Number(rangeMatch[1]);
+        const high = Number(rangeMatch[2]);
+        return Math.round((low + high) / 2);
+    }
+    const numberMatch = repsOrTime.match(/(\d+)/);
+    return numberMatch ? Number(numberMatch[1]) : null;
+};
+
+const estimateExerciseDurationSeconds = (exercise: Pick<WorkoutExerciseRow, 'sets' | 'repsOrTime' | 'restSeconds'>): number => {
+    const sets = Math.max(exercise.sets || 0, 1);
+    const repsOrTime = (exercise.repsOrTime || '').toString();
+    const directSetSeconds = parseSeconds(repsOrTime);
+    const avgReps = averageRepCount(repsOrTime) ?? 10;
+    const perSetWorkSeconds = directSetSeconds
+        ? Math.min(Math.max(directSetSeconds, 20), 180)
+        : Math.min(Math.max(avgReps * 4 + 20, 25), 140);
+    const restSeconds = Math.max(exercise.restSeconds || 0, 0);
+    const workBlock = sets * perSetWorkSeconds;
+    const restBlock = Math.max(sets - 1, 0) * restSeconds;
+    const setupBlock = sets * 10;
+    return workBlock + restBlock + setupBlock;
+};
+
+const estimateDayDurationSeconds = (exercises: WorkoutExerciseRow[]): number => {
+    if (exercises.length === 0) return 0;
+    const exerciseSeconds = exercises.reduce(
+        (sum, exercise) => sum + estimateExerciseDurationSeconds(exercise),
+        0,
+    );
+    const transitions = Math.max(exercises.length - 1, 0) * 45;
+    const warmupAndCooldown = 8 * 60;
+    return exerciseSeconds + transitions + warmupAndCooldown;
+};
+
+const estimateSessionVolume = (
+    session: typeof workoutSessions.$inferSelect,
+    dayExercises: WorkoutExerciseRow[],
+): number => {
+    const setLogs = safeParseArray(session.setLogs);
+    const weightedLogs = setLogs
+        .filter((log) => log && typeof log === 'object')
+        .map((log) => {
+            const map = log as Record<string, unknown>;
+            const status = (map.status ?? '').toString();
+            const weightKg = Number(map.weightKg);
+            const exerciseIndex = Number(map.exerciseIndex);
+            const setNumber = Number(map.setNumber);
+            if (status !== 'completed' || !Number.isFinite(weightKg) || weightKg <= 0) return 0;
+            if (!Number.isInteger(exerciseIndex) || !Number.isInteger(setNumber)) return 0;
+            const exercise = dayExercises[exerciseIndex];
+            if (!exercise) return 0;
+            const reps = averageRepCount(exercise.repsOrTime) ?? 10;
+            return weightKg * reps;
+        })
+        .reduce((sum, item) => sum + item, 0);
+
+    if (weightedLogs > 0) return Math.round(weightedLogs);
+
+    return dayExercises.reduce((sum, exercise) => {
+        const reps = averageRepCount(exercise.repsOrTime) ?? 10;
+        return sum + reps * exercise.sets;
+    }, 0);
+};
+
+const normalizeExerciseName = (name: string): string => name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const fallbackExercisePool: Record<string, Array<{
+    name: string;
+    sets: number;
+    repsOrTime: string;
+    restSeconds: number;
+    equipment: string;
+    notes: string;
+}>> = {
+    chest: [
+        { name: 'Incline Dumbbell Press', sets: 4, repsOrTime: '8-12', restSeconds: 90, equipment: 'Dumbbell', notes: 'Keep elbows 45° from torso.' },
+        { name: 'Dumbbell Floor Press', sets: 4, repsOrTime: '8-12', restSeconds: 75, equipment: 'Dumbbell', notes: 'Pause briefly at the bottom.' },
+    ],
+    back: [
+        { name: 'Chest-Supported Dumbbell Row', sets: 4, repsOrTime: '8-12', restSeconds: 90, equipment: 'Dumbbell', notes: 'Pull elbows toward hips.' },
+        { name: 'Single-Arm Cable Row', sets: 3, repsOrTime: '10-12', restSeconds: 75, equipment: 'Cable', notes: 'Control eccentric on every rep.' },
+    ],
+    legs: [
+        { name: 'Goblet Squat', sets: 4, repsOrTime: '8-12', restSeconds: 90, equipment: 'Dumbbell', notes: 'Keep torso tall and core braced.' },
+        { name: 'Reverse Lunge', sets: 3, repsOrTime: '10-12', restSeconds: 75, equipment: 'Bodyweight', notes: 'Drive through front heel.' },
+    ],
+    shoulders: [
+        { name: 'Seated Dumbbell Shoulder Press', sets: 4, repsOrTime: '8-10', restSeconds: 90, equipment: 'Dumbbell', notes: 'Avoid lumbar extension.' },
+        { name: 'Lean-Away Lateral Raise', sets: 3, repsOrTime: '12-15', restSeconds: 60, equipment: 'Dumbbell', notes: 'Lead with elbows.' },
+    ],
+    arms: [
+        { name: 'Alternating Dumbbell Curl', sets: 3, repsOrTime: '10-12', restSeconds: 60, equipment: 'Dumbbell', notes: 'Keep shoulders down.' },
+        { name: 'Overhead Triceps Extension', sets: 3, repsOrTime: '10-12', restSeconds: 60, equipment: 'Dumbbell', notes: 'Lock upper arms in place.' },
+    ],
+    core: [
+        { name: 'Dead Bug', sets: 3, repsOrTime: '30s', restSeconds: 45, equipment: 'Bodyweight', notes: 'Keep lower back pressed down.' },
+        { name: 'Cable Pallof Press', sets: 3, repsOrTime: '12-15', restSeconds: 45, equipment: 'Cable', notes: 'Avoid torso rotation.' },
+    ],
+};
 
 const CYCLE_TEMPLATES: Record<string, { days: { label: string; isRest: boolean }[] }> = {
     ppl: {
@@ -111,11 +230,15 @@ router.get('/plans/:id', async (c) => {
             .orderBy(workoutDays.dayNumber);
 
         const daysWithExercises = await Promise.all(days.map(async (day) => {
-            if (day.isRestDay) return { ...day, exercises: [] };
+            if (day.isRestDay) return { ...day, exercises: [], estimatedDurationSeconds: 0 };
             const exercises = await db.select().from(workoutExercises)
                 .where(eq(workoutExercises.dayId, day.id))
                 .orderBy(workoutExercises.orderIndex);
-            return { ...day, exercises };
+            return {
+                ...day,
+                exercises,
+                estimatedDurationSeconds: estimateDayDurationSeconds(exercises),
+            };
         }));
 
         return c.json({ success: true, data: { ...plan, days: daysWithExercises } });
@@ -330,6 +453,240 @@ router.put('/exercises/:id', zValidator('json', z.object({
         const updated = await db.update(workoutExercises).set(body).where(eq(workoutExercises.id, id)).returning();
         if (updated.length === 0) return c.json({ success: false, error: 'Exercise not found' }, 404);
         return c.json({ success: true, data: updated[0] });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+const replaceExerciseSchema = z.object({
+    planId: z.number().int().positive(),
+    dayId: z.number().int().positive(),
+    dayLabel: z.string().min(1),
+    muscleGroup: z.string().optional(),
+    currentExerciseIds: z.array(z.number().int().positive()).min(1),
+    currentExerciseNames: z.array(z.string().min(1)).min(1),
+});
+
+// ─── POST /api/workout/exercises/:id/replace ───────────────────────────────
+router.post('/exercises/:id/replace', zValidator('json', replaceExerciseSchema), async (c) => {
+    try {
+        const exerciseId = parseInt(c.req.param('id'));
+        const body = c.req.valid('json');
+        const [target] = await db.select().from(workoutExercises).where(eq(workoutExercises.id, exerciseId)).limit(1);
+        if (!target) return c.json({ success: false, error: 'Exercise not found' }, 404);
+        if (target.dayId !== body.dayId) {
+            return c.json({ success: false, error: 'Exercise does not belong to selected day' }, 400);
+        }
+
+        const [profile] = await db.select().from(userProfile).limit(1);
+        const equipmentList = profile ? safeParseArray(profile.equipment).map((item) => String(item)) : [];
+        const equipmentDisplay = equipmentList.length > 0
+            ? equipmentList.join(', ')
+            : 'dumbbells, bodyweight';
+
+        const existingNames = new Set(
+            body.currentExerciseNames.map((name) => normalizeExerciseName(name)),
+        );
+
+        const prompt = `Generate exactly one replacement exercise as valid JSON.
+
+Context:
+- Day label: ${body.dayLabel}
+- Target muscle group: ${body.muscleGroup || target.muscleGroup || 'same as current'}
+- Equipment available: ${equipmentDisplay}
+- Existing exercises to avoid: ${body.currentExerciseNames.join(', ')}
+
+Rules:
+- Keep it distinct from all existing exercises
+- Keep training intent similar to the current exercise: ${target.name}
+- Return exactly these keys: name, sets, repsOrTime, restSeconds, muscleGroup, equipment, notes
+- No markdown, no additional keys`;
+
+        let candidate: {
+            name: string;
+            sets: number;
+            repsOrTime: string;
+            restSeconds: number;
+            muscleGroup: string;
+            equipment: string;
+            notes: string;
+        } | null = null;
+
+        try {
+            const { text } = await generateText({
+                model: google('gemini-3.1-flash-lite-preview'),
+                prompt,
+                maxOutputTokens: 500,
+            });
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+                const name = String(parsed.name ?? '').trim();
+                if (name.length > 1 && !existingNames.has(normalizeExerciseName(name))) {
+                    candidate = {
+                        name,
+                        sets: Math.max(1, Number(parsed.sets) || target.sets || 3),
+                        repsOrTime: String(parsed.repsOrTime ?? target.repsOrTime ?? '10-12'),
+                        restSeconds: Math.max(20, Number(parsed.restSeconds) || target.restSeconds || 60),
+                        muscleGroup: String(parsed.muscleGroup ?? body.muscleGroup ?? target.muscleGroup ?? ''),
+                        equipment: String(parsed.equipment ?? target.equipment ?? ''),
+                        notes: String(parsed.notes ?? target.notes ?? ''),
+                    };
+                }
+            }
+        } catch {
+            candidate = null;
+        }
+
+        if (!candidate) {
+            const normalizedMuscle = normalizeExerciseName(
+                body.muscleGroup || target.muscleGroup || 'core',
+            );
+            const fallbackGroup = fallbackExercisePool[normalizedMuscle] ?? fallbackExercisePool.core;
+            const fallback = fallbackGroup.find((item) => !existingNames.has(normalizeExerciseName(item.name)));
+            if (!fallback) {
+                return c.json({
+                    success: false,
+                    error: 'No unique replacement available. Try again with different constraints.',
+                }, 409);
+            }
+            candidate = {
+                name: fallback.name,
+                sets: fallback.sets,
+                repsOrTime: fallback.repsOrTime,
+                restSeconds: fallback.restSeconds,
+                muscleGroup: body.muscleGroup || target.muscleGroup || normalizedMuscle,
+                equipment: fallback.equipment,
+                notes: fallback.notes,
+            };
+        }
+
+        const [updated] = await db.update(workoutExercises).set({
+            name: candidate.name,
+            sets: candidate.sets,
+            repsOrTime: candidate.repsOrTime,
+            restSeconds: candidate.restSeconds,
+            muscleGroup: candidate.muscleGroup,
+            equipment: candidate.equipment,
+            notes: candidate.notes,
+        }).where(eq(workoutExercises.id, exerciseId)).returning();
+
+        return c.json({
+            success: true,
+            data: {
+                ...updated,
+                replacementContext: {
+                    dayId: body.dayId,
+                    dayLabel: body.dayLabel,
+                    requestedMuscleGroup: body.muscleGroup ?? target.muscleGroup ?? '',
+                },
+            },
+        });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── GET /api/workout/sessions/history ──────────────────────────────────────
+router.get('/sessions/history', async (c) => {
+    try {
+        const range = (c.req.query('range') ?? '30d').toLowerCase();
+        const now = new Date();
+        const rangeDays = range === '90d' ? 90 : range === 'all' ? 3650 : 30;
+        const start = new Date(now);
+        start.setDate(now.getDate() - rangeDays + 1);
+        start.setHours(0, 0, 0, 0);
+
+        const sessions = await db.select().from(workoutSessions)
+            .where(and(
+                gte(workoutSessions.startedAt, start.toISOString()),
+                sql`${workoutSessions.completedAt} IS NOT NULL`,
+            ))
+            .orderBy(desc(workoutSessions.startedAt))
+            .limit(range === 'all' ? 500 : 200);
+
+        const dayIds = [...new Set(sessions.map((session) => session.dayId))];
+        const dayRows = dayIds.length > 0
+            ? await db.select().from(workoutDays).where(inArray(workoutDays.id, dayIds))
+            : [];
+        const dayMap = new Map(dayRows.map((day) => [day.id, day]));
+
+        const exercisesByDay = new Map<number, WorkoutExerciseRow[]>();
+        if (dayIds.length > 0) {
+            const exerciseRows = await db.select().from(workoutExercises)
+                .where(inArray(workoutExercises.dayId, dayIds))
+                .orderBy(workoutExercises.orderIndex);
+            for (const row of exerciseRows) {
+                const list = exercisesByDay.get(row.dayId) ?? [];
+                list.push(row);
+                exercisesByDay.set(row.dayId, list);
+            }
+        }
+
+        const dailyBuckets = new Map<string, { volume: number; duration: number; sessions: number }>();
+        const sessionItems = sessions.map((session) => {
+            const day = dayMap.get(session.dayId);
+            const date = (session.completedAt ?? session.startedAt ?? new Date().toISOString()).slice(0, 10);
+            const duration = session.totalDurationSeconds ?? estimateDayDurationSeconds(exercisesByDay.get(session.dayId) ?? []);
+            const volume = estimateSessionVolume(session, exercisesByDay.get(session.dayId) ?? []);
+            const bucket = dailyBuckets.get(date) ?? { volume: 0, duration: 0, sessions: 0 };
+            bucket.volume += volume;
+            bucket.duration += duration;
+            bucket.sessions += 1;
+            dailyBuckets.set(date, bucket);
+            return {
+                id: session.id,
+                date,
+                startedAt: session.startedAt,
+                completedAt: session.completedAt,
+                dayLabel: day?.dayLabel ?? 'Workout',
+                totalDurationSeconds: duration,
+                totalVolume: volume,
+                completedExercises: session.completedExercises,
+                totalExercises: session.totalExercises,
+                xpEarned: session.xpEarned,
+            };
+        });
+
+        const sortedDates = [...dailyBuckets.keys()].sort();
+        const volumeSeries = sortedDates.map((date) => ({
+            date,
+            value: dailyBuckets.get(date)?.volume ?? 0,
+        }));
+        const durationSeries = sortedDates.map((date) => ({
+            date,
+            value: dailyBuckets.get(date)?.duration ?? 0,
+        }));
+        const consistencySeries = sortedDates.map((date) => ({
+            date,
+            value: dailyBuckets.get(date)?.sessions ?? 0,
+        }));
+
+        const totalSessions = sessionItems.length;
+        const totalDurationSeconds = sessionItems.reduce((sum, item) => sum + item.totalDurationSeconds, 0);
+        const totalVolume = sessionItems.reduce((sum, item) => sum + item.totalVolume, 0);
+        const avgDurationSeconds = totalSessions > 0 ? Math.round(totalDurationSeconds / totalSessions) : 0;
+        const consistencyScore = rangeDays > 0 ? Math.min(totalSessions / rangeDays, 1) : 0;
+
+        return c.json({
+            success: true,
+            data: {
+                range,
+                sessions: sessionItems,
+                summary: {
+                    totalSessions,
+                    totalDurationSeconds,
+                    avgDurationSeconds,
+                    totalVolume,
+                    consistencyScore,
+                },
+                series: {
+                    volume: volumeSeries,
+                    duration: durationSeries,
+                    consistency: consistencySeries,
+                },
+            },
+        });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
     }

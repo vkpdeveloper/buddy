@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/pages/active_workout_page.dart';
+import 'package:buddy/pages/workout_sessions_page.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
@@ -26,6 +28,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   bool _isLoading = true;
   int _selectedDayIndex = 0;
   final Map<int, _TodayWorkoutState> _todaySessionStateByDayId = {};
+  Timer? _stretchTimer;
+  int _stretchSecondsLeft = 0;
+  int _todayHydrationMl = 0;
+  bool _isHydrationLogging = false;
 
   String get _todayDate {
     final now = DateTime.now();
@@ -36,6 +42,13 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   void initState() {
     super.initState();
     _loadPlans();
+    _loadTodayHydration();
+  }
+
+  @override
+  void dispose() {
+    _stretchTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadPlans() async {
@@ -103,6 +116,171 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
       ref.invalidate(homeDashboardProvider);
       ref.invalidate(weeklyWorkoutSummaryProvider);
     } catch (_) {}
+  }
+
+  Future<void> _loadTodayHydration() async {
+    try {
+      final res = await ApiClient.getDailyLog(_todayDate);
+      final data = res['data'] as Map<String, dynamic>? ?? {};
+      if (!mounted) return;
+      setState(() {
+        _todayHydrationMl = (data['waterMl'] as num?)?.toInt() ?? 0;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _incrementHydration() async {
+    if (_isHydrationLogging) return;
+    setState(() => _isHydrationLogging = true);
+    try {
+      final res = await ApiClient.incrementHydration(_todayDate, amountMl: 250);
+      final data = res['data'] as Map<String, dynamic>? ?? {};
+      if (!mounted) return;
+      final updated =
+          (data['waterMl'] as num?)?.toInt() ?? _todayHydrationMl + 250;
+      setState(() => _todayHydrationMl = updated);
+      ref.invalidate(homeDashboardProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '+250 ml logged ($_todayHydrationMl ml today)',
+            style: GoogleFonts.plusJakartaSans(fontSize: 12),
+          ),
+          backgroundColor: AppTheme.cardDark,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not log hydration right now.',
+            style: GoogleFonts.plusJakartaSans(fontSize: 12),
+          ),
+          backgroundColor: const Color(0xFF7E2E2E),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isHydrationLogging = false);
+    }
+  }
+
+  void _startStretchTimer({int minutes = 10}) {
+    _stretchTimer?.cancel();
+    setState(() => _stretchSecondsLeft = minutes * 60);
+    _stretchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      if (_stretchSecondsLeft <= 1) {
+        timer.cancel();
+        setState(() => _stretchSecondsLeft = 0);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Stretch timer complete. Nice recovery block.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12),
+            ),
+            backgroundColor: AppTheme.cardDark,
+          ),
+        );
+        return;
+      }
+      setState(() => _stretchSecondsLeft -= 1);
+    });
+  }
+
+  Future<void> _replaceExercise(
+    Map<String, dynamic> day,
+    Map<String, dynamic> exercise,
+  ) async {
+    final exerciseName = (exercise['name'] ?? 'this exercise').toString();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.cardDark,
+        title: Text(
+          'Swap Exercise?',
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textCream,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'Replace $exerciseName with a new variation for this day?',
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textSageMuted,
+            fontSize: 13,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'Swap',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ApiClient.replaceWorkoutExercise(
+        (exercise['id'] as num?)?.toInt() ?? 0,
+        {
+          'planId': _activePlanId,
+          'dayId': (day['id'] as num?)?.toInt(),
+          'dayLabel': (day['dayLabel'] ?? day['day_label'] ?? 'Workout')
+              .toString(),
+          'muscleGroup':
+              (exercise['muscleGroup'] ?? exercise['muscle_group'] ?? '')
+                  .toString(),
+          'currentExerciseIds': (((day['exercises'] as List?) ?? const [])
+              .whereType<Map>()
+              .map((item) => (item['id'] as num?)?.toInt() ?? 0)
+              .where((id) => id > 0)
+              .toList()),
+          'currentExerciseNames': (((day['exercises'] as List?) ?? const [])
+              .whereType<Map>()
+              .map((item) => (item['name'] ?? '').toString())
+              .where((name) => name.isNotEmpty)
+              .toList()),
+        },
+      );
+      if (!mounted) return;
+      await _loadPlanDetail(_activePlanId!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Exercise swapped successfully.',
+            style: GoogleFonts.plusJakartaSans(fontSize: 12),
+          ),
+          backgroundColor: AppTheme.cardDark,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not swap this exercise right now.',
+            style: GoogleFonts.plusJakartaSans(fontSize: 12),
+          ),
+          backgroundColor: const Color(0xFF7E2E2E),
+        ),
+      );
+    }
   }
 
   @override
@@ -367,6 +545,47 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const WorkoutSessionsPage(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.borderDark),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.history,
+                        color: AppTheme.textSageMuted,
+                        size: 13,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'SESSIONS',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -480,6 +699,11 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     final dayNumber =
         ((day['dayNumber'] ?? day['day_number']) as num?)?.toInt() ??
         (_selectedDayIndex + 1);
+    final estimatedDurationSeconds =
+        ((day['estimatedDurationSeconds'] ?? day['estimated_duration_seconds'])
+                as num?)
+            ?.toInt() ??
+        _estimateDurationFromExercises(exercises);
     final isTodayPlanDay = dayNumber == DateTime.now().weekday;
     final sessionState = dayId == null
         ? _TodayWorkoutState.none
@@ -536,6 +760,26 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 20),
+            _buildRestActionCard(
+              icon: LucideIcons.activity,
+              iconColor: AppTheme.primary,
+              title: 'Stretch Flow Timer',
+              subtitle: _stretchSecondsLeft > 0
+                  ? 'Remaining ${_formatCountdown(_stretchSecondsLeft)}'
+                  : 'Start a guided 10-minute stretch block.',
+              cta: _stretchSecondsLeft > 0 ? 'Restart 10m' : 'Start 10m',
+              onTap: () => _startStretchTimer(minutes: 10),
+            ),
+            const SizedBox(height: 10),
+            _buildRestActionCard(
+              icon: LucideIcons.droplets,
+              iconColor: const Color(0xFF6BAED6),
+              title: 'Hydration Quick Log',
+              subtitle: 'Today: $_todayHydrationMl ml logged',
+              cta: _isHydrationLogging ? 'Logging...' : '+250 ml',
+              onTap: _isHydrationLogging ? null : _incrementHydration,
             ),
             const SizedBox(height: 20),
             Text(
@@ -619,6 +863,41 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                     fontSize: 12,
                   ),
                 ),
+                if (estimatedDurationSeconds > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundDark.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppTheme.textSageMuted.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.clock_3,
+                          color: AppTheme.textSageMuted,
+                          size: 11,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          _formatDurationCompact(estimatedDurationSeconds),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (planId != null && dayId != null)
                   GestureDetector(
                     onTap: sessionState == _TodayWorkoutState.completed
@@ -728,6 +1007,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 exercise: exercises[i],
                 index: i,
                 onUpdate: () => _loadPlanDetail(_activePlanId!),
+                onReplace: () => _replaceExercise(
+                  day,
+                  Map<String, dynamic>.from(exercises[i] as Map),
+                ),
               ),
               childCount: exercises.length,
             ),
@@ -735,6 +1018,130 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
+    );
+  }
+
+  int _estimateDurationFromExercises(List<dynamic> exercises) {
+    if (exercises.isEmpty) return 0;
+    var total = 0;
+    for (final raw in exercises) {
+      if (raw is! Map) continue;
+      final setCount = (raw['sets'] as num?)?.toInt() ?? 3;
+      final restRaw = raw['restSeconds'] ?? raw['rest_seconds'];
+      final rest = (restRaw as num?)?.toInt() ?? int.tryParse('$restRaw') ?? 60;
+      final reps = (raw['repsOrTime'] ?? raw['reps_or_time'] ?? '10-12')
+          .toString();
+      final secMatch = RegExp(
+        r'(\\d+)\\s*(s|sec|second)',
+        caseSensitive: false,
+      ).firstMatch(reps);
+      final minMatch = RegExp(
+        r'(\\d+)\\s*(m|min|minute)',
+        caseSensitive: false,
+      ).firstMatch(reps);
+      final perSet = minMatch != null
+          ? int.parse(minMatch.group(1)!) * 60
+          : secMatch != null
+          ? int.parse(secMatch.group(1)!)
+          : 55;
+      total += (setCount * perSet) + ((setCount - 1).clamp(0, 99) * rest);
+    }
+    return total + (8 * 60);
+  }
+
+  String _formatDurationCompact(int seconds) {
+    if (seconds < 60) return '${seconds}s';
+    final mins = seconds ~/ 60;
+    if (mins < 60) return '${mins}m';
+    final hours = mins ~/ 60;
+    final rem = mins % 60;
+    return rem == 0 ? '${hours}h' : '${hours}h ${rem}m';
+  }
+
+  String _formatCountdown(int seconds) {
+    final mins = (seconds ~/ 60).toString().padLeft(2, '0');
+    final secs = (seconds % 60).toString().padLeft(2, '0');
+    return '$mins:$secs';
+  }
+
+  Widget _buildRestActionCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String cta,
+    required VoidCallback? onTap,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: onTap == null
+                    ? AppTheme.borderDark
+                    : iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: onTap == null
+                      ? AppTheme.borderDark
+                      : iconColor.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Text(
+                cta,
+                style: GoogleFonts.plusJakartaSans(
+                  color: onTap == null ? AppTheme.textSageMuted : iconColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -795,11 +1202,13 @@ class _ExerciseCard extends StatelessWidget {
   final Map<String, dynamic> exercise;
   final int index;
   final VoidCallback onUpdate;
+  final Future<void> Function() onReplace;
 
   const _ExerciseCard({
     required this.exercise,
     required this.index,
     required this.onUpdate,
+    required this.onReplace,
   });
 
   void _showEditSheet(BuildContext context) {
@@ -922,150 +1331,206 @@ class _ExerciseCard extends StatelessWidget {
     final restSecs = (restRaw is int)
         ? restRaw
         : int.tryParse('$restRaw') ?? 60;
-    const accentColor = AppTheme.primary;
+    final accentColor = _muscleAccentColor(muscle);
     final isTimeBased = RegExp(
       r'\d+\s*(s|sec|min)',
       caseSensitive: false,
     ).hasMatch(reps);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.borderDark),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+    return Dismissible(
+      key: ValueKey('exercise-${exercise['id']}-${exercise['name']}'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        await onReplace();
+        return false;
+      },
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF355E3B),
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _showEditSheet(context),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top row: index + name + edit icon
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      margin: const EdgeInsets.only(top: 1, right: 10),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '${index + 1}',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: accentColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            const Icon(
+              LucideIcons.refresh_cw,
+              color: AppTheme.textCream,
+              size: 14,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'SWAP',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textCream,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: accentColor.withValues(alpha: 0.32)),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _showEditSheet(context),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top row: index + name + edit icon
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 22,
+                        height: 22,
+                        margin: const EdgeInsets.only(top: 1, right: 10),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '${index + 1}',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: accentColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textCream,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
+                              ),
                             ),
-                          ),
-                          if (muscle.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Container(
-                                  width: 5,
-                                  height: 5,
-                                  decoration: BoxDecoration(
-                                    color: accentColor,
-                                    shape: BoxShape.circle,
+                            if (muscle.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: BoxDecoration(
+                                      color: accentColor,
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  muscle.toUpperCase(),
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: accentColor.withValues(alpha: 0.75),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.2,
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    muscle.toUpperCase(),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: accentColor.withValues(
+                                        alpha: 0.75,
+                                      ),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.2,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Icon(
-                        LucideIcons.pencil,
-                        color: AppTheme.textSageMuted.withValues(alpha: 0.45),
-                        size: 13,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Stats row
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 9,
-                    horizontal: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.backgroundDark.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Row(
-                    children: [
-                      _StatBlock(
-                        value: '$sets',
-                        label: 'SETS',
-                        color: accentColor,
-                      ),
-                      Container(
-                        width: 1,
-                        height: 26,
-                        color: AppTheme.borderDark,
-                      ),
-                      _StatBlock(
-                        value: reps,
-                        label: isTimeBased ? 'DURATION' : 'REPS',
-                        color: AppTheme.textCream,
-                      ),
-                      Container(
-                        width: 1,
-                        height: 26,
-                        color: AppTheme.borderDark,
-                      ),
-                      _StatBlock(
-                        value: _formatRest(restSecs),
-                        label: 'REST',
-                        color: AppTheme.textSageMuted,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          LucideIcons.pencil,
+                          color: AppTheme.textSageMuted.withValues(alpha: 0.45),
+                          size: 13,
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  // Stats row
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 9,
+                      horizontal: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Row(
+                      children: [
+                        _StatBlock(
+                          value: '$sets',
+                          label: 'SETS',
+                          color: accentColor,
+                        ),
+                        Container(
+                          width: 1,
+                          height: 26,
+                          color: AppTheme.borderDark,
+                        ),
+                        _StatBlock(
+                          value: reps,
+                          label: isTimeBased ? 'DURATION' : 'REPS',
+                          color: AppTheme.textCream,
+                        ),
+                        Container(
+                          width: 1,
+                          height: 26,
+                          color: AppTheme.borderDark,
+                        ),
+                        _StatBlock(
+                          value: _formatRest(restSecs),
+                          label: 'REST',
+                          color: AppTheme.textSageMuted,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+Color _muscleAccentColor(String muscleGroup) {
+  final key = muscleGroup.toLowerCase();
+  if (key.contains('chest')) return const Color(0xFFE9A23B);
+  if (key.contains('back')) return const Color(0xFF63B3ED);
+  if (key.contains('leg') || key.contains('quad') || key.contains('ham')) {
+    return const Color(0xFF34C38F);
+  }
+  if (key.contains('shoulder') || key.contains('delt')) {
+    return const Color(0xFFB794F4);
+  }
+  if (key.contains('arm') || key.contains('bicep') || key.contains('tricep')) {
+    return const Color(0xFFFF8FA3);
+  }
+  if (key.contains('core') || key.contains('abs')) return AppTheme.xpGold;
+  return AppTheme.primary;
 }
 
 class _StatBlock extends StatelessWidget {
