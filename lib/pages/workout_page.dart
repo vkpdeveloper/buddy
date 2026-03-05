@@ -5,10 +5,13 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/pages/active_workout_page.dart';
+import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/providers/generation_provider.dart';
+
+enum _TodayWorkoutState { none, inProgress, completed }
 
 class WorkoutPage extends ConsumerStatefulWidget {
   const WorkoutPage({super.key});
@@ -22,6 +25,12 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   Map<String, dynamic>? _planData;
   bool _isLoading = true;
   int _selectedDayIndex = 0;
+  final Map<int, _TodayWorkoutState> _todaySessionStateByDayId = {};
+
+  String get _todayDate {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
 
   @override
   void initState() {
@@ -56,6 +65,43 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         // Auto-select today's weekday (Mon=0 ... Sun=6)
         _selectedDayIndex = DateTime.now().weekday - 1;
       });
+      await _refreshTodaySessionStatus();
+    } catch (_) {}
+  }
+
+  Future<void> _refreshTodaySessionStatus() async {
+    final planId = _activePlanId;
+    final days = (_planData?['days'] as List?) ?? [];
+    if (planId == null || days.isEmpty) return;
+
+    final todayDayNumber = DateTime.now().weekday;
+    final todayDay = days.cast<Map>().firstWhere(
+      (raw) => (raw['dayNumber'] ?? raw['day_number']) == todayDayNumber,
+      orElse: () => <String, dynamic>{},
+    );
+    if (todayDay.isEmpty) return;
+
+    final dayId = (todayDay['id'] as num?)?.toInt();
+    if (dayId == null) return;
+
+    try {
+      final res = await ApiClient.getTodayWorkoutSessionStatus(
+        planId,
+        dayId,
+        date: _todayDate,
+      );
+      final data = res['data'] as Map<String, dynamic>? ?? {};
+      final status = (data['status'] ?? 'none').toString();
+      if (!mounted) return;
+      setState(() {
+        _todaySessionStateByDayId[dayId] = switch (status) {
+          'completed' => _TodayWorkoutState.completed,
+          'in_progress' => _TodayWorkoutState.inProgress,
+          _ => _TodayWorkoutState.none,
+        };
+      });
+      ref.invalidate(homeDashboardProvider);
+      ref.invalidate(weeklyWorkoutSummaryProvider);
     } catch (_) {}
   }
 
@@ -350,7 +396,6 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 'SUN',
               ];
               final weekday = i < 7 ? weekdays[i] : '';
-              final isToday = DateTime.now().weekday - 1 == i;
               return GestureDetector(
                 onTap: () => setState(() => _selectedDayIndex = i),
                 child: Column(
@@ -432,6 +477,13 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     final dayLabel = day['dayLabel'] ?? day['day_label'] ?? 'Day';
     final dayId = day['id'] as int?;
     final planId = _activePlanId;
+    final dayNumber =
+        ((day['dayNumber'] ?? day['day_number']) as num?)?.toInt() ??
+        (_selectedDayIndex + 1);
+    final isTodayPlanDay = dayNumber == DateTime.now().weekday;
+    final sessionState = dayId == null
+        ? _TodayWorkoutState.none
+        : (_todaySessionStateByDayId[dayId] ?? _TodayWorkoutState.none);
 
     if (isRest) {
       return SingleChildScrollView(
@@ -569,51 +621,92 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 ),
                 if (planId != null && dayId != null)
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ActiveWorkoutPage(
-                            dayLabel: dayLabel.toString(),
-                            exercises: exercises,
-                            planId: planId,
-                            dayId: dayId,
-                          ),
-                        ),
-                      );
-                    },
+                    onTap: sessionState == _TodayWorkoutState.completed
+                        ? null
+                        : () async {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ActiveWorkoutPage(
+                                  dayLabel: dayLabel.toString(),
+                                  exercises: exercises,
+                                  planId: planId,
+                                  dayId: dayId,
+                                ),
+                              ),
+                            ).then((_) async {
+                              await _refreshTodaySessionStatus();
+                              ref.invalidate(homeDashboardProvider);
+                              ref.invalidate(weeklyWorkoutSummaryProvider);
+                            });
+                          },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppTheme.primary, AppTheme.accent],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
+                        gradient:
+                            isTodayPlanDay &&
+                                sessionState == _TodayWorkoutState.completed
+                            ? null
+                            : LinearGradient(
+                                colors: [AppTheme.primary, AppTheme.accent],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                        color:
+                            isTodayPlanDay &&
+                                sessionState == _TodayWorkoutState.completed
+                            ? AppTheme.cardDark
+                            : null,
                         borderRadius: BorderRadius.circular(12),
+                        border:
+                            isTodayPlanDay &&
+                                sessionState == _TodayWorkoutState.completed
+                            ? Border.all(color: AppTheme.borderDark)
+                            : null,
                         boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primary.withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
+                          if (!(isTodayPlanDay &&
+                              sessionState == _TodayWorkoutState.completed))
+                            BoxShadow(
+                              color: AppTheme.primary.withValues(alpha: 0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
                         ],
                       ),
                       child: Row(
                         children: [
-                          const Icon(
-                            LucideIcons.play,
-                            color: AppTheme.backgroundDark,
+                          Icon(
+                            isTodayPlanDay &&
+                                    sessionState == _TodayWorkoutState.completed
+                                ? LucideIcons.check
+                                : LucideIcons.play,
+                            color:
+                                isTodayPlanDay &&
+                                    sessionState == _TodayWorkoutState.completed
+                                ? AppTheme.primary
+                                : AppTheme.backgroundDark,
                             size: 16,
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            'START',
+                            isTodayPlanDay &&
+                                    sessionState == _TodayWorkoutState.completed
+                                ? 'COMPLETED'
+                                : isTodayPlanDay &&
+                                      sessionState ==
+                                          _TodayWorkoutState.inProgress
+                                ? 'CONTINUE'
+                                : 'START',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.backgroundDark,
+                              color:
+                                  isTodayPlanDay &&
+                                      sessionState ==
+                                          _TodayWorkoutState.completed
+                                  ? AppTheme.primary
+                                  : AppTheme.backgroundDark,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1,
@@ -694,7 +787,7 @@ String _formatRest(int seconds) {
   if (seconds < 60) return '${seconds}s';
   final mins = seconds ~/ 60;
   final secs = seconds % 60;
-  if (secs == 0) return '${mins} min';
+  if (secs == 0) return '$mins min';
   return '${mins}m ${secs}s';
 }
 

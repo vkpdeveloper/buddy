@@ -71,6 +71,7 @@ class HomeWorkoutSummaryData {
   final bool isRestDay;
   final int exerciseCount;
   final bool isCompletedToday;
+  final bool hasInProgressSession;
 
   const HomeWorkoutSummaryData({
     required this.dayId,
@@ -78,6 +79,7 @@ class HomeWorkoutSummaryData {
     required this.isRestDay,
     required this.exerciseCount,
     required this.isCompletedToday,
+    required this.hasInProgressSession,
   });
 
   factory HomeWorkoutSummaryData.fromJson(Map<String, dynamic> j) {
@@ -88,6 +90,8 @@ class HomeWorkoutSummaryData {
       exerciseCount: (j['exerciseCount'] as num?)?.toInt() ?? 0,
       isCompletedToday:
           j['isCompletedToday'] == true || j['isCompletedToday'] == 1,
+      hasInProgressSession:
+          j['hasInProgressSession'] == true || j['hasInProgressSession'] == 1,
     );
   }
 }

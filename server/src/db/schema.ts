@@ -75,9 +75,11 @@ export const dietDays = sqliteTable('diet_days', {
 export const dietMeals = sqliteTable('diet_meals', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     dayId: integer('day_id').notNull().references(() => dietDays.id, { onDelete: 'cascade' }),
+    orderIndex: integer('order_index').notNull().default(0),
     mealType: text('meal_type', {
         enum: ['breakfast', 'morning_snack', 'lunch', 'pre_workout', 'post_workout', 'dinner', 'evening_snack'],
     }).notNull(),
+    mealTime: text('meal_time').notNull().default('08:00'), // HH:mm
     mealName: text('meal_name').notNull(),
     description: text('description').notNull().default(''),
     ingredients: text('ingredients').notNull().default('[]'),  // JSON: [{ name, quantity }]
@@ -133,6 +135,13 @@ export const dietMealLogs = sqliteTable('diet_meal_logs', {
     mealId: integer('meal_id').notNull().references(() => dietMeals.id, { onDelete: 'cascade' }),
     date: text('date').notNull(),                   // 'YYYY-MM-DD'
     isCompleted: integer('is_completed', { mode: 'boolean' }).notNull().default(false),
+    actualMealName: text('actual_meal_name').notNull().default(''),
+    actualCalories: integer('actual_calories'),
+    actualProteinG: real('actual_protein_g'),
+    actualCarbsG: real('actual_carbs_g'),
+    actualFatG: real('actual_fat_g'),
+    actualNotes: text('actual_notes').notNull().default(''),
+    rawPayload: text('raw_payload').notNull().default('{}'),
     loggedAt: text('logged_at').default(sql`(datetime('now'))`),
 });
 
@@ -159,6 +168,12 @@ export const workoutSessions = sqliteTable('workout_sessions', {
     completedExercises: integer('completed_exercises').notNull().default(0),
     totalRests: integer('total_rests').notNull().default(0),
     skippedRests: integer('skipped_rests').notNull().default(0),
+    pausedDurationSeconds: integer('paused_duration_seconds').notNull().default(0),
+    warmupData: text('warmup_data').notNull().default('{}'),
+    cooldownData: text('cooldown_data').notNull().default('{}'),
+    setLogs: text('set_logs').notNull().default('[]'),
+    sessionNotes: text('session_notes').notNull().default('[]'),
+    hrSnapshots: text('hr_snapshots').notNull().default('[]'),
     xpEarned: integer('xp_earned').notNull().default(0),
 });
 

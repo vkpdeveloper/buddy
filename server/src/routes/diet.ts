@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, asc } from 'drizzle-orm';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import { env } from '../lib/env';
 import { db } from '../db';
-import { userProfile, dietPlans, dietDays, dietMeals, dietMealLogs } from '../db/schema';
+import { userProfile, dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs } from '../db/schema';
 import { calculateBMR, calculateTDEE, calculateMacros } from '../lib/macros';
 
 const router = new Hono();
@@ -81,6 +81,22 @@ const MEAL_LABELS: Record<string, string> = {
     evening_snack: 'Evening Snack',
 };
 
+const DEFAULT_MEAL_TIMES: Record<string, string> = {
+    breakfast: '08:00',
+    morning_snack: '11:00',
+    lunch: '13:30',
+    pre_workout: '17:00',
+    post_workout: '19:00',
+    dinner: '20:30',
+    evening_snack: '22:00',
+};
+
+function normalizeMealTime(value: string | undefined, mealType: string): string {
+    if (!value) return DEFAULT_MEAL_TIMES[mealType] ?? '12:00';
+    if (/^\d{2}:\d{2}$/.test(value)) return value;
+    return DEFAULT_MEAL_TIMES[mealType] ?? '12:00';
+}
+
 // ─── GET /api/diet/foods ─────────────────────────────────────────────────────
 router.get('/foods', (c) => {
     return c.json({ success: true, data: HIGH_PROTEIN_FOODS });
@@ -109,8 +125,8 @@ router.get('/plans/:id', async (c) => {
 
         const daysWithMeals = await Promise.all(days.map(async (day) => {
             const meals = await db.select().from(dietMeals)
-                .where(eq(dietMeals.dayId, day.id));
-            meals.sort((a, b) => (MEAL_ORDER[a.mealType] ?? 99) - (MEAL_ORDER[b.mealType] ?? 99));
+                .where(eq(dietMeals.dayId, day.id))
+                .orderBy(asc(dietMeals.orderIndex));
             return { ...day, meals };
         }));
 
@@ -318,10 +334,20 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not
             }).returning();
 
             if (day.meals && Array.isArray(day.meals)) {
-                for (const meal of day.meals) {
+                const sortedMeals = [...day.meals].sort((a, b) => {
+                    const left = MEAL_ORDER[a.mealType ?? ''] ?? 99;
+                    const right = MEAL_ORDER[b.mealType ?? ''] ?? 99;
+                    return left - right;
+                });
+                let index = 0;
+                for (const meal of sortedMeals) {
+                    index += 1;
+                    const mealType = meal.mealType ?? 'breakfast';
                     await db.insert(dietMeals).values({
                         dayId: insertedDay.id,
-                        mealType: meal.mealType ?? 'breakfast',
+                        orderIndex: index,
+                        mealType,
+                        mealTime: normalizeMealTime(meal.mealTime ?? meal.meal_time, mealType),
                         mealName: meal.mealName ?? meal.name ?? 'Meal',
                         description: '',
                         ingredients: JSON.stringify(
@@ -374,12 +400,14 @@ router.delete('/plans/:id', async (c) => {
 // ─── PUT /api/diet/meals/:id ─────────────────────────────────────────────────
 router.put('/meals/:id', zValidator('json', z.object({
     mealName: z.string().optional(),
+    mealTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
     description: z.string().optional(),
     ingredients: z.array(z.object({ name: z.string(), quantity: z.string() })).optional(),
     calories: z.number().optional(),
     proteinG: z.number().optional(),
     carbsG: z.number().optional(),
     fatG: z.number().optional(),
+    orderIndex: z.number().int().positive().optional(),
     isCompleted: z.boolean().optional(),
     notes: z.string().optional(),
 })), async (c) => {
@@ -391,6 +419,38 @@ router.put('/meals/:id', zValidator('json', z.object({
         const updated = await db.update(dietMeals).set(body).where(eq(dietMeals.id, id)).returning();
         if (updated.length === 0) return c.json({ success: false, error: 'Meal not found' }, 404);
         return c.json({ success: true, data: updated[0] });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── PUT /api/diet/days/:id/reorder ─────────────────────────────────────────
+router.put('/days/:id/reorder', zValidator('json', z.object({
+    mealIds: z.array(z.number().int().positive()).min(1),
+})), async (c) => {
+    try {
+        const dayId = parseInt(c.req.param('id'));
+        const { mealIds } = c.req.valid('json');
+        const dayMeals = await db.select().from(dietMeals).where(eq(dietMeals.dayId, dayId));
+        const dayMealIds = new Set(dayMeals.map((m) => m.id));
+
+        for (const id of mealIds) {
+            if (!dayMealIds.has(id)) {
+                return c.json({ success: false, error: `Meal ${id} is not in this day` }, 400);
+            }
+        }
+
+        for (let i = 0; i < mealIds.length; i += 1) {
+            const mealId = mealIds[i];
+            await db.update(dietMeals)
+                .set({ orderIndex: i + 1 })
+                .where(eq(dietMeals.id, mealId));
+        }
+
+        const reordered = await db.select().from(dietMeals)
+            .where(eq(dietMeals.dayId, dayId))
+            .orderBy(asc(dietMeals.orderIndex));
+        return c.json({ success: true, data: reordered });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
     }
@@ -412,16 +472,75 @@ router.put('/days/:id', zValidator('json', z.object({
 });
 
 // ─── GET /api/diet/log/:date ─────────────────────────────────────────────────
-// Returns a map of { mealId -> isCompleted } for the given date
+// Returns daily meal completion + actual intake + hydration snapshot
 router.get('/log/:date', async (c) => {
     try {
         const date = c.req.param('date'); // YYYY-MM-DD
         const logs = await db.select().from(dietMealLogs).where(eq(dietMealLogs.date, date));
-        const map: Record<number, boolean> = {};
+        const completionMap: Record<number, boolean> = {};
+        const actualLogs: Record<number, {
+            mealName: string;
+            calories: number;
+            proteinG: number;
+            carbsG: number;
+            fatG: number;
+            notes: string;
+            rawPayload: unknown;
+        }> = {};
+        let consumedCalories = 0;
+        let consumedProteinG = 0;
+        let consumedCarbsG = 0;
+        let consumedFatG = 0;
+
         for (const log of logs) {
-            map[log.mealId] = log.isCompleted;
+            completionMap[log.mealId] = log.isCompleted;
+
+            if (log.actualMealName || log.actualCalories || log.actualProteinG || log.actualCarbsG || log.actualFatG) {
+                const calories = log.actualCalories ?? 0;
+                const proteinG = log.actualProteinG ?? 0;
+                const carbsG = log.actualCarbsG ?? 0;
+                const fatG = log.actualFatG ?? 0;
+                consumedCalories += calories;
+                consumedProteinG += proteinG;
+                consumedCarbsG += carbsG;
+                consumedFatG += fatG;
+
+                let rawPayload: unknown = {};
+                try {
+                    rawPayload = JSON.parse(log.rawPayload);
+                } catch {
+                    rawPayload = {};
+                }
+
+                actualLogs[log.mealId] = {
+                    mealName: log.actualMealName,
+                    calories,
+                    proteinG,
+                    carbsG,
+                    fatG,
+                    notes: log.actualNotes,
+                    rawPayload,
+                };
+            }
         }
-        return c.json({ success: true, data: map });
+
+        const [daily] = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
+        const hydrationMl = daily?.waterMl ?? 0;
+
+        return c.json({
+            success: true,
+            data: {
+                completionMap,
+                actualLogs,
+                consumedTotals: {
+                    calories: consumedCalories,
+                    proteinG: consumedProteinG,
+                    carbsG: consumedCarbsG,
+                    fatG: consumedFatG,
+                },
+                hydrationMl,
+            },
+        });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
     }
@@ -447,6 +566,63 @@ router.put('/log/:date', zValidator('json', z.object({
                 .where(eq(dietMealLogs.id, existing.id));
         } else {
             await db.insert(dietMealLogs).values({ mealId, date, isCompleted });
+        }
+
+        return c.json({ success: true });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── PUT /api/diet/log/:date/actual ─────────────────────────────────────────
+router.put('/log/:date/actual', zValidator('json', z.object({
+    mealId: z.number().int().positive(),
+    mealName: z.string().min(1),
+    calories: z.number().int().min(0),
+    proteinG: z.number().min(0),
+    carbsG: z.number().min(0),
+    fatG: z.number().min(0),
+    notes: z.string().optional(),
+    rawPayload: z.record(z.string(), z.unknown()).optional(),
+})), async (c) => {
+    try {
+        const date = c.req.param('date');
+        const {
+            mealId,
+            mealName,
+            calories,
+            proteinG,
+            carbsG,
+            fatG,
+            notes,
+            rawPayload,
+        } = c.req.valid('json');
+
+        const [existing] = await db.select().from(dietMealLogs)
+            .where(and(eq(dietMealLogs.mealId, mealId), eq(dietMealLogs.date, date)));
+
+        const values = {
+            isCompleted: true,
+            actualMealName: mealName,
+            actualCalories: calories,
+            actualProteinG: proteinG,
+            actualCarbsG: carbsG,
+            actualFatG: fatG,
+            actualNotes: notes ?? '',
+            rawPayload: JSON.stringify(rawPayload ?? {}),
+            loggedAt: new Date().toISOString(),
+        };
+
+        if (existing) {
+            await db.update(dietMealLogs)
+                .set(values)
+                .where(eq(dietMealLogs.id, existing.id));
+        } else {
+            await db.insert(dietMealLogs).values({
+                mealId,
+                date,
+                ...values,
+            });
         }
 
         return c.json({ success: true });

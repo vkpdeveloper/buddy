@@ -1,18 +1,59 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:health/health.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/models/gamification.dart';
+import 'package:buddy/providers/health_provider.dart';
+import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/services/tts_service.dart';
 import 'package:buddy/services/tts_cache.dart';
 import 'package:buddy/services/beep_service.dart';
 
-enum _WorkoutPhase { intro, exercise, rest, completed }
+enum _WorkoutPhase {
+  intro,
+  warmup,
+  exercise,
+  rest,
+  paused,
+  cooldown,
+  completed,
+}
+
+enum _SetStatus { pending, completed, skipped }
+
+class _SessionSetLog {
+  _SessionSetLog({
+    required this.exerciseIndex,
+    required this.exerciseName,
+    required this.setNumber,
+    required this.status,
+    this.weightKg,
+    DateTime? loggedAt,
+  }) : loggedAt = loggedAt ?? DateTime.now();
+
+  final int exerciseIndex;
+  final String exerciseName;
+  final int setNumber;
+  _SetStatus status;
+  double? weightKg;
+  DateTime loggedAt;
+
+  Map<String, dynamic> toJson() => {
+    'exerciseIndex': exerciseIndex,
+    'exerciseName': exerciseName,
+    'setNumber': setNumber,
+    'status': status.name,
+    'weightKg': weightKg,
+    'loggedAt': loggedAt.toIso8601String(),
+  };
+}
 
 class ActiveWorkoutPage extends ConsumerStatefulWidget {
   final String dayLabel;
@@ -39,14 +80,36 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
   int _setIndex = 0;
   int _timerSeconds = 0;
   Timer? _timer;
+  VoidCallback? _countdownOnDone;
+  int _countdownTotalSeconds = 0;
   int? _sessionId;
   bool _isMuted = false;
+  _WorkoutPhase? _pausedFromPhase;
+  DateTime? _pausedAt;
+  int _pausedDurationSeconds = 0;
 
   // ── Gamification counters ────────────────────────────────────────────────
   int _completedSets = 0;
-  final int _skippedExercises = 0;
+  int _skippedExercises = 0;
   int _totalRestPeriods = 0;
   int _skippedRests = 0;
+  final List<_SessionSetLog> _setLogs = [];
+  final List<Map<String, dynamic>> _sessionNotes = [];
+  final List<Map<String, dynamic>> _hrSnapshots = [];
+  DateTime? _lastSessionSyncAt;
+
+  late final List<String> _warmupChecklist;
+  late final List<bool> _warmupCompleted;
+  late final List<String> _cooldownChecklist;
+  late final List<bool> _cooldownCompleted;
+  DateTime? _warmupCompletedAt;
+  DateTime? _cooldownCompletedAt;
+
+  final Map<int, TextEditingController> _weightControllers = {};
+  int? _heartRateBpm;
+  int? _previousHeartRateBpm;
+  String _heartRateZone = 'No data';
+  Timer? _heartRateTimer;
 
   // Per-rest discipline tracking (for dots UI): true=honored, false=skipped, null=current
   final List<bool?> _restResults = [];
@@ -74,6 +137,11 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
 
   int _displayXp = 0;
   Timer? _xpCountTimer;
+
+  String get _todayDate {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
 
   @override
   void initState() {
@@ -121,15 +189,27 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       duration: const Duration(milliseconds: 300),
     );
 
-    _startSession();
+    _warmupChecklist = _buildWarmupChecklist();
+    _warmupCompleted = List<bool>.filled(_warmupChecklist.length, false);
+    _cooldownChecklist = _buildCooldownChecklist();
+    _cooldownCompleted = List<bool>.filled(_cooldownChecklist.length, false);
+    for (var i = 0; i < widget.exercises.length; i++) {
+      _weightControllers[i] = TextEditingController();
+    }
+
+    _initializeSession();
+    _startHeartRateSamplingLoop();
     _prewarmTts();
-    _beginIntro();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _heartRateTimer?.cancel();
     _xpCountTimer?.cancel();
+    for (final controller in _weightControllers.values) {
+      controller.dispose();
+    }
     _pulseController.dispose();
     _ringController.dispose();
     _completionFadeCtrl.dispose();
@@ -153,11 +233,476 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     super.dispose();
   }
 
+  Future<void> _initializeSession() async {
+    await _startSession();
+    if (!mounted || _phase == _WorkoutPhase.completed) return;
+    if (_phase == _WorkoutPhase.intro) {
+      await _beginIntro();
+    } else if (_phase == _WorkoutPhase.exercise ||
+        _phase == _WorkoutPhase.rest) {
+      _resumeCountdown();
+      _announceResume();
+    } else if (_phase == _WorkoutPhase.paused) {
+      _announceResume(paused: true);
+    }
+  }
+
   Future<void> _startSession() async {
     try {
-      final res = await ApiClient.startSession(widget.planId, widget.dayId);
-      _sessionId = res['data']?['id'];
+      final res = await ApiClient.startSession(
+        widget.planId,
+        widget.dayId,
+        date: _todayDate,
+      );
+      final data = res['data'];
+      if (data is! Map<String, dynamic>) return;
+      _sessionId = (data['id'] as num?)?.toInt();
+      _hydrateFromSession(data);
     } catch (_) {}
+  }
+
+  void _hydrateFromSession(Map<String, dynamic> session) {
+    if (!mounted) return;
+
+    final setLogsRaw = (session['setLogs'] as List?) ?? const [];
+    _setLogs
+      ..clear()
+      ..addAll(
+        setLogsRaw.whereType<Map>().map((raw) {
+          final map = raw.map((key, value) => MapEntry(key.toString(), value));
+          final statusName = (map['status'] ?? 'pending').toString();
+          final status = _SetStatus.values.firstWhere(
+            (value) => value.name == statusName,
+            orElse: () => _SetStatus.pending,
+          );
+          final loggedAtRaw = map['loggedAt']?.toString();
+          return _SessionSetLog(
+            exerciseIndex: (map['exerciseIndex'] as num?)?.toInt() ?? 0,
+            exerciseName: (map['exerciseName'] ?? 'Exercise').toString(),
+            setNumber: (map['setNumber'] as num?)?.toInt() ?? 1,
+            status: status,
+            weightKg: (map['weightKg'] as num?)?.toDouble(),
+            loggedAt: DateTime.tryParse(loggedAtRaw ?? '') ?? DateTime.now(),
+          );
+        }).toList(),
+      );
+
+    final warmupData =
+        (session['warmupData'] as Map?)?.cast<String, dynamic>() ?? {};
+    final cooldownData =
+        (session['cooldownData'] as Map?)?.cast<String, dynamic>() ?? {};
+
+    final warmupChecks = (warmupData['completed'] as List?) ?? const [];
+    for (var i = 0; i < _warmupCompleted.length; i++) {
+      _warmupCompleted[i] =
+          i < warmupChecks.length &&
+          (warmupChecks[i] == true || warmupChecks[i] == 1);
+    }
+
+    final cooldownChecks = (cooldownData['completed'] as List?) ?? const [];
+    for (var i = 0; i < _cooldownCompleted.length; i++) {
+      _cooldownCompleted[i] =
+          i < cooldownChecks.length &&
+          (cooldownChecks[i] == true || cooldownChecks[i] == 1);
+    }
+
+    _warmupCompletedAt = DateTime.tryParse(
+      (warmupData['completedAt'] ?? '').toString(),
+    );
+    _cooldownCompletedAt = DateTime.tryParse(
+      (cooldownData['completedAt'] ?? '').toString(),
+    );
+
+    final notesRaw = (session['sessionNotes'] as List?) ?? const [];
+    _sessionNotes
+      ..clear()
+      ..addAll(
+        notesRaw
+            .whereType<Map>()
+            .map((raw) => raw.map((k, v) => MapEntry(k.toString(), v)))
+            .toList(),
+      );
+
+    final hrRaw = (session['hrSnapshots'] as List?) ?? const [];
+    _hrSnapshots
+      ..clear()
+      ..addAll(
+        hrRaw
+            .whereType<Map>()
+            .map((raw) => raw.map((k, v) => MapEntry(k.toString(), v)))
+            .toList(),
+      );
+
+    _pausedDurationSeconds =
+        (session['pausedDurationSeconds'] as num?)?.toInt() ?? 0;
+    _completedSets = _setLogs
+        .where((log) => log.status == _SetStatus.completed)
+        .length;
+    _skippedExercises = _computeSkippedExercises();
+
+    final runtime =
+        (warmupData['_runtime'] as Map?)?.cast<String, dynamic>() ?? {};
+    final completedAt = session['completedAt'];
+    if (completedAt != null && completedAt.toString().isNotEmpty) {
+      setState(() {
+        _phase = _WorkoutPhase.completed;
+        _gamificationLoaded = true;
+      });
+      _completionFadeCtrl.value = 1.0;
+      _headerSlideCtrl.value = 1.0;
+      _statsCtrl.value = 1.0;
+      _xpBarCtrl.value = 1.0;
+      _levelPanelCtrl.value = 1.0;
+      _achievementCtrl.value = 1.0;
+      _doneButtonCtrl.value = 1.0;
+      return;
+    }
+
+    if (runtime.isNotEmpty && _restoreRuntime(runtime)) {
+      setState(() {});
+      return;
+    }
+
+    _restoreFallbackFromSetLogs();
+    setState(() {});
+  }
+
+  int _computeSkippedExercises() {
+    var skipped = 0;
+    for (var exIndex = 0; exIndex < widget.exercises.length; exIndex++) {
+      final sets = (widget.exercises[exIndex]['sets'] ?? 3) as int;
+      final allSkipped = List.generate(sets, (i) => i + 1).every((setNumber) {
+        final log = _setLogs.where(
+          (entry) =>
+              entry.exerciseIndex == exIndex && entry.setNumber == setNumber,
+        );
+        return log.isNotEmpty && log.first.status == _SetStatus.skipped;
+      });
+      if (allSkipped) skipped++;
+    }
+    return skipped;
+  }
+
+  bool _restoreRuntime(Map<String, dynamic> runtime) {
+    final phaseName = runtime['phase']?.toString();
+    final restoredPhase = _WorkoutPhase.values.where(
+      (p) => p.name == phaseName,
+    );
+    if (restoredPhase.isEmpty) return false;
+
+    final exIndex = (runtime['exerciseIndex'] as num?)?.toInt() ?? 0;
+    final setIndex = (runtime['setIndex'] as num?)?.toInt() ?? 0;
+    if (widget.exercises.isNotEmpty &&
+        (exIndex < 0 || exIndex >= widget.exercises.length)) {
+      return false;
+    }
+
+    _phase = restoredPhase.first;
+    _exerciseIndex = exIndex
+        .clamp(0, max(0, widget.exercises.length - 1))
+        .toInt();
+    final setsForExercise = widget.exercises.isEmpty
+        ? 1
+        : ((widget.exercises[_exerciseIndex]['sets'] ?? 3) as int);
+    _setIndex = setIndex.clamp(0, max(0, setsForExercise - 1)).toInt();
+    _timerSeconds = ((runtime['timerSeconds'] as num?)?.toInt() ?? 0)
+        .clamp(0, 3600)
+        .toInt();
+    _countdownTotalSeconds =
+        ((runtime['countdownTotalSeconds'] as num?)?.toInt() ?? _timerSeconds)
+            .clamp(0, 3600)
+            .toInt();
+    _totalRestPeriods =
+        (runtime['totalRests'] as num?)?.toInt() ?? _totalRestPeriods;
+    _skippedRests = (runtime['skippedRests'] as num?)?.toInt() ?? _skippedRests;
+
+    final pausedFrom = runtime['pausedFromPhase']?.toString();
+    _pausedFromPhase =
+        _WorkoutPhase.values
+            .where((value) => value.name == pausedFrom)
+            .isNotEmpty
+        ? _WorkoutPhase.values.firstWhere((value) => value.name == pausedFrom)
+        : null;
+    final pausedAtRaw = runtime['pausedAt']?.toString();
+    _pausedAt = pausedAtRaw == null ? null : DateTime.tryParse(pausedAtRaw);
+
+    final rests = (runtime['restResults'] as List?) ?? const [];
+    _restResults
+      ..clear()
+      ..addAll(
+        rests.map((value) {
+          if (value == true) return true;
+          if (value == false) return false;
+          return null;
+        }),
+      );
+
+    _countdownOnDone = _buildCountdownOnDoneForCurrentState();
+    return true;
+  }
+
+  void _restoreFallbackFromSetLogs() {
+    if (_warmupCompletedAt == null ||
+        _warmupCompleted.where((value) => value).length <
+            _warmupCompleted.length) {
+      _phase = _WorkoutPhase.warmup;
+      return;
+    }
+
+    for (var exIndex = 0; exIndex < widget.exercises.length; exIndex++) {
+      final sets = (widget.exercises[exIndex]['sets'] ?? 3) as int;
+      for (var setNum = 1; setNum <= sets; setNum++) {
+        final hasLogged = _setLogs.any(
+          (entry) =>
+              entry.exerciseIndex == exIndex && entry.setNumber == setNum,
+        );
+        if (!hasLogged) {
+          _phase = _WorkoutPhase.exercise;
+          _exerciseIndex = exIndex;
+          _setIndex = setNum - 1;
+          _timerSeconds = 60;
+          _countdownTotalSeconds = 60;
+          _countdownOnDone = _buildCountdownOnDoneForCurrentState();
+          return;
+        }
+      }
+    }
+
+    _phase = _cooldownCompletedAt != null
+        ? _WorkoutPhase.completed
+        : _WorkoutPhase.cooldown;
+  }
+
+  VoidCallback? _buildCountdownOnDoneForCurrentState() {
+    if (_phase == _WorkoutPhase.exercise) {
+      final ex = widget.exercises[_exerciseIndex];
+      final sets = (ex['sets'] ?? 3) as int;
+      final reps = ex['repsOrTime'] ?? ex['reps_or_time'] ?? '10';
+      final isLastSet = _setIndex >= sets - 1;
+      final setText = isLastSet
+          ? 'Last set! '
+          : 'Set ${_setIndex + 1} of $sets. ';
+      return () => _playTTS('${setText}Do $reps reps.');
+    }
+
+    if (_phase == _WorkoutPhase.rest) {
+      return () {
+        setState(() {
+          if (_restResults.isNotEmpty) {
+            _restResults[_restResults.length - 1] = true;
+          }
+        });
+        final ex = widget.exercises[_exerciseIndex];
+        final sets = (ex['sets'] ?? 3) as int;
+        final nextSet = _setIndex + 1;
+        if (nextSet >= sets) {
+          _startExercise(_exerciseIndex + 1, 0);
+        } else {
+          _startExercise(_exerciseIndex, nextSet);
+        }
+      };
+    }
+
+    return null;
+  }
+
+  void _announceResume({bool paused = false}) {
+    if (widget.exercises.isEmpty) return;
+    if (_phase == _WorkoutPhase.warmup) {
+      _playTTS(
+        'Welcome back. Continue your warmup and then start the session.',
+      );
+      return;
+    }
+    if (_phase == _WorkoutPhase.cooldown) {
+      _playTTS(
+        'Welcome back. You are in cooldown. Finish your recovery steps.',
+      );
+      return;
+    }
+
+    final ex = widget.exercises[_exerciseIndex];
+    final name = (ex['name'] ?? 'Exercise').toString();
+    final sets = (ex['sets'] ?? 3) as int;
+    final prefix = paused ? 'Session paused.' : 'Resuming session.';
+    _playTTS('$prefix $name, set ${_setIndex + 1} of $sets.');
+  }
+
+  List<String> _muscleGroupsForDay() {
+    final muscles = <String>{};
+    for (final ex in widget.exercises) {
+      final raw = (ex['muscleGroup'] ?? ex['muscle_group'] ?? '')
+          .toString()
+          .trim();
+      if (raw.isNotEmpty) muscles.add(raw);
+    }
+    return muscles.toList();
+  }
+
+  List<String> _buildWarmupChecklist() {
+    final muscles = _muscleGroupsForDay();
+    final hasLower = muscles.any(
+      (m) =>
+          m.toLowerCase().contains('leg') || m.toLowerCase().contains('glute'),
+    );
+    final hasUpper = muscles.any(
+      (m) =>
+          m.toLowerCase().contains('chest') ||
+          m.toLowerCase().contains('back') ||
+          m.toLowerCase().contains('shoulder'),
+    );
+
+    final items = <String>[
+      '3 min brisk walk or march in place',
+      '2 rounds of light mobility flow',
+    ];
+    if (hasUpper) {
+      items.add('Band pull-aparts + shoulder circles (2 min)');
+    }
+    if (hasLower) {
+      items.add('Hip openers + bodyweight squats (2 min)');
+    }
+    items.add('2 ramp-up sets for your first movement');
+    return items;
+  }
+
+  List<String> _buildCooldownChecklist() {
+    final muscles = _muscleGroupsForDay();
+    final target = 10 + Random().nextInt(11);
+    return [
+      '$target minute cooldown walk and nasal breathing',
+      'Light stretch: ${muscles.isEmpty ? 'full body' : muscles.join(', ')}',
+      'Hydrate and log recovery note',
+    ];
+  }
+
+  Map<String, dynamic> _warmupPayload() => {
+    'items': _warmupChecklist,
+    'completed': _warmupCompleted,
+    'completedAt': _warmupCompletedAt?.toIso8601String(),
+    '_runtime': _runtimePayload(),
+  };
+
+  Map<String, dynamic> _cooldownPayload() => {
+    'items': _cooldownChecklist,
+    'completed': _cooldownCompleted,
+    'completedAt': _cooldownCompletedAt?.toIso8601String(),
+  };
+
+  List<Map<String, dynamic>> _setLogsPayload() =>
+      _setLogs.map((log) => log.toJson()).toList();
+
+  Map<String, dynamic> _runtimePayload() => {
+    'phase': _phase.name,
+    'exerciseIndex': _exerciseIndex,
+    'setIndex': _setIndex,
+    'timerSeconds': _timerSeconds,
+    'countdownTotalSeconds': _countdownTotalSeconds,
+    'totalRests': _totalRestPeriods,
+    'skippedRests': _skippedRests,
+    'restResults': _restResults,
+    'pausedFromPhase': _pausedFromPhase?.name,
+    'pausedAt': _pausedAt?.toIso8601String(),
+  };
+
+  Future<void> _syncSessionLog({bool force = false}) async {
+    if (_sessionId == null) return;
+    final now = DateTime.now();
+    if (!force &&
+        _lastSessionSyncAt != null &&
+        now.difference(_lastSessionSyncAt!).inSeconds < 5) {
+      return;
+    }
+    _lastSessionSyncAt = now;
+    try {
+      await ApiClient.logWorkoutSession(_sessionId!, {
+        'pausedDurationSeconds': _pausedDurationSeconds,
+        'warmupData': _warmupPayload(),
+        'cooldownData': _cooldownPayload(),
+        'setLogs': _setLogsPayload(),
+        'sessionNotes': _sessionNotes,
+        'hrSnapshots': _hrSnapshots,
+      });
+    } catch (_) {}
+  }
+
+  String _currentPhaseName() {
+    switch (_phase) {
+      case _WorkoutPhase.intro:
+        return 'intro';
+      case _WorkoutPhase.warmup:
+        return 'warmup';
+      case _WorkoutPhase.exercise:
+        return 'exercise';
+      case _WorkoutPhase.rest:
+        return 'rest';
+      case _WorkoutPhase.paused:
+        return 'paused';
+      case _WorkoutPhase.cooldown:
+        return 'cooldown';
+      case _WorkoutPhase.completed:
+        return 'completed';
+    }
+  }
+
+  String _resolveHrZone(int bpm) {
+    const max = 190;
+    final pct = bpm / max;
+    if (pct < 0.6) return 'Recovery';
+    if (pct < 0.7) return 'Fat Burn';
+    if (pct < 0.8) return 'Aerobic';
+    if (pct < 0.9) return 'Threshold';
+    return 'Peak';
+  }
+
+  Future<void> _sampleHeartRate() async {
+    try {
+      final hasPermission = await ref.read(healthPermissionProvider.future);
+      if (!hasPermission || !mounted || _phase == _WorkoutPhase.completed) {
+        return;
+      }
+      final health = ref.read(healthProvider);
+      final now = DateTime.now();
+      final start = now.subtract(const Duration(minutes: 5));
+      final data = await health.getHealthDataFromTypes(
+        startTime: start,
+        endTime: now,
+        types: [HealthDataType.HEART_RATE],
+      );
+      if (data.isEmpty) return;
+      data.sort((a, b) => b.dateTo.compareTo(a.dateTo));
+      final value = data.first.value;
+      if (value is! NumericHealthValue) return;
+      final bpm = value.numericValue.toInt();
+      final zone = _resolveHrZone(bpm);
+      if (!mounted) return;
+      setState(() {
+        _previousHeartRateBpm = _heartRateBpm;
+        _heartRateBpm = bpm;
+        _heartRateZone = zone;
+      });
+      _hrSnapshots.add({
+        'bpm': bpm,
+        'zone': zone,
+        'capturedAt': now.toIso8601String(),
+        'phase': _currentPhaseName(),
+      });
+      _syncSessionLog();
+    } catch (_) {}
+  }
+
+  void _scheduleNextHeartRateSample() {
+    _heartRateTimer?.cancel();
+    final seconds = 30 + Random().nextInt(16);
+    _heartRateTimer = Timer(Duration(seconds: seconds), () async {
+      if (!mounted) return;
+      await _sampleHeartRate();
+      _scheduleNextHeartRateSample();
+    });
+  }
+
+  void _startHeartRateSamplingLoop() {
+    _scheduleNextHeartRateSample();
   }
 
   void _prewarmTts() {
@@ -218,6 +763,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
         totalRests: _totalRestPeriods,
         skippedRests: _skippedRests,
         completedSets: _completedSets,
+        pausedDurationSeconds: _pausedDurationSeconds,
+        warmupData: _warmupPayload(),
+        cooldownData: _cooldownPayload(),
+        setLogs: _setLogsPayload(),
+        sessionNotes: _sessionNotes,
+        hrSnapshots: _hrSnapshots,
         dayLabel: widget.dayLabel,
       );
 
@@ -226,6 +777,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       );
       ref.read(sessionGamificationProvider.notifier).set(result);
       ref.invalidate(progressProvider);
+      ref.invalidate(homeDashboardProvider);
+      ref.invalidate(weeklyWorkoutSummaryProvider);
 
       if (mounted) {
         setState(() {
@@ -265,8 +818,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     _xpCountTimer?.cancel();
     _xpCountTimer = Timer.periodic(const Duration(milliseconds: 23), (t) {
       count++;
-      if (mounted)
+      if (mounted) {
         setState(() => _displayXp = (_displayXp + increment).clamp(0, target));
+      }
       if (count >= steps || _displayXp >= target) {
         t.cancel();
         if (mounted) setState(() => _displayXp = target);
@@ -285,6 +839,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
 
   Future<void> _beginIntro() async {
     setState(() => _phase = _WorkoutPhase.intro);
+    _syncSessionLog(force: true);
 
     if (widget.exercises.isEmpty) {
       _finishWorkout();
@@ -300,7 +855,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     );
 
     await Future.delayed(const Duration(seconds: 2));
-    _startExercise(0, 0);
+    if (!mounted) return;
+    setState(() => _phase = _WorkoutPhase.warmup);
+    _syncSessionLog(force: true);
   }
 
   String _formatDurationForSpeech(int totalSeconds) {
@@ -374,7 +931,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
 
   void _startExercise(int exIndex, int setIndex) {
     if (exIndex >= widget.exercises.length) {
-      _finishWorkout();
+      _startCooldown();
       return;
     }
 
@@ -392,9 +949,25 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       _timerSeconds = 60;
     });
 
+    final controller = _weightControllers[exIndex];
+    final previousCompletedSet = _setLogs
+        .where(
+          (log) =>
+              log.exerciseIndex == exIndex &&
+              log.status == _SetStatus.completed &&
+              log.weightKg != null,
+        )
+        .toList();
+    if (controller != null &&
+        controller.text.trim().isEmpty &&
+        previousCompletedSet.isNotEmpty) {
+      controller.text = previousCompletedSet.last.weightKg!.toStringAsFixed(1);
+    }
+
     _startCountdown(60, onDone: () => _playTTS('${setText}Do $reps reps.'));
     _playTTS('$name. ${setText}Do $reps. Go!');
     _prefetchNextStepAudio(exIndex, setIndex, inRest: false);
+    _syncSessionLog(force: true);
   }
 
   void _startRest(int exIndex, int setIndex) {
@@ -431,8 +1004,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       rest,
       onDone: () {
         setState(() {
-          if (_restResults.isNotEmpty)
+          if (_restResults.isNotEmpty) {
             _restResults[_restResults.length - 1] = true;
+          }
         });
         final nextSet = setIndex + 1;
         if (nextSet >= sets) {
@@ -442,10 +1016,13 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
         }
       },
     );
+    _syncSessionLog(force: true);
   }
 
   void _startCountdown(int seconds, {VoidCallback? onDone}) {
     _timer?.cancel();
+    _countdownOnDone = onDone;
+    _countdownTotalSeconds = seconds;
     _timerSeconds = seconds;
     _ringController.reset();
     _ringController.animateTo(1.0, duration: Duration(seconds: seconds));
@@ -476,19 +1053,114 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     });
   }
 
+  void _resumeCountdown() {
+    final remaining = _timerSeconds;
+    if (remaining <= 0) {
+      _countdownOnDone?.call();
+      return;
+    }
+    _timer?.cancel();
+    final base = _countdownTotalSeconds > 0
+        ? _countdownTotalSeconds
+        : remaining;
+    final elapsed = (base - remaining).clamp(0, base);
+    _ringController.value = base == 0 ? 0 : elapsed / base;
+    _ringController.animateTo(1.0, duration: Duration(seconds: remaining));
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      setState(() => _timerSeconds--);
+      if (_phase == _WorkoutPhase.rest) {
+        if (!_beep30Fired && _timerSeconds <= 50 && _timerSeconds > 20) {
+          _beep30Fired = true;
+          HapticFeedback.mediumImpact();
+          BeepService.instance.playWarningBeep();
+        } else if (!_beep10Fired && _timerSeconds <= 20 && _timerSeconds > 0) {
+          _beep10Fired = true;
+          HapticFeedback.heavyImpact();
+          BeepService.instance.playUrgentBeep();
+        }
+      }
+      if (_timerSeconds <= 0) {
+        t.cancel();
+        _countdownOnDone?.call();
+      }
+    });
+  }
+
+  void _pauseSession() {
+    if (_phase != _WorkoutPhase.exercise && _phase != _WorkoutPhase.rest) {
+      return;
+    }
+    _timer?.cancel();
+    _ringController.stop();
+    _pausedAt = DateTime.now();
+    _pausedFromPhase = _phase;
+    setState(() => _phase = _WorkoutPhase.paused);
+    _syncSessionLog(force: true);
+  }
+
+  void _resumeSession() {
+    final pausedFrom = _pausedFromPhase;
+    if (pausedFrom == null) return;
+    if (_pausedAt != null) {
+      _pausedDurationSeconds += DateTime.now().difference(_pausedAt!).inSeconds;
+    }
+    _pausedAt = null;
+    setState(() => _phase = pausedFrom);
+    _resumeCountdown();
+    _syncSessionLog(force: true);
+  }
+
+  void _updateSetLog(_SetStatus status, {double? weightKg}) {
+    final ex = widget.exercises[_exerciseIndex];
+    final existingIndex = _setLogs.indexWhere(
+      (log) =>
+          log.exerciseIndex == _exerciseIndex && log.setNumber == _setIndex + 1,
+    );
+    if (existingIndex >= 0) {
+      _setLogs[existingIndex]
+        ..status = status
+        ..weightKg = weightKg
+        ..loggedAt = DateTime.now();
+    } else {
+      _setLogs.add(
+        _SessionSetLog(
+          exerciseIndex: _exerciseIndex,
+          exerciseName: (ex['name'] ?? 'Exercise').toString(),
+          setNumber: _setIndex + 1,
+          status: status,
+          weightKg: weightKg,
+        ),
+      );
+    }
+  }
+
+  double? _currentWeightInput() {
+    final text = _weightControllers[_exerciseIndex]?.text.trim() ?? '';
+    if (text.isEmpty) return null;
+    return double.tryParse(text);
+  }
+
   // DONE ✓ — exercise completed, increment set count, go to rest
   void _doneExercise() {
     _timer?.cancel();
     _ringController.stop();
+    _updateSetLog(_SetStatus.completed, weightKg: _currentWeightInput());
     setState(() => _completedSets++);
     _startRest(_exerciseIndex, _setIndex);
+    _syncSessionLog(force: true);
   }
 
   // SKIP → (exercise phase) — skip set without counting, go to rest
   void _skipExerciseToRest() {
     _timer?.cancel();
     _ringController.stop();
+    _updateSetLog(_SetStatus.skipped, weightKg: _currentWeightInput());
     _startRest(_exerciseIndex, _setIndex);
+    _syncSessionLog(force: true);
   }
 
   // SKIP REST → (rest phase) — skip rest and go to next
@@ -497,8 +1169,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     _ringController.stop();
     setState(() {
       _skippedRests++;
-      if (_restResults.isNotEmpty)
+      if (_restResults.isNotEmpty) {
         _restResults[_restResults.length - 1] = false;
+      }
     });
     final ex = widget.exercises[_exerciseIndex];
     final sets = (ex['sets'] ?? 3) as int;
@@ -508,15 +1181,185 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     } else {
       _startExercise(_exerciseIndex, nextSet);
     }
+    _syncSessionLog(force: true);
+  }
+
+  Future<void> _skipCurrentExerciseCompletely() async {
+    final shouldSkip = await _confirmAction(
+      title: 'Skip exercise?',
+      body: 'Skip all remaining sets for this exercise.',
+      actionLabel: 'Skip Exercise',
+    );
+    if (!shouldSkip) return;
+
+    _timer?.cancel();
+    _ringController.stop();
+    final ex = widget.exercises[_exerciseIndex];
+    final sets = (ex['sets'] ?? 3) as int;
+    for (var i = _setIndex; i < sets; i++) {
+      final existing = _setLogs.any(
+        (log) => log.exerciseIndex == _exerciseIndex && log.setNumber == i + 1,
+      );
+      if (!existing) {
+        _setLogs.add(
+          _SessionSetLog(
+            exerciseIndex: _exerciseIndex,
+            exerciseName: (ex['name'] ?? 'Exercise').toString(),
+            setNumber: i + 1,
+            status: _SetStatus.skipped,
+            weightKg: _currentWeightInput(),
+          ),
+        );
+      }
+    }
+    setState(() => _skippedExercises++);
+    _syncSessionLog(force: true);
+    _startExercise(_exerciseIndex + 1, 0);
+  }
+
+  void _startCooldown() {
+    _timer?.cancel();
+    setState(() => _phase = _WorkoutPhase.cooldown);
+    _syncSessionLog(force: true);
+  }
+
+  Future<bool> _confirmAction({
+    required String title,
+    required String body,
+    required String actionLabel,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.cardDark,
+        title: Text(
+          title,
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textCream,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          body,
+          style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              actionLabel,
+              style: GoogleFonts.plusJakartaSans(color: AppTheme.accent),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _openNotesSheet() async {
+    var noteText = '';
+    final added = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.cardDark,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Session note',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                maxLines: 4,
+                autofocus: true,
+                onChanged: (value) => noteText = value,
+                style: GoogleFonts.plusJakartaSans(color: AppTheme.textCream),
+                decoration: InputDecoration(
+                  hintText: 'How does this session feel?',
+                  hintStyle: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                  ),
+                  filled: true,
+                  fillColor: AppTheme.backgroundDark,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppTheme.borderDark),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppTheme.borderDark),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (noteText.trim().isEmpty) {
+                      Navigator.pop(context, false);
+                      return;
+                    }
+                    Navigator.pop(context, true);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: AppTheme.backgroundDark,
+                  ),
+                  child: const Text('Save note'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (added == true && noteText.trim().isNotEmpty) {
+      _sessionNotes.add({
+        'text': noteText.trim(),
+        'createdAt': DateTime.now().toIso8601String(),
+        'phase': _currentPhaseName(),
+        'exerciseIndex': _exerciseIndex,
+        'setIndex': _setIndex,
+      });
+      if (mounted) setState(() {});
+      _syncSessionLog(force: true);
+    }
   }
 
   Future<void> _finishWorkout() async {
     setState(() => _phase = _WorkoutPhase.completed);
+    _heartRateTimer?.cancel();
+    await _syncSessionLog(force: true);
     await _playTTS(
       "Incredible work! You've completed your ${widget.dayLabel} workout. "
       "That's how champions are made. Rest up and I'll see you next time!",
     );
     await _completeSessionWithGamification();
+    ref.invalidate(homeDashboardProvider);
+    ref.invalidate(weeklyWorkoutSummaryProvider);
   }
 
   @override
@@ -549,6 +1392,34 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               ? _buildCompletedView()
               : _phase == _WorkoutPhase.intro
               ? _buildIntroView()
+              : _phase == _WorkoutPhase.warmup
+              ? _buildChecklistPhase(
+                  title: 'Warmup',
+                  subtitle: 'Prep muscles and raise core temperature',
+                  items: _warmupChecklist,
+                  checks: _warmupCompleted,
+                  cta: 'Start Workout',
+                  onDone: () {
+                    _warmupCompletedAt = DateTime.now();
+                    _syncSessionLog(force: true);
+                    _startExercise(0, 0);
+                  },
+                )
+              : _phase == _WorkoutPhase.cooldown
+              ? _buildChecklistPhase(
+                  title: 'Cooldown',
+                  subtitle: 'Bring heart rate down and recover',
+                  items: _cooldownChecklist,
+                  checks: _cooldownCompleted,
+                  cta: 'Finish Session',
+                  onDone: () {
+                    _cooldownCompletedAt = DateTime.now();
+                    _syncSessionLog(force: true);
+                    _finishWorkout();
+                  },
+                )
+              : _phase == _WorkoutPhase.paused
+              ? _buildPausedView()
               : _buildActiveView(streak),
         ],
       ),
@@ -609,6 +1480,178 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     );
   }
 
+  Widget _buildChecklistPhase({
+    required String title,
+    required String subtitle,
+    required List<String> items,
+    required List<bool> checks,
+    required String cta,
+    required VoidCallback onDone,
+  }) {
+    final completed = checks.where((v) => v).length;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, kToolbarHeight + 20, 24, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: GoogleFonts.crimsonPro(
+              color: AppTheme.textCream,
+              fontSize: 30,
+              fontWeight: FontWeight.w600,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$completed/${items.length} blocks complete',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: ListView.separated(
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => InkWell(
+                onTap: () {
+                  setState(() => checks[i] = !checks[i]);
+                  _syncSessionLog(force: true);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardDark,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: checks[i] ? AppTheme.primary : AppTheme.borderDark,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        checks[i] ? LucideIcons.check : LucideIcons.circle,
+                        color: checks[i]
+                            ? AppTheme.primary
+                            : AppTheme.textSageMuted,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          items[i],
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textCream,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onDone,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: AppTheme.primary,
+                foregroundColor: AppTheme.backgroundDark,
+              ),
+              child: Text(
+                cta,
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPausedView() {
+    final ex = widget.exercises[_exerciseIndex];
+    final name = (ex['name'] ?? 'Exercise').toString();
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.borderDark),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(LucideIcons.pause, color: AppTheme.accent, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                'Workout Paused',
+                style: GoogleFonts.crimsonPro(
+                  color: AppTheme.textCream,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w600,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '$name • set ${_setIndex + 1}',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _resumeSession,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: AppTheme.backgroundDark,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    'Resume Session',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActiveView(int streak) {
     if (widget.exercises.isEmpty) return const SizedBox();
 
@@ -618,337 +1661,667 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     final sets = (ex['sets'] ?? 3) as int;
     final reps = ex['repsOrTime'] ?? ex['reps_or_time'] ?? '10';
     final isRest = _phase == _WorkoutPhase.rest;
+    final completedForExercise = _setLogs
+        .where(
+          (log) =>
+              log.exerciseIndex == _exerciseIndex &&
+              log.status == _SetStatus.completed,
+        )
+        .length;
+    final hrTrendIcon = _heartRateBpm == null || _previousHeartRateBpm == null
+        ? LucideIcons.minus
+        : _heartRateBpm! > _previousHeartRateBpm!
+        ? LucideIcons.trending_up
+        : _heartRateBpm! < _previousHeartRateBpm!
+        ? LucideIcons.trending_down
+        : LucideIcons.minus;
 
-    return Column(
-      children: [
-        // Header
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, kToolbarHeight, 24, 0),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.borderDark),
-                  ),
-                  child: const Icon(
-                    LucideIcons.x,
-                    color: AppTheme.textSageMuted,
-                    size: 18,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              if (streak >= 3)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.xpGold.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppTheme.xpGold.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        LucideIcons.flame,
-                        color: AppTheme.xpGold,
-                        size: 14,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: keyboardInset),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        24,
+                        kToolbarHeight,
+                        24,
+                        0,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$streak',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.xpGold,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardDark,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppTheme.borderDark),
+                              ),
+                              child: const Icon(
+                                LucideIcons.x,
+                                color: AppTheme.textSageMuted,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (streak >= 3)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.xpGold.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: AppTheme.xpGold.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    LucideIcons.flame,
+                                    color: AppTheme.xpGold,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$streak',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.xpGold,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Text(
+                              '${_exerciseIndex + 1} / ${widget.exercises.length}',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textSageMuted,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() => _isMuted = !_isMuted);
+                              if (_isMuted) TtsService.instance.stop();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardDark,
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(
+                                  color: _isMuted
+                                      ? AppTheme.borderDark
+                                      : AppTheme.primary,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _isMuted
+                                        ? LucideIcons.volume_x
+                                        : LucideIcons.volume_2,
+                                    color: _isMuted
+                                        ? AppTheme.textSageMuted
+                                        : AppTheme.primary,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _isMuted ? 'Muted' : 'Voice On',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: _isMuted
+                                          ? AppTheme.textSageMuted
+                                          : AppTheme.primary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                )
-              else
-                Text(
-                  '${_exerciseIndex + 1} / ${widget.exercises.length}',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  setState(() => _isMuted = !_isMuted);
-                  if (_isMuted) TtsService.instance.stop();
-                },
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: const BoxDecoration(shape: BoxShape.circle),
-                  child: Icon(
-                    _isMuted ? LucideIcons.volume_x : LucideIcons.volume_2,
-                    color: _isMuted ? AppTheme.textSageMuted : AppTheme.primary,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const Spacer(),
-
-        // Phase indicator
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            color: isRest
-                ? AppTheme.accent.withValues(alpha: 0.15)
-                : AppTheme.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            isRest ? 'REST' : 'SET ${_setIndex + 1} OF $sets',
-            style: GoogleFonts.plusJakartaSans(
-              color: isRest ? AppTheme.accent : AppTheme.primary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Timer ring
-        SizedBox(
-          width: 200,
-          height: 200,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedBuilder(
-                animation: _ringController,
-                builder: (_, _) => SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: CircularProgressIndicator(
-                    value: isRest
-                        ? (_timerSeconds /
-                              ((ex['restSeconds'] ?? ex['rest_seconds'] ?? 60)
-                                  as int))
-                        : null,
-                    strokeWidth: 5,
-                    backgroundColor: AppTheme.borderDark,
-                    color: isRest ? AppTheme.accent : AppTheme.primary,
-                    strokeCap: StrokeCap.round,
-                  ),
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _timerSeconds > 0 ? '$_timerSeconds' : '0',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
-                      fontSize: 64,
-                      fontWeight: FontWeight.w200,
-                      letterSpacing: -2,
                     ),
-                  ),
-                  Text(
-                    'seconds',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 11,
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: _pauseSession,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardDark,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppTheme.borderDark,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.pause,
+                                      color: AppTheme.textCream,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Pause',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textCream,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardDark,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppTheme.borderDark),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    hrTrendIcon,
+                                    color: AppTheme.accent,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      _heartRateBpm == null
+                                          ? 'HR unavailable'
+                                          : '$_heartRateBpm bpm • $_heartRateZone',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textCream,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: _openNotesSheet,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardDark,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppTheme.borderDark),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    LucideIcons.notebook_pen,
+                                    color: AppTheme.textCream,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _sessionNotes.isEmpty
+                                        ? 'Notes'
+                                        : 'Notes ${_sessionNotes.length}',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.textCream,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 28),
-
-        // Content
-        if (!isRest) ...[
-          Text(
-            name,
-            style: GoogleFonts.crimsonPro(
-              color: AppTheme.textCream,
-              fontSize: 36,
-              fontWeight: FontWeight.w600,
-              fontStyle: FontStyle.italic,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '$reps reps',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (muscle.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.cardDark,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.borderDark),
-              ),
-              child: Text(
-                muscle.toUpperCase(),
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ),
-          ],
-        ] else ...[
-          Text(
-            'Rest',
-            style: GoogleFonts.crimsonPro(
-              color: AppTheme.textCream,
-              fontSize: 36,
-              fontWeight: FontWeight.w600,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Recovery time — breathe',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 13,
-            ),
-          ),
-          // Discipline dots
-          if (_totalRestPeriods > 0) ...[
-            const SizedBox(height: 10),
-            _buildDisciplineDots(),
-          ],
-          // Next exercise preview
-          if (_exerciseIndex + 1 < widget.exercises.length) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.cardDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderDark),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'NEXT UP',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.exercises[_exerciseIndex + 1]['name'] ?? '',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-
-        const Spacer(),
-
-        // Action buttons
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, kToolbarHeight, 24, 32),
-          child: Row(
-            children: [
-              if (!isRest) ...[
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _doneExercise,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    const Spacer(),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppTheme.cardDark,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppTheme.borderDark),
+                        color: isRest
+                            ? AppTheme.accent.withValues(alpha: 0.15)
+                            : AppTheme.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      alignment: Alignment.center,
                       child: Text(
-                        'DONE ✓',
+                        isRest ? 'REST' : 'SET ${_setIndex + 1} OF $sets',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
+                          color: isRest ? AppTheme.accent : AppTheme.primary,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 1.5,
+                          letterSpacing: 2,
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: GestureDetector(
-                  onTap: isRest ? _skipRest : _skipExerciseToRest,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppTheme.primary, AppTheme.accent],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          AnimatedBuilder(
+                            animation: _ringController,
+                            builder: (_, _) => SizedBox(
+                              width: 200,
+                              height: 200,
+                              child: CircularProgressIndicator(
+                                value: isRest
+                                    ? (_timerSeconds /
+                                          ((ex['restSeconds'] ??
+                                                  ex['rest_seconds'] ??
+                                                  60)
+                                              as int))
+                                    : null,
+                                strokeWidth: 5,
+                                backgroundColor: AppTheme.borderDark,
+                                color: isRest
+                                    ? AppTheme.accent
+                                    : AppTheme.primary,
+                                strokeCap: StrokeCap.round,
+                              ),
+                            ),
+                          ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _timerSeconds > 0 ? '$_timerSeconds' : '0',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textCream,
+                                  fontSize: 64,
+                                  fontWeight: FontWeight.w200,
+                                  letterSpacing: -2,
+                                ),
+                              ),
+                              Text(
+                                'seconds',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textSageMuted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                    ),
+                    const SizedBox(height: 28),
+                    if (!isRest) ...[
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.crimsonPro(
+                          color: AppTheme.textCream,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$reps reps',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.primary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (muscle.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardDark,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppTheme.borderDark),
+                          ),
+                          child: Text(
+                            muscle.toUpperCase(),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                       ],
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      isRest ? 'SKIP REST →' : 'SKIP →',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.backgroundDark,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
+                      const SizedBox(height: 12),
+                      _buildSetProgressDots(sets),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: TextField(
+                          controller: _weightControllers[_exerciseIndex],
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (_) => _syncSessionLog(force: true),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textCream,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Set weight (kg)',
+                            labelStyle: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                            ),
+                            prefixIcon: const Icon(
+                              LucideIcons.dumbbell,
+                              color: AppTheme.textSageMuted,
+                              size: 16,
+                            ),
+                            filled: true,
+                            fillColor: AppTheme.cardDark,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: AppTheme.borderDark,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: AppTheme.borderDark,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      Text(
+                        'Rest',
+                        style: GoogleFonts.crimsonPro(
+                          color: AppTheme.textCream,
+                          fontSize: 36,
+                          fontWeight: FontWeight.w600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Recovery time — breathe',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (_totalRestPeriods > 0) ...[
+                        const SizedBox(height: 10),
+                        _buildDisciplineDots(),
+                      ],
+                      const SizedBox(height: 8),
+                      Text(
+                        'Completed $completedForExercise/$sets sets',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (_exerciseIndex + 1 < widget.exercises.length) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardDark,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.borderDark),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'NEXT UP',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textSageMuted,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                widget.exercises[_exerciseIndex + 1]['name'] ??
+                                    '',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textCream,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        24,
+                        kToolbarHeight,
+                        24,
+                        32,
+                      ),
+                      child: Row(
+                        children: [
+                          if (!isRest) ...[
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _doneExercise,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardDark,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: AppTheme.borderDark,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'DONE ✓',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.textCream,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () async {
+                                final confirmed = await _confirmAction(
+                                  title: isRest
+                                      ? 'Skip rest?'
+                                      : 'Skip this set?',
+                                  body: isRest
+                                      ? 'Jump immediately to the next set.'
+                                      : 'This set will be logged as skipped.',
+                                  actionLabel: isRest
+                                      ? 'Skip Rest'
+                                      : 'Skip Set',
+                                );
+                                if (!confirmed) return;
+                                isRest ? _skipRest() : _skipExerciseToRest();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [AppTheme.primary, AppTheme.accent],
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.primary.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  isRest ? 'SKIP REST →' : 'SKIP SET →',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.backgroundDark,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _skipCurrentExerciseCompletely,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: AppTheme.accent.withValues(alpha: 0.6),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(
+                            'SKIP EXERCISE',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.accent,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSetProgressDots(int sets) {
+    return Wrap(
+      spacing: 8,
+      alignment: WrapAlignment.center,
+      children: List.generate(sets, (i) {
+        final log = _setLogs.where(
+          (entry) =>
+              entry.exerciseIndex == _exerciseIndex && entry.setNumber == i + 1,
+        );
+        final status = log.isEmpty ? _SetStatus.pending : log.first.status;
+        final isCurrent = i == _setIndex && _phase == _WorkoutPhase.exercise;
+        final icon = switch (status) {
+          _SetStatus.completed => LucideIcons.check,
+          _SetStatus.skipped => LucideIcons.x,
+          _SetStatus.pending => LucideIcons.circle,
+        };
+        final color = switch (status) {
+          _SetStatus.completed => AppTheme.primary,
+          _SetStatus.skipped => AppTheme.accent,
+          _SetStatus.pending =>
+            isCurrent
+                ? AppTheme.textCream
+                : AppTheme.textSageMuted.withValues(alpha: 0.5),
+        };
+        return Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withValues(alpha: 0.9)),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: color, size: 14),
+        );
+      }),
     );
   }
 

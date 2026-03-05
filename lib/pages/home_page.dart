@@ -207,6 +207,10 @@ class _QuickActionsRow extends ConsumerWidget {
         ? 'Workout plan'
         : workoutSummary.isRestDay
         ? 'Recover & recharge'
+        : workoutSummary.isCompletedToday
+        ? 'Completed today'
+        : workoutSummary.hasInProgressSession
+        ? 'Resume today\'s session'
         : '${workoutSummary.exerciseCount} exercises';
 
     return Padding(
@@ -314,6 +318,8 @@ class _AgendaCard extends ConsumerWidget {
                   label: workoutLabel,
                   trailing: workout?.isCompletedToday == true
                       ? 'Done'
+                      : workout?.hasInProgressSession == true
+                      ? 'In progress'
                       : 'Pending',
                 ),
                 const SizedBox(height: 8),

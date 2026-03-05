@@ -57,6 +57,20 @@
       "when": 1772723687688,
       "tag": "0007_thin_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1772733422737,
+      "tag": "0008_nostalgic_the_anarchist",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1772734289279,
+      "tag": "0009_blue_jack_flag",
+      "breakpoints": true
     }
   ]
 }

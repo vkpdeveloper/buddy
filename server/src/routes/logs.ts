@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { and, desc, eq, gte, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../db';
 import {
     dailyLogs,
@@ -70,8 +70,9 @@ router.get('/home-summary/:date', async (c) => {
                 .limit(1);
 
             if (dietDay) {
-                const meals = await db.select().from(dietMeals).where(eq(dietMeals.dayId, dietDay.id));
-                meals.sort((a, b) => (mealTypeOrder[a.mealType] ?? 99) - (mealTypeOrder[b.mealType] ?? 99));
+                const meals = await db.select().from(dietMeals)
+                    .where(eq(dietMeals.dayId, dietDay.id))
+                    .orderBy(asc(dietMeals.orderIndex));
 
                 const logs = await db.select().from(dietMealLogs).where(eq(dietMealLogs.date, date));
                 const logMap = new Map(logs.map((l) => [l.mealId, l.isCompleted]));
@@ -98,6 +99,7 @@ router.get('/home-summary/:date', async (c) => {
             isRestDay: boolean;
             exerciseCount: number;
             isCompletedToday: boolean;
+            hasInProgressSession: boolean;
         } = null;
 
         if (activeWorkoutPlan) {
@@ -106,15 +108,14 @@ router.get('/home-summary/:date', async (c) => {
                 .limit(1);
 
             if (workoutDay) {
-                const dayStart = new Date(`${date}T00:00:00.000Z`).toISOString();
-                const dayEnd = new Date(`${date}T23:59:59.999Z`).toISOString();
                 const sessionsToday = await db.select().from(workoutSessions).where(and(
+                    eq(workoutSessions.planId, activeWorkoutPlan.id),
                     eq(workoutSessions.dayId, workoutDay.id),
-                    gte(workoutSessions.completedAt, dayStart),
-                    lt(workoutSessions.completedAt, dayEnd),
+                    sql`date(${workoutSessions.startedAt}) = ${date}`,
                 ));
 
                 const completedSession = sessionsToday.find((s) => !!s.completedAt);
+                const inProgressSession = sessionsToday.find((s) => !s.completedAt);
                 const exercisesCount = workoutDay.isRestDay
                     ? 0
                     : (await db.select().from(workoutExercises).where(eq(workoutExercises.dayId, workoutDay.id))).length;
@@ -125,6 +126,7 @@ router.get('/home-summary/:date', async (c) => {
                     isRestDay: workoutDay.isRestDay,
                     exerciseCount: exercisesCount,
                     isCompletedToday: !!completedSession,
+                    hasInProgressSession: !!inProgressSession,
                 };
             }
         }

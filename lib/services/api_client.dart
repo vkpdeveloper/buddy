@@ -115,6 +115,18 @@ class ApiClient {
     return _decode(res);
   }
 
+  static Future<Map<String, dynamic>> logActualMeal(
+    String date,
+    Map<String, dynamic> data,
+  ) async {
+    final res = await _client.put(
+      Uri.parse('$baseUrl/api/diet/log/$date/actual'),
+      headers: _headers,
+      body: jsonEncode(data),
+    );
+    return _decode(res);
+  }
+
   static Future<Map<String, dynamic>> updateDietDay(
     int id,
     Map<String, dynamic> data,
@@ -123,6 +135,18 @@ class ApiClient {
       Uri.parse('$baseUrl/api/diet/days/$id'),
       headers: _headers,
       body: jsonEncode(data),
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> reorderDietMeals(
+    int dayId,
+    List<int> mealIds,
+  ) async {
+    final res = await _client.put(
+      Uri.parse('$baseUrl/api/diet/days/$dayId/reorder'),
+      headers: _headers,
+      body: jsonEncode({'mealIds': mealIds}),
     );
     return _decode(res);
   }
@@ -183,12 +207,45 @@ class ApiClient {
 
   static Future<Map<String, dynamic>> startSession(
     int planId,
-    int dayId,
-  ) async {
+    int dayId, {
+    String? date,
+  }) async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/workout/sessions'),
       headers: _headers,
-      body: jsonEncode({'planId': planId, 'dayId': dayId}),
+      body: jsonEncode({'planId': planId, 'dayId': dayId, 'date': date}),
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getTodayWorkoutSessionStatus(
+    int planId,
+    int dayId, {
+    required String date,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/workout/sessions/today').replace(
+      queryParameters: {'planId': '$planId', 'dayId': '$dayId', 'date': date},
+    );
+    final res = await _client.get(uri, headers: _headers);
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getWorkoutSession(int id) async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/workout/sessions/$id'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> logWorkoutSession(
+    int id,
+    Map<String, dynamic> data,
+  ) async {
+    final res = await _client.put(
+      Uri.parse('$baseUrl/api/workout/sessions/$id/log'),
+      headers: _headers,
+      body: jsonEncode(data),
     );
     return _decode(res);
   }
@@ -216,6 +273,12 @@ class ApiClient {
     required int totalRests,
     required int skippedRests,
     required int completedSets,
+    int? pausedDurationSeconds,
+    Map<String, dynamic>? warmupData,
+    Map<String, dynamic>? cooldownData,
+    List<Map<String, dynamic>>? setLogs,
+    List<Map<String, dynamic>>? sessionNotes,
+    List<Map<String, dynamic>>? hrSnapshots,
     String? dayLabel,
   }) async {
     final res = await _client.put(
@@ -228,6 +291,12 @@ class ApiClient {
         'totalRests': totalRests,
         'skippedRests': skippedRests,
         'completedSets': completedSets,
+        'pausedDurationSeconds': pausedDurationSeconds,
+        'warmupData': warmupData,
+        'cooldownData': cooldownData,
+        'setLogs': setLogs,
+        'sessionNotes': sessionNotes,
+        'hrSnapshots': hrSnapshots,
         'dayLabel': dayLabel,
       }),
     );

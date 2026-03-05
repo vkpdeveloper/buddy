@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { and, eq, gte, lt } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lt, sql } from 'drizzle-orm';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import { env } from '../lib/env';
@@ -12,6 +12,35 @@ import { ensureUserProgress } from './progress';
 
 const router = new Hono();
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
+
+const safeParseArray = (value: string | null | undefined): any[] => {
+    if (!value) return [];
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+const safeParseObject = (value: string | null | undefined): Record<string, unknown> => {
+    if (!value) return {};
+    try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+};
+
+const sessionWithParsedPayload = (session: typeof workoutSessions.$inferSelect) => ({
+    ...session,
+    warmupData: safeParseObject(session.warmupData),
+    cooldownData: safeParseObject(session.cooldownData),
+    setLogs: safeParseArray(session.setLogs),
+    sessionNotes: safeParseArray(session.sessionNotes),
+    hrSnapshots: safeParseArray(session.hrSnapshots),
+});
 
 const CYCLE_TEMPLATES: Record<string, { days: { label: string; isRest: boolean }[] }> = {
     ppl: {
@@ -310,11 +339,97 @@ router.put('/exercises/:id', zValidator('json', z.object({
 router.post('/sessions', zValidator('json', z.object({
     planId: z.number().int(),
     dayId: z.number().int(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })), async (c) => {
     try {
-        const { planId, dayId } = c.req.valid('json');
+        const { planId, dayId, date } = c.req.valid('json');
+        const targetDate = date ?? new Date().toISOString().slice(0, 10);
+
+        const [existing] = await db.select().from(workoutSessions)
+            .where(and(
+                eq(workoutSessions.planId, planId),
+                eq(workoutSessions.dayId, dayId),
+                sql`date(${workoutSessions.startedAt}) = ${targetDate}`,
+            ))
+            .orderBy(desc(workoutSessions.id))
+            .limit(1);
+
+        if (existing) {
+            return c.json({
+                success: true,
+                data: {
+                    ...sessionWithParsedPayload(existing),
+                    status: existing.completedAt ? 'completed' : 'in_progress',
+                },
+            });
+        }
+
         const [session] = await db.insert(workoutSessions).values({ planId, dayId }).returning();
-        return c.json({ success: true, data: session });
+        return c.json({
+            success: true,
+            data: {
+                ...sessionWithParsedPayload(session),
+                status: 'new',
+            },
+        });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── GET /api/workout/sessions/today ────────────────────────────────────────
+router.get('/sessions/today', async (c) => {
+    try {
+        const planId = Number(c.req.query('planId'));
+        const dayId = Number(c.req.query('dayId'));
+        const date = c.req.query('date') ?? new Date().toISOString().slice(0, 10);
+
+        if (!Number.isInteger(planId) || !Number.isInteger(dayId)) {
+            return c.json({ success: false, error: 'planId and dayId are required integers' }, 400);
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return c.json({ success: false, error: 'date must be YYYY-MM-DD' }, 400);
+        }
+
+        const [session] = await db.select().from(workoutSessions)
+            .where(and(
+                eq(workoutSessions.planId, planId),
+                eq(workoutSessions.dayId, dayId),
+                sql`date(${workoutSessions.startedAt}) = ${date}`,
+            ))
+            .orderBy(desc(workoutSessions.id))
+            .limit(1);
+
+        if (!session) {
+            return c.json({
+                success: true,
+                data: {
+                    status: 'none',
+                    session: null,
+                },
+            });
+        }
+
+        return c.json({
+            success: true,
+            data: {
+                status: session.completedAt ? 'completed' : 'in_progress',
+                session: sessionWithParsedPayload(session),
+            },
+        });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── GET /api/workout/sessions/:id ───────────────────────────────────────────
+router.get('/sessions/:id', async (c) => {
+    try {
+        const id = parseInt(c.req.param('id'));
+        const [session] = await db.select().from(workoutSessions).where(eq(workoutSessions.id, id)).limit(1);
+        if (!session) return c.json({ success: false, error: 'Session not found' }, 404);
+
+        return c.json({ success: true, data: sessionWithParsedPayload(session) });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
     }
@@ -335,6 +450,40 @@ router.put('/sessions/:id', zValidator('json', z.object({
     }
 });
 
+// ─── PUT /api/workout/sessions/:id/log ───────────────────────────────────────
+router.put('/sessions/:id/log', zValidator('json', z.object({
+    pausedDurationSeconds: z.number().int().min(0).optional(),
+    warmupData: z.record(z.string(), z.any()).optional(),
+    cooldownData: z.record(z.string(), z.any()).optional(),
+    setLogs: z.array(z.record(z.string(), z.any())).optional(),
+    sessionNotes: z.array(z.record(z.string(), z.any())).optional(),
+    hrSnapshots: z.array(z.record(z.string(), z.any())).optional(),
+})), async (c) => {
+    try {
+        const id = parseInt(c.req.param('id'));
+        const body = c.req.valid('json');
+        const [existing] = await db.select().from(workoutSessions).where(and(
+            eq(workoutSessions.id, id),
+            isNull(workoutSessions.completedAt),
+        )).limit(1);
+        if (!existing) return c.json({ success: false, error: 'Session not found' }, 404);
+
+        const updatePayload: Record<string, unknown> = {};
+        if (body.pausedDurationSeconds !== undefined) updatePayload.pausedDurationSeconds = body.pausedDurationSeconds;
+        if (body.warmupData !== undefined) updatePayload.warmupData = JSON.stringify(body.warmupData);
+        if (body.cooldownData !== undefined) updatePayload.cooldownData = JSON.stringify(body.cooldownData);
+        if (body.setLogs !== undefined) updatePayload.setLogs = JSON.stringify(body.setLogs);
+        if (body.sessionNotes !== undefined) updatePayload.sessionNotes = JSON.stringify(body.sessionNotes);
+        if (body.hrSnapshots !== undefined) updatePayload.hrSnapshots = JSON.stringify(body.hrSnapshots);
+
+        const [updated] = await db.update(workoutSessions).set(updatePayload).where(eq(workoutSessions.id, id)).returning();
+
+        return c.json({ success: true, data: sessionWithParsedPayload(updated) });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
 // ─── PUT /api/workout/sessions/:id/complete ──────────────────────────────────
 router.put('/sessions/:id/complete', zValidator('json', z.object({
     totalDurationSeconds: z.number().int(),
@@ -343,6 +492,12 @@ router.put('/sessions/:id/complete', zValidator('json', z.object({
     totalRests: z.number().int(),
     skippedRests: z.number().int(),
     completedSets: z.number().int(),
+    pausedDurationSeconds: z.number().int().min(0).optional(),
+    warmupData: z.record(z.string(), z.any()).optional(),
+    cooldownData: z.record(z.string(), z.any()).optional(),
+    setLogs: z.array(z.record(z.string(), z.any())).optional(),
+    sessionNotes: z.array(z.record(z.string(), z.any())).optional(),
+    hrSnapshots: z.array(z.record(z.string(), z.any())).optional(),
     dayLabel: z.string().optional(),
 })), async (c) => {
     try {
@@ -425,6 +580,12 @@ router.put('/sessions/:id/complete', zValidator('json', z.object({
             completedExercises: body.completedExercises,
             totalRests: body.totalRests,
             skippedRests: body.skippedRests,
+            pausedDurationSeconds: body.pausedDurationSeconds ?? 0,
+            warmupData: JSON.stringify(body.warmupData ?? {}),
+            cooldownData: JSON.stringify(body.cooldownData ?? {}),
+            setLogs: JSON.stringify(body.setLogs ?? []),
+            sessionNotes: JSON.stringify(body.sessionNotes ?? []),
+            hrSnapshots: JSON.stringify(body.hrSnapshots ?? []),
             xpEarned: breakdown.total,
         }).where(eq(workoutSessions.id, sessionId));
 
