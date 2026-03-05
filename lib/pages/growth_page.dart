@@ -340,7 +340,6 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                             onEdit: () => _showGoalEditSheet(overview.goals),
                           ),
                           const SizedBox(height: 20),
-                          const _HistoryTimeline(),
                         ],
                       ),
                     );
@@ -655,7 +654,7 @@ class _MetricGrid extends StatelessWidget {
                         letterSpacing: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       metric.latestValue == null
                           ? '—'
@@ -666,7 +665,7 @@ class _MetricGrid extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -694,12 +693,12 @@ class _MetricGrid extends StatelessWidget {
                     const Spacer(),
                     if (metric.sparkline.length >= 2)
                       SizedBox(
-                        height: 24,
+                        width: double.infinity,
+                        height: 20,
                         child: CustomPaint(
                           painter: _SparklinePainter(
                             metric.sparkline.map((e) => e.value).toList(),
                           ),
-                          size: Size.infinite,
                         ),
                       ),
                   ],
@@ -760,6 +759,13 @@ class _PhotoCompareCard extends StatefulWidget {
 class _PhotoCompareCardState extends State<_PhotoCompareCard> {
   double _slider = 0.5;
 
+  void _updateSlider(Offset localPosition, double width) {
+    if (width <= 0) return;
+    setState(() {
+      _slider = (localPosition.dx / width).clamp(0.0, 1.0);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -801,47 +807,86 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
-                      return Stack(
-                        children: [
-                          Positioned.fill(
-                            child: Image.network(
-                              widget.firstPhoto!.imageUrl,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: ClipRect(
-                              clipper: _HorizontalRevealClipper(_slider),
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (details) =>
+                            _updateSlider(details.localPosition, width),
+                        onHorizontalDragStart: (details) =>
+                            _updateSlider(details.localPosition, width),
+                        onHorizontalDragUpdate: (details) =>
+                            _updateSlider(details.localPosition, width),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
                               child: Image.network(
-                                widget.latestPhoto!.imageUrl,
+                                widget.firstPhoto!.imageUrl,
                                 fit: BoxFit.cover,
                               ),
                             ),
-                          ),
-                          Positioned(
-                            left: _slider * width - 1,
-                            top: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 2,
-                              color: AppTheme.textCream.withValues(alpha: 0.8),
+                            Positioned.fill(
+                              child: ClipRect(
+                                clipper: _HorizontalRevealClipper(_slider),
+                                child: Image.network(
+                                  widget.latestPhoto!.imageUrl,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                            Positioned(
+                              left: _slider * width - 1,
+                              top: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 2,
+                                color: AppTheme.textCream.withValues(
+                                  alpha: 0.8,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: _slider * width - 14,
+                              top: (190 / 2) - 14,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardDark.withValues(
+                                    alpha: 0.92,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: AppTheme.textCream.withValues(
+                                      alpha: 0.85,
+                                    ),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.28,
+                                      ),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.drag_indicator_rounded,
+                                  size: 16,
+                                  color: AppTheme.textCream.withValues(
+                                    alpha: 0.9,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       );
                     },
                   ),
                 ),
               ),
             if (widget.firstPhoto != null && widget.latestPhoto != null) ...[
-              Slider(
-                value: _slider,
-                min: 0,
-                max: 1,
-                activeColor: AppTheme.primary,
-                inactiveColor: AppTheme.borderDark,
-                onChanged: (v) => setState(() => _slider = v),
-              ),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Text(
@@ -1090,14 +1135,15 @@ class _CompositionCard extends StatelessWidget {
                   ),
                   child: Stack(
                     children: [
-                      CustomPaint(
-                        painter: _CompositionChartPainter(
-                          first: fatSeries,
-                          second: leanSeries,
-                          firstColor: AppTheme.warning,
-                          secondColor: AppTheme.info,
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _CompositionChartPainter(
+                            first: fatSeries,
+                            second: leanSeries,
+                            firstColor: AppTheme.warning,
+                            secondColor: AppTheme.info,
+                          ),
                         ),
-                        size: Size.infinite,
                       ),
                       Positioned(
                         top: 8,
@@ -1266,10 +1312,15 @@ class _GoalsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasGoal =
+        goals.weightGoalKg != null || goals.bodyFatGoalPercent != null;
+    final hasCheckIn =
+        goals.currentWeightKg != null || goals.currentBodyFatPercent != null;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppTheme.cardDark,
           borderRadius: BorderRadius.circular(16),
@@ -1281,78 +1332,105 @@ class _GoalsCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'GOALS',
+                  'Goals',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
-                    fontSize: 10,
+                    color: AppTheme.textCream,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1.4,
                   ),
                 ),
                 const Spacer(),
-                GestureDetector(
-                  onTap: onEdit,
-                  child: Text(
-                    'EDIT',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                TextButton(
+                  onPressed: onEdit,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    hasGoal ? 'Edit' : 'Set',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 6),
+            Text(
+              _summary(hasGoal: hasGoal, hasCheckIn: hasCheckIn),
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 10.5,
+              ),
+            ),
             const SizedBox(height: 10),
-            _GoalRow(
+            _GoalCompactRow(
               title: 'Weight Goal',
-              current: goals.currentWeightKg == null
-                  ? '—'
-                  : '${goals.currentWeightKg!.toStringAsFixed(1)} kg',
-              target: goals.weightGoalKg == null
-                  ? '—'
-                  : '${goals.weightGoalKg!.toStringAsFixed(1)} kg',
-              remaining: goals.weightRemainingKg == null
-                  ? '—'
-                  : '${goals.weightRemainingKg!.toStringAsFixed(1)} kg',
+              current: goals.currentWeightKg,
+              target: goals.weightGoalKg,
+              remaining: goals.weightRemainingKg,
+              unit: 'kg',
             ),
             const SizedBox(height: 8),
-            _GoalRow(
+            _GoalCompactRow(
               title: 'Body Fat Goal',
-              current: goals.currentBodyFatPercent == null
-                  ? '—'
-                  : '${goals.currentBodyFatPercent!.toStringAsFixed(1)}%',
-              target: goals.bodyFatGoalPercent == null
-                  ? '—'
-                  : '${goals.bodyFatGoalPercent!.toStringAsFixed(1)}%',
-              remaining: goals.bodyFatRemainingPercent == null
-                  ? '—'
-                  : '${goals.bodyFatRemainingPercent!.toStringAsFixed(1)}%',
+              current: goals.currentBodyFatPercent,
+              target: goals.bodyFatGoalPercent,
+              remaining: goals.bodyFatRemainingPercent,
+              unit: '%',
             ),
           ],
         ),
       ),
     );
   }
+
+  String _summary({required bool hasGoal, required bool hasCheckIn}) {
+    if (!hasGoal) {
+      return 'Set your targets to start tracking progress.';
+    }
+    if (!hasCheckIn) {
+      return 'Targets set. Log your first check-in.';
+    }
+    return 'Updated after each check-in.';
+  }
 }
 
-class _GoalRow extends StatelessWidget {
+class _GoalCompactRow extends StatelessWidget {
   final String title;
-  final String current;
-  final String target;
-  final String remaining;
+  final double? current;
+  final double? target;
+  final double? remaining;
+  final String unit;
 
-  const _GoalRow({
+  const _GoalCompactRow({
     required this.title,
     required this.current,
     required this.target,
     required this.remaining,
+    required this.unit,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasTarget = target != null;
+    final remainingValue = remaining?.abs();
+    final status = hasTarget
+        ? remainingValue == null
+              ? 'Target set'
+              : '${_format(remainingValue)} $unit left'
+        : 'Not set';
+    final valueLine = hasTarget
+        ? current == null
+              ? 'Target ${_format(target)} $unit'
+              : '${_format(current)} $unit now • ${_format(target)} $unit target'
+        : 'No target yet';
+
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.backgroundDark,
         borderRadius: BorderRadius.circular(10),
@@ -1361,25 +1439,45 @@ class _GoalRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              title,
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  valueLine,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: 10),
           Text(
-            '$current → $target • $remaining left',
+            status,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 10,
+              color: hasTarget ? AppTheme.success : AppTheme.textSageMuted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _format(double? value) {
+    if (value == null) return '—';
+    return value.toStringAsFixed(1);
   }
 }
 
@@ -1445,17 +1543,26 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Update Goals',
+            'Update Your Targets',
             style: GoogleFonts.plusJakartaSans(
               color: AppTheme.textCream,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
           ),
+          const SizedBox(height: 6),
+          Text(
+            'Set clear targets and we will show your progress after each check-in.',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 12,
+              height: 1.3,
+            ),
+          ),
           const SizedBox(height: 14),
-          _GoalInput(controller: _weightCtrl, label: 'Weight Goal (kg)'),
+          _GoalInput(controller: _weightCtrl, label: 'Target weight (kg)'),
           const SizedBox(height: 12),
-          _GoalInput(controller: _bodyFatCtrl, label: 'Body Fat Goal (%)'),
+          _GoalInput(controller: _bodyFatCtrl, label: 'Target body fat (%)'),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
@@ -1471,7 +1578,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Save Goals'),
+                  : const Text('Save Targets'),
             ),
           ),
         ],
@@ -1503,87 +1610,6 @@ class _GoalInput extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-  }
-}
-
-class _HistoryTimeline extends ConsumerWidget {
-  const _HistoryTimeline();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final histAsync = ref.watch(bodyHistoryProvider);
-
-    return histAsync.when(
-      data: (history) {
-        if (history.isEmpty) return const SizedBox.shrink();
-        final recent = history.take(10).toList();
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'RECENT LOGS',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...recent.map(
-                (m) => Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.borderDark),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${m.date} • ${_measurementSummary(m)}',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '+${m.xpEarned} XP',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.xpGold,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-    );
-  }
-
-  String _measurementSummary(BodyMeasurement m) {
-    final parts = <String>[];
-    if (m.weightKg != null) parts.add('${m.weightKg!.toStringAsFixed(1)}kg');
-    if (m.bodyFatPercent != null) {
-      parts.add('${m.bodyFatPercent!.toStringAsFixed(1)}% BF');
-    }
-    if (m.waistCm != null) {
-      parts.add('${m.waistCm!.toStringAsFixed(1)}cm waist');
-    }
-    return parts.isEmpty ? 'No measurements' : parts.join(' • ');
   }
 }
 

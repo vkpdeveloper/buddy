@@ -39,7 +39,12 @@ const TABLE_GROUPS = {
     ],
     'Daily logs & measurements': [
         'daily_logs',
+        'progress_photos',
+        'body_milestones',
         'body_measurements',
+    ],
+    'Generation jobs': [
+        'generation_jobs',
     ],
     'Achievements (seeded)': [
         'achievements',
