@@ -84,12 +84,14 @@ class _FitnessOnboardingExtensionState
   String _workoutCycle = '';
 
   // Derived from the chosen split
-  int get _daysPerWeek => const {
-    'ppl': 6,
-    'upper_lower': 4,
-    'ppl_upper': 5,
-    'full_body': 3,
-  }[_workoutCycle] ?? 4;
+  int get _daysPerWeek =>
+      const {
+        'ppl': 6,
+        'upper_lower': 4,
+        'ppl_upper': 5,
+        'full_body': 3,
+      }[_workoutCycle] ??
+      4;
 
   // Diet defaults (sent to API)
   final bool _useProteinPowder = true;
@@ -183,13 +185,17 @@ class _FitnessOnboardingExtensionState
       SnackBar(
         content: Row(
           children: [
-            const Icon(LucideIcons.circle_alert, color: Colors.white, size: 16),
+            const Icon(
+              LucideIcons.circle_alert,
+              color: AppTheme.textCream,
+              size: 16,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: GoogleFonts.plusJakartaSans(
-                  color: Colors.white,
+                  color: AppTheme.textCream,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -197,7 +203,7 @@ class _FitnessOnboardingExtensionState
             ),
           ],
         ),
-        backgroundColor: const Color(0xFFB91C1C),
+        backgroundColor: AppTheme.dangerBg,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 3),
@@ -215,7 +221,9 @@ class _FitnessOnboardingExtensionState
         return true;
       case 1:
         if (_activityLevel.isEmpty) {
-          _showValidationError('Please select your activity level to continue.');
+          _showValidationError(
+            'Please select your activity level to continue.',
+          );
           return false;
         }
         return true;
@@ -225,7 +233,9 @@ class _FitnessOnboardingExtensionState
           return false;
         }
         if (_mealPrepTime.isEmpty) {
-          _showValidationError('Please select how much time you have to cook a meal.');
+          _showValidationError(
+            'Please select how much time you have to cook a meal.',
+          );
           return false;
         }
         if (_cookingBy.isEmpty) {
@@ -233,13 +243,17 @@ class _FitnessOnboardingExtensionState
           return false;
         }
         if (_selectedFoods.isEmpty) {
-          _showValidationError('Pick at least one favourite food so we can personalize your plan.');
+          _showValidationError(
+            'Pick at least one favourite food so we can personalize your plan.',
+          );
           return false;
         }
         return true;
       case 3:
         if (_selectedEquipment.isEmpty) {
-          _showValidationError('Please select at least one piece of equipment.');
+          _showValidationError(
+            'Please select at least one piece of equipment.',
+          );
           return false;
         }
         if (_workoutCycle.isEmpty) {
@@ -494,9 +508,7 @@ class _FitnessOnboardingExtensionState
             height: 4,
             margin: EdgeInsets.only(right: i < total - 1 ? 6 : 0),
             decoration: BoxDecoration(
-              color: i <= globalStep
-                  ? AppTheme.primary
-                  : AppTheme.borderDark,
+              color: i <= globalStep ? AppTheme.primary : AppTheme.borderDark,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -546,7 +558,7 @@ class _FitnessOnboardingExtensionState
               const SizedBox(height: 8),
               Expanded(
                 child: CupertinoPicker(
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: AppTheme.transparent,
                   itemExtent: 52,
                   scrollController: FixedExtentScrollController(
                     initialItem: initialIndex,
@@ -646,11 +658,14 @@ class _FitnessOnboardingExtensionState
       ),
     ];
 
-    final showTargetWeight = _fitnessGoal == 'lose_fat' || _fitnessGoal == 'build_muscle';
+    final showTargetWeight =
+        _fitnessGoal == 'lose_fat' || _fitnessGoal == 'build_muscle';
 
     // Target weight picker values: 30–200 kg in 0.5 steps
     final weightValues = List.generate(341, (i) => 30.0 + i * 0.5);
-    final weightIndex = weightValues.indexWhere((v) => (v - _targetWeight).abs() < 0.01);
+    final weightIndex = weightValues.indexWhere(
+      (v) => (v - _targetWeight).abs() < 0.01,
+    );
 
     final bottomPad = MediaQuery.paddingOf(context).bottom;
     return Column(
@@ -662,195 +677,209 @@ class _FitnessOnboardingExtensionState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-          const SizedBox(height: 32),
-          Text(
-            'BODY GOAL',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'What\'s your\nprimary goal?',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              height: 1.15,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'This determines your calorie target, macro split, and how hard your workouts will push you.',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 28),
-          ...goals.map((g) {
-            final isSelected = _fitnessGoal == g.$1;
-            return GestureDetector(
-              onTap: () => setState(() => _fitnessGoal = g.$1),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.primary.withValues(alpha: 0.12)
-                      : AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-                    width: isSelected ? 1.5 : 1,
+                const SizedBox(height: 32),
+                Text(
+                  'BODY GOAL',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Text(g.$4, style: const TextStyle(fontSize: 24)),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 8),
+                Text(
+                  'What\'s your\nprimary goal?',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'This determines your calorie target, macro split, and how hard your workouts will push you.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                ...goals.map((g) {
+                  final isSelected = _fitnessGoal == g.$1;
+                  return GestureDetector(
+                    onTap: () => setState(() => _fitnessGoal = g.$1),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary.withValues(alpha: 0.12)
+                            : AppTheme.cardDark,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.borderDark,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            g.$2,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: isSelected
-                                  ? AppTheme.textCream
-                                  : AppTheme.textSageMuted,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                          Text(g.$4, style: const TextStyle(fontSize: 24)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  g.$2,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: isSelected
+                                        ? AppTheme.textCream
+                                        : AppTheme.textSageMuted,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  isSelected ? g.$5 : g.$3,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.textSageMuted.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            isSelected ? g.$5 : g.$3,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted.withValues(alpha: 0.7),
-                              fontSize: 11,
+                          if (isSelected)
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                LucideIcons.check,
+                                color: AppTheme.backgroundDark,
+                                size: 12,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
-                    if (isSelected)
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          LucideIcons.check,
-                          color: AppTheme.backgroundDark,
-                          size: 12,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: showTargetWeight
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 8),
-                      Text(
-                        'TARGET WEIGHT',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: () => _showDrumPicker(
-                          title: 'Target Weight',
-                          labels: weightValues
-                              .map((v) => '${v.toStringAsFixed(1)} kg')
-                              .toList(),
-                          initialIndex: weightIndex < 0 ? 90 : weightIndex,
-                          onConfirm: (i) =>
-                              setState(() => _targetWeight = weightValues[i]),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cardDark,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.borderDark),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
+                  );
+                }),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  child: showTargetWeight
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+                            Text(
+                              'TARGET WEIGHT',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textSageMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: () => _showDrumPicker(
+                                title: 'Target Weight',
+                                labels: weightValues
+                                    .map((v) => '${v.toStringAsFixed(1)} kg')
+                                    .toList(),
+                                initialIndex: weightIndex < 0
+                                    ? 90
+                                    : weightIndex,
+                                onConfirm: (i) => setState(
+                                  () => _targetWeight = weightValues[i],
+                                ),
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardDark,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: AppTheme.borderDark,
+                                  ),
+                                ),
                                 child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                                  textBaseline: TextBaseline.alphabetic,
                                   children: [
-                                    Text(
-                                      _targetWeight.toStringAsFixed(1),
-                                      style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textCream,
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.w700,
+                                    Expanded(
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.baseline,
+                                        textBaseline: TextBaseline.alphabetic,
+                                        children: [
+                                          Text(
+                                            _targetWeight.toStringAsFixed(1),
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: AppTheme.textCream,
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'kg',
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: AppTheme.textSageMuted,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'kg',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textSageMuted,
-                                        fontSize: 14,
+                                    Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primary.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(
+                                        LucideIcons.chevrons_up_down,
+                                        color: AppTheme.primary,
+                                        size: 17,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              Container(
-                                width: 34,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(10),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _fitnessGoal == 'lose_fat'
+                                  ? 'Set a realistic target — aim for 0.5–1 kg/week.'
+                                  : 'Muscle gain is slow — 0.25–0.5 kg/week is great progress.',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textSageMuted.withValues(
+                                  alpha: 0.6,
                                 ),
-                                child: const Icon(
-                                  LucideIcons.chevrons_up_down,
-                                  color: AppTheme.primary,
-                                  size: 17,
-                                ),
+                                fontSize: 11,
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _fitnessGoal == 'lose_fat'
-                            ? 'Set a realistic target — aim for 0.5–1 kg/week.'
-                            : 'Muscle gain is slow — 0.25–0.5 kg/week is great progress.',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted.withValues(alpha: 0.6),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ],
             ),
           ),
@@ -867,7 +896,12 @@ class _FitnessOnboardingExtensionState
 
   Widget _buildActivityPage() {
     final levels = [
-      ('sedentary', 'Mostly Sitting', 'Desk job or little daily movement', '🪑'),
+      (
+        'sedentary',
+        'Mostly Sitting',
+        'Desk job or little daily movement',
+        '🪑',
+      ),
       (
         'lightly_active',
         'Lightly Active',
@@ -880,7 +914,12 @@ class _FitnessOnboardingExtensionState
         'Regular workouts most days (3–5×/week)',
         '🏃',
       ),
-      ('very_active', 'Very Active', 'Intense training almost every day', '🏋️'),
+      (
+        'very_active',
+        'Very Active',
+        'Intense training almost every day',
+        '🏋️',
+      ),
       ('athlete', 'Athlete', 'Training twice a day or physical job', '⚡'),
     ];
 
@@ -894,100 +933,104 @@ class _FitnessOnboardingExtensionState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-          const SizedBox(height: 32),
-          Text(
-            'ACTIVITY LEVEL',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'How active are you\nday-to-day?',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              height: 1.15,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Be honest — a more accurate answer means a better calorie target for you.',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 28),
-          ...levels.map((l) {
-            final isSelected = _activityLevel == l.$1;
-            return GestureDetector(
-              onTap: () => setState(() => _activityLevel = l.$1),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.primary.withValues(alpha: 0.12)
-                      : AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-                    width: isSelected ? 1.5 : 1,
+                const SizedBox(height: 32),
+                Text(
+                  'ACTIVITY LEVEL',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Text(l.$4, style: const TextStyle(fontSize: 24)),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 8),
+                Text(
+                  'How active are you\nday-to-day?',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Be honest — a more accurate answer means a better calorie target for you.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                ...levels.map((l) {
+                  final isSelected = _activityLevel == l.$1;
+                  return GestureDetector(
+                    onTap: () => setState(() => _activityLevel = l.$1),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary.withValues(alpha: 0.12)
+                            : AppTheme.cardDark,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.borderDark,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            l.$2,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: isSelected
-                                  ? AppTheme.textCream
-                                  : AppTheme.textSageMuted,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                          Text(l.$4, style: const TextStyle(fontSize: 24)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.$2,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: isSelected
+                                        ? AppTheme.textCream
+                                        : AppTheme.textSageMuted,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  l.$3,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.textSageMuted.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            l.$3,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted.withValues(alpha: 0.7),
-                              fontSize: 11,
+                          if (isSelected)
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                LucideIcons.check,
+                                color: AppTheme.backgroundDark,
+                                size: 12,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
-                    if (isSelected)
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          LucideIcons.check,
-                          color: AppTheme.backgroundDark,
-                          size: 12,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }),
+                  );
+                }),
               ],
             ),
           ),
@@ -1008,7 +1051,12 @@ class _FitnessOnboardingExtensionState
 
     const dietOptions = [
       ('vegetarian', 'Vegetarian', 'Dal, paneer, tofu, curd', '🌿'),
-      ('non_vegetarian', 'Non-Vegetarian', 'Chicken, eggs, fish + Indian staples', '🍗'),
+      (
+        'non_vegetarian',
+        'Non-Vegetarian',
+        'Chicken, eggs, fish + Indian staples',
+        '🍗',
+      ),
       ('vegan', 'Vegan', 'Strictly plant-based, no dairy', '🌱'),
     ];
 
@@ -1018,10 +1066,7 @@ class _FitnessOnboardingExtensionState
       ('1hour', '1 hour', 'Elaborate meals ok'),
     ];
 
-    const cookOptions = [
-      ('myself', 'Myself', '👤'),
-      ('maid', 'Maid', '🧑‍🍳'),
-    ];
+    const cookOptions = [('myself', 'Myself', '👤'), ('maid', 'Maid', '🧑‍🍳')];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1090,8 +1135,9 @@ class _FitnessOnboardingExtensionState
                             : AppTheme.cardDark,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color:
-                              isSelected ? AppTheme.primary : AppTheme.borderDark,
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.borderDark,
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),
@@ -1116,8 +1162,9 @@ class _FitnessOnboardingExtensionState
                                 Text(
                                   d.$3,
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted
-                                        .withValues(alpha: 0.7),
+                                    color: AppTheme.textSageMuted.withValues(
+                                      alpha: 0.7,
+                                    ),
                                     fontSize: 11,
                                   ),
                                 ),
@@ -1167,80 +1214,98 @@ class _FitnessOnboardingExtensionState
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    ('breakfast', 'Breakfast', '🌅'),
-                    ('morning_snack', 'Morning Snack', '🍎'),
-                    ('lunch', 'Lunch', '🥗'),
-                    ('pre_workout', 'Pre-Workout', '💪'),
-                    ('post_workout', 'Post-Workout', '🥤'),
-                    ('dinner', 'Dinner', '🍽️'),
-                    ('evening_snack', 'Evening Snack', '🌙'),
-                  ].map((meal) {
-                    final id = meal.$1;
-                    final label = meal.$2;
-                    final emoji = meal.$3;
-                    final isRequired = _requiredMeals.contains(id);
-                    final isSelected = _selectedMeals.contains(id);
-                    return GestureDetector(
-                      onTap: isRequired
-                          ? null
-                          : () => setState(() {
-                                if (isSelected) {
-                                  _selectedMeals.remove(id);
-                                } else {
-                                  _selectedMeals.add(id);
-                                }
-                              }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.primary.withValues(alpha: 0.12)
-                              : AppTheme.cardDark,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-                            width: isSelected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(emoji, style: const TextStyle(fontSize: 14)),
-                            const SizedBox(width: 6),
-                            Text(
-                              label,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: isSelected ? AppTheme.textCream : AppTheme.textSageMuted,
-                                fontSize: 13,
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  children:
+                      [
+                        ('breakfast', 'Breakfast', '🌅'),
+                        ('morning_snack', 'Morning Snack', '🍎'),
+                        ('lunch', 'Lunch', '🥗'),
+                        ('pre_workout', 'Pre-Workout', '💪'),
+                        ('post_workout', 'Post-Workout', '🥤'),
+                        ('dinner', 'Dinner', '🍽️'),
+                        ('evening_snack', 'Evening Snack', '🌙'),
+                      ].map((meal) {
+                        final id = meal.$1;
+                        final label = meal.$2;
+                        final emoji = meal.$3;
+                        final isRequired = _requiredMeals.contains(id);
+                        final isSelected = _selectedMeals.contains(id);
+                        return GestureDetector(
+                          onTap: isRequired
+                              ? null
+                              : () => setState(() {
+                                  if (isSelected) {
+                                    _selectedMeals.remove(id);
+                                  } else {
+                                    _selectedMeals.add(id);
+                                  }
+                                }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.primary.withValues(alpha: 0.12)
+                                  : AppTheme.cardDark,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.primary
+                                    : AppTheme.borderDark,
+                                width: isSelected ? 1.5 : 1,
                               ),
                             ),
-                            if (isRequired) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primary.withValues(alpha: 0.18),
-                                  borderRadius: BorderRadius.circular(4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 14),
                                 ),
-                                child: Text(
-                                  'required',
+                                const SizedBox(width: 6),
+                                Text(
+                                  label,
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.primary,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.5,
+                                    color: isSelected
+                                        ? AppTheme.textCream
+                                        : AppTheme.textSageMuted,
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                                if (isRequired) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primary.withValues(
+                                        alpha: 0.18,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'required',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.primary,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
                 ),
                 const SizedBox(height: 24),
 
@@ -1295,8 +1360,9 @@ class _FitnessOnboardingExtensionState
                               Text(
                                 p.$3,
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textSageMuted
-                                      .withValues(alpha: 0.6),
+                                  color: AppTheme.textSageMuted.withValues(
+                                    alpha: 0.6,
+                                  ),
                                   fontSize: 9,
                                 ),
                                 textAlign: TextAlign.center,
@@ -1347,10 +1413,7 @@ class _FitnessOnboardingExtensionState
                           ),
                           child: Column(
                             children: [
-                              Text(
-                                c.$3,
-                                style: const TextStyle(fontSize: 20),
-                              ),
+                              Text(c.$3, style: const TextStyle(fontSize: 20)),
                               const SizedBox(height: 4),
                               Text(
                                 c.$2,
@@ -1464,19 +1527,55 @@ class _FitnessOnboardingExtensionState
   // Fallback food lists if API is unreachable
   static const _fallbackFoods = {
     'vegetarian': [
-      'Paneer', 'Tofu', 'Moong Dal', 'Masoor Dal', 'Chana Dal',
-      'Rajma', 'Chole', 'Dahi (Curd)', 'Greek Yogurt', 'Moong Sprouts',
-      'Sattu', 'Soya Chunks', 'Skimmed Milk', 'Peanut Butter', 'Makhana',
+      'Paneer',
+      'Tofu',
+      'Moong Dal',
+      'Masoor Dal',
+      'Chana Dal',
+      'Rajma',
+      'Chole',
+      'Dahi (Curd)',
+      'Greek Yogurt',
+      'Moong Sprouts',
+      'Sattu',
+      'Soya Chunks',
+      'Skimmed Milk',
+      'Peanut Butter',
+      'Makhana',
     ],
     'non_vegetarian': [
-      'Chicken Breast', 'Whole Eggs', 'Egg Whites', 'Tuna', 'Salmon',
-      'Prawn/Shrimp', 'Fish (Rohu/Catla)', 'Lean Mutton Keema', 'Turkey',
-      'Paneer', 'Moong Dal', 'Dahi (Curd)', 'Greek Yogurt', 'Soya Chunks', 'Rajma',
+      'Chicken Breast',
+      'Whole Eggs',
+      'Egg Whites',
+      'Tuna',
+      'Salmon',
+      'Prawn/Shrimp',
+      'Fish (Rohu/Catla)',
+      'Lean Mutton Keema',
+      'Turkey',
+      'Paneer',
+      'Moong Dal',
+      'Dahi (Curd)',
+      'Greek Yogurt',
+      'Soya Chunks',
+      'Rajma',
     ],
     'vegan': [
-      'Tofu', 'Tempeh', 'Seitan', 'Edamame', 'Moong Dal',
-      'Masoor Dal', 'Chole', 'Rajma', 'Quinoa', 'Hemp Seeds',
-      'Soya Chunks', 'Sattu', 'Peanut Butter', 'Lentil Sprouts', 'Black Beans',
+      'Tofu',
+      'Tempeh',
+      'Seitan',
+      'Edamame',
+      'Moong Dal',
+      'Masoor Dal',
+      'Chole',
+      'Rajma',
+      'Quinoa',
+      'Hemp Seeds',
+      'Soya Chunks',
+      'Sattu',
+      'Peanut Butter',
+      'Lentil Sprouts',
+      'Black Beans',
     ],
   };
 
@@ -1500,173 +1599,177 @@ class _FitnessOnboardingExtensionState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-          const SizedBox(height: 32),
-          Text(
-            'WORKOUT SETUP',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'What\'s in your gym?',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Equipment Grid
-          Text(
-            'AVAILABLE EQUIPMENT',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 0.85,
-            ),
-            itemCount: _equipmentOptions.length,
-            itemBuilder: (context, i) {
-              final opt = _equipmentOptions[i];
-              final isSelected = _selectedEquipment.contains(opt.id);
-              return GestureDetector(
-                onTap: () => setState(() {
-                  if (isSelected) {
-                    _selectedEquipment.remove(opt.id);
-                  } else {
-                    _selectedEquipment.add(opt.id);
-                  }
-                }),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppTheme.primary.withValues(alpha: 0.15)
-                        : AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppTheme.primary
-                          : AppTheme.borderDark,
-                      width: isSelected ? 1.5 : 1,
-                    ),
+                const SizedBox(height: 32),
+                Text(
+                  'WORKOUT SETUP',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        opt.icon,
-                        color: isSelected
-                            ? AppTheme.primary
-                            : AppTheme.textSageMuted,
-                        size: 22,
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        opt.label,
-                        style: GoogleFonts.plusJakartaSans(
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'What\'s in your gym?',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Equipment Grid
+                Text(
+                  'AVAILABLE EQUIPMENT',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: _equipmentOptions.length,
+                  itemBuilder: (context, i) {
+                    final opt = _equipmentOptions[i];
+                    final isSelected = _selectedEquipment.contains(opt.id);
+                    return GestureDetector(
+                      onTap: () => setState(() {
+                        if (isSelected) {
+                          _selectedEquipment.remove(opt.id);
+                        } else {
+                          _selectedEquipment.add(opt.id);
+                        }
+                      }),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.textCream
-                              : AppTheme.textSageMuted,
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w600,
+                              ? AppTheme.primary.withValues(alpha: 0.15)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.borderDark,
+                            width: isSelected ? 1.5 : 1,
+                          ),
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-
-          // Cycle selector
-          Text(
-            'TRAINING SPLIT',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...cycles.map((cy) {
-            final isSelected = _workoutCycle == cy.$1;
-            return GestureDetector(
-              onTap: () => setState(() => _workoutCycle = cy.$1),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.primary.withValues(alpha: 0.12)
-                      : AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-                    width: isSelected ? 1.5 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            cy.$2,
-                            style: GoogleFonts.plusJakartaSans(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              opt.icon,
                               color: isSelected
-                                  ? AppTheme.textCream
+                                  ? AppTheme.primary
                                   : AppTheme.textSageMuted,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              size: 22,
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              opt.label,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: isSelected
+                                    ? AppTheme.textCream
+                                    : AppTheme.textSageMuted,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Cycle selector
+                Text(
+                  'TRAINING SPLIT',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...cycles.map((cy) {
+                  final isSelected = _workoutCycle == cy.$1;
+                  return GestureDetector(
+                    onTap: () => setState(() => _workoutCycle = cy.$1),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary.withValues(alpha: 0.12)
+                            : AppTheme.cardDark,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.borderDark,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  cy.$2,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: isSelected
+                                        ? AppTheme.textCream
+                                        : AppTheme.textSageMuted,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  cy.$3,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.textSageMuted.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            cy.$3,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted.withValues(alpha: 0.6),
-                              fontSize: 11,
+                          if (isSelected)
+                            const Icon(
+                              LucideIcons.circle_check,
+                              color: AppTheme.primary,
+                              size: 20,
                             ),
-                          ),
                         ],
                       ),
                     ),
-                    if (isSelected)
-                      const Icon(
-                        LucideIcons.circle_check,
-                        color: AppTheme.primary,
-                        size: 20,
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }),
+                  );
+                }),
               ],
             ),
           ),

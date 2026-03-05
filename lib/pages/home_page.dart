@@ -1133,10 +1133,10 @@ class _SleepCard extends ConsumerWidget {
   }
 
   Color _sleepQualityColor(int hours) {
-    if (hours >= 8) return const Color(0xFF6FCF97);
+    if (hours >= 8) return AppTheme.success;
     if (hours >= 7) return AppTheme.primary;
     if (hours >= 6) return AppTheme.xpGold;
-    return const Color(0xFFEB5757);
+    return AppTheme.error;
   }
 
   @override
@@ -1242,10 +1242,7 @@ class _SleepCard extends ConsumerWidget {
                   children: [
                     Expanded(
                       flex: deepMins,
-                      child: Container(
-                        height: 8,
-                        color: const Color(0xFF4A6FA5), // deep blue
-                      ),
+                      child: Container(height: 8, color: AppTheme.sleepDeep),
                     ),
                     Expanded(
                       flex: lightMins,
@@ -1256,10 +1253,7 @@ class _SleepCard extends ConsumerWidget {
                     ),
                     Expanded(
                       flex: remMins,
-                      child: Container(
-                        height: 8,
-                        color: const Color(0xFF9B7EC8), // soft purple for REM
-                      ),
+                      child: Container(height: 8, color: AppTheme.sleepRem),
                     ),
                   ],
                 ),
@@ -1270,7 +1264,7 @@ class _SleepCard extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _SleepStageItem(
-                    color: const Color(0xFF4A6FA5),
+                    color: AppTheme.sleepDeep,
                     label: 'Deep',
                     duration: '${deepMins ~/ 60}h ${deepMins % 60}m',
                   ),
@@ -1280,7 +1274,7 @@ class _SleepCard extends ConsumerWidget {
                     duration: '${lightMins ~/ 60}h ${lightMins % 60}m',
                   ),
                   _SleepStageItem(
-                    color: const Color(0xFF9B7EC8),
+                    color: AppTheme.sleepRem,
                     label: 'REM',
                     duration: '${remMins ~/ 60}h ${remMins % 60}m',
                   ),
@@ -1739,7 +1733,7 @@ class _MindfulnessCard extends StatelessWidget {
         border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: AppTheme.oledBlack.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

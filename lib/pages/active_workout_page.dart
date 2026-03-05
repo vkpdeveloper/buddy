@@ -225,7 +225,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+        statusBarColor: AppTheme.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
@@ -1382,10 +1382,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 radius: 1.2,
                 colors: [
                   (_phase == _WorkoutPhase.rest
-                          ? const Color(0xFF1E3A2F)
+                          ? AppTheme.phaseRest
                           : _phase == _WorkoutPhase.completed
-                          ? const Color(0xFF1A2E1E)
-                          : const Color(0xFF1A2429))
+                          ? AppTheme.phaseCompleted
+                          : AppTheme.phaseExercise)
                       .withValues(alpha: 0.8),
                   AppTheme.backgroundDark,
                 ],

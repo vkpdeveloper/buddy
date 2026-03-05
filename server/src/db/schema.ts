@@ -32,6 +32,7 @@ export const userProfile = sqliteTable('user_profile', {
     name: text('name').notNull().default('Athlete'),
     waterTargetMl: integer('water_target_ml').notNull().default(2500),
     weightGoalKg: real('weight_goal_kg'),
+    bodyFatGoalPercent: real('body_fat_goal_percent'),
     preferredMeals: text('preferred_meals').notNull().default('["breakfast","morning_snack","lunch","pre_workout","post_workout","dinner","evening_snack"]'), // JSON array
     dietType: text('diet_type', {
         enum: ['vegetarian', 'non_vegetarian', 'vegan'],
@@ -223,6 +224,7 @@ export const bodyMeasurements = sqliteTable('body_measurements', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     date: text('date').notNull(),                       // 'YYYY-MM-DD'
     weightKg: real('weight_kg'),                        // body weight in kg
+    bodyFatPercent: real('body_fat_percent'),           // body fat percentage
     chestCm: real('chest_cm'),                          // chest circumference
     waistCm: real('waist_cm'),                          // waist circumference
     hipsCm: real('hips_cm'),                            // hips circumference
@@ -230,5 +232,24 @@ export const bodyMeasurements = sqliteTable('body_measurements', {
     thighsCm: real('thighs_cm'),                        // avg thigh
     notes: text('notes').notNull().default(''),
     xpEarned: integer('xp_earned').notNull().default(0),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+});
+
+export const progressPhotos = sqliteTable('progress_photos', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    date: text('date').notNull(),                       // 'YYYY-MM-DD'
+    measurementId: integer('measurement_id').references(() => bodyMeasurements.id, { onDelete: 'set null' }),
+    objectKey: text('object_key').notNull().unique(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull().default(0),
+    note: text('note').notNull().default(''),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+});
+
+export const bodyMilestones = sqliteTable('body_milestones', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    milestoneKey: text('milestone_key').notNull().unique(),
+    measurementId: integer('measurement_id').notNull().references(() => bodyMeasurements.id, { onDelete: 'cascade' }),
+    xpReward: integer('xp_reward').notNull().default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
 });

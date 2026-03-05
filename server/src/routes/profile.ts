@@ -38,6 +38,7 @@ const profileSchema = z.object({
     proteinLevel: z.enum(['high', 'moderate']).optional(),
     waterTargetMl: z.number().int().min(500).max(6000).optional(),
     weightGoalKg: z.number().min(30).max(300).optional(),
+    bodyFatGoalPercent: z.number().min(3).max(70).optional(),
     preferredMeals: z.array(z.enum(['breakfast', 'morning_snack', 'lunch', 'pre_workout', 'post_workout', 'dinner', 'evening_snack'])).min(2).optional(),
     dietType: z.enum(['vegetarian', 'non_vegetarian', 'vegan']).optional(),
     mealPrepTime: z.enum(['15min', '30min', '1hour']).optional(),
@@ -68,6 +69,7 @@ router.put('/', zValidator('json', profileSchema), async (c) => {
         if (body.proteinLevel !== undefined) updateData.proteinLevel = body.proteinLevel;
         if (body.waterTargetMl !== undefined) updateData.waterTargetMl = body.waterTargetMl;
         if (body.weightGoalKg !== undefined) updateData.weightGoalKg = body.weightGoalKg;
+        if (body.bodyFatGoalPercent !== undefined) updateData.bodyFatGoalPercent = body.bodyFatGoalPercent;
         if (body.preferredMeals !== undefined) updateData.preferredMeals = JSON.stringify(body.preferredMeals);
         if (body.dietType !== undefined) updateData.dietType = body.dietType;
         if (body.mealPrepTime !== undefined) updateData.mealPrepTime = body.mealPrepTime;

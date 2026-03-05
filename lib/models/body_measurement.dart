@@ -3,6 +3,7 @@ class BodyMeasurement {
   final String date;
   final double? weightKg;
   final double? chestCm;
+  final double? bodyFatPercent;
   final double? waistCm;
   final double? hipsCm;
   final double? armsCm;
@@ -16,6 +17,7 @@ class BodyMeasurement {
     required this.date,
     this.weightKg,
     this.chestCm,
+    this.bodyFatPercent,
     this.waistCm,
     this.hipsCm,
     this.armsCm,
@@ -35,6 +37,7 @@ class BodyMeasurement {
       date: j['date'] as String? ?? '',
       weightKg: dbl('weightKg', 'weight_kg'),
       chestCm: dbl('chestCm', 'chest_cm'),
+      bodyFatPercent: dbl('bodyFatPercent', 'body_fat_percent'),
       waistCm: dbl('waistCm', 'waist_cm'),
       hipsCm: dbl('hipsCm', 'hips_cm'),
       armsCm: dbl('armsCm', 'arms_cm'),
@@ -52,9 +55,13 @@ class BodyLogResult {
   final int previousLevel;
   final int newLevel;
   final int newTotalXp;
+  final int measurementId;
+  final int achievementXp;
+  final int milestoneXp;
   final String levelLabel;
   final bool didLevelUp;
   final List<Map<String, dynamic>> newAchievements;
+  final List<Map<String, dynamic>> newMilestones;
 
   const BodyLogResult({
     required this.xpEarned,
@@ -62,9 +69,13 @@ class BodyLogResult {
     required this.previousLevel,
     required this.newLevel,
     required this.newTotalXp,
+    required this.measurementId,
+    required this.achievementXp,
+    required this.milestoneXp,
     required this.levelLabel,
     required this.didLevelUp,
     required this.newAchievements,
+    required this.newMilestones,
   });
 
   factory BodyLogResult.fromJson(Map<String, dynamic> j) => BodyLogResult(
@@ -73,9 +84,15 @@ class BodyLogResult {
     previousLevel: (j['previousLevel'] as num?)?.toInt() ?? 1,
     newLevel: (j['newLevel'] as num?)?.toInt() ?? 1,
     newTotalXp: (j['newTotalXp'] as num?)?.toInt() ?? 0,
+    measurementId: (j['measurementId'] as num?)?.toInt() ?? 0,
+    achievementXp: (j['achievementXp'] as num?)?.toInt() ?? 0,
+    milestoneXp: (j['milestoneXp'] as num?)?.toInt() ?? 0,
     levelLabel: j['levelLabel'] as String? ?? '',
     didLevelUp: j['didLevelUp'] as bool? ?? false,
     newAchievements: ((j['newAchievements'] as List?) ?? [])
+        .map((e) => e as Map<String, dynamic>)
+        .toList(),
+    newMilestones: ((j['newMilestones'] as List?) ?? [])
         .map((e) => e as Map<String, dynamic>)
         .toList(),
   );

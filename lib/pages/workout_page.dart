@@ -202,7 +202,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             'Could not log hydration right now.',
             style: GoogleFonts.plusJakartaSans(fontSize: 12),
           ),
-          backgroundColor: const Color(0xFF7E2E2E),
+          backgroundColor: AppTheme.errorBg,
         ),
       );
     } finally {
@@ -322,7 +322,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             'Could not swap this exercise right now.',
             style: GoogleFonts.plusJakartaSans(fontSize: 12),
           ),
-          backgroundColor: const Color(0xFF7E2E2E),
+          backgroundColor: AppTheme.errorBg,
         ),
       );
     }
@@ -783,7 +783,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             const SizedBox(height: 10),
             _buildRestActionCard(
               icon: LucideIcons.droplets,
-              iconColor: const Color(0xFF6BAED6),
+              iconColor: AppTheme.info,
               title: 'Hydration Quick Log',
               subtitle: 'Today: $_todayHydrationMl ml logged',
               cta: _isHydrationLogging ? 'Logging...' : '+250 ml',
@@ -862,135 +862,118 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  '${exercises.length} exercises',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
-                    fontSize: 12,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      estimatedDurationSeconds > 0
+                          ? 'About ${_formatDurationCompact(estimatedDurationSeconds)} to complete'
+                          : 'Estimated workout time unavailable',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
-                if (estimatedDurationSeconds > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundDark.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: AppTheme.textSageMuted.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          LucideIcons.clock_3,
-                          color: AppTheme.textSageMuted,
-                          size: 11,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          _formatDurationCompact(estimatedDurationSeconds),
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                const SizedBox(width: 12),
                 if (planId != null && dayId != null)
-                  GestureDetector(
-                    onTap: sessionState == _TodayWorkoutState.completed
-                        ? null
-                        : () async {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ActiveWorkoutPage(
-                                  dayLabel: dayLabel.toString(),
-                                  exercises: exercises,
-                                  planId: planId,
-                                  dayId: dayId,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: sessionState == _TodayWorkoutState.completed
+                          ? null
+                          : () async {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ActiveWorkoutPage(
+                                    dayLabel: dayLabel.toString(),
+                                    exercises: exercises,
+                                    planId: planId,
+                                    dayId: dayId,
+                                  ),
                                 ),
-                              ),
-                            ).then((_) async {
-                              await _refreshTodaySessionStatus();
-                              ref.invalidate(homeDashboardProvider);
-                              ref.invalidate(weeklyWorkoutSummaryProvider);
-                            });
-                          },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient:
-                            isTodayPlanDay &&
-                                sessionState == _TodayWorkoutState.completed
-                            ? null
-                            : LinearGradient(
-                                colors: [AppTheme.primary, AppTheme.accent],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                        color:
-                            isTodayPlanDay &&
-                                sessionState == _TodayWorkoutState.completed
-                            ? AppTheme.cardDark
-                            : null,
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                            isTodayPlanDay &&
-                                sessionState == _TodayWorkoutState.completed
-                            ? Border.all(color: AppTheme.borderDark)
-                            : null,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isTodayPlanDay &&
-                                    sessionState == _TodayWorkoutState.completed
-                                ? LucideIcons.check
-                                : LucideIcons.play,
-                            color:
-                                isTodayPlanDay &&
-                                    sessionState == _TodayWorkoutState.completed
-                                ? AppTheme.primary
-                                : AppTheme.backgroundDark,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            isTodayPlanDay &&
-                                    sessionState == _TodayWorkoutState.completed
-                                ? 'COMPLETED'
-                                : isTodayPlanDay &&
+                              ).then((_) async {
+                                await _refreshTodaySessionStatus();
+                                ref.invalidate(homeDashboardProvider);
+                                ref.invalidate(weeklyWorkoutSummaryProvider);
+                              });
+                            },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient:
+                              isTodayPlanDay &&
+                                  sessionState == _TodayWorkoutState.completed
+                              ? null
+                              : LinearGradient(
+                                  colors: [AppTheme.primary, AppTheme.accent],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                          color:
+                              isTodayPlanDay &&
+                                  sessionState == _TodayWorkoutState.completed
+                              ? AppTheme.cardDark
+                              : null,
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                              isTodayPlanDay &&
+                                  sessionState == _TodayWorkoutState.completed
+                              ? Border.all(color: AppTheme.borderDark)
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isTodayPlanDay &&
                                       sessionState ==
-                                          _TodayWorkoutState.inProgress
-                                ? 'CONTINUE'
-                                : 'START',
-                            style: GoogleFonts.plusJakartaSans(
+                                          _TodayWorkoutState.completed
+                                  ? LucideIcons.check
+                                  : LucideIcons.play,
                               color:
                                   isTodayPlanDay &&
                                       sessionState ==
                                           _TodayWorkoutState.completed
                                   ? AppTheme.primary
                                   : AppTheme.backgroundDark,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
+                              size: 16,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 5),
+                            Text(
+                              isTodayPlanDay &&
+                                      sessionState ==
+                                          _TodayWorkoutState.completed
+                                  ? 'COMPLETED'
+                                  : isTodayPlanDay &&
+                                        sessionState ==
+                                            _TodayWorkoutState.inProgress
+                                  ? 'CONTINUE'
+                                  : 'START',
+                              style: GoogleFonts.plusJakartaSans(
+                                color:
+                                    isTodayPlanDay &&
+                                        sessionState ==
+                                            _TodayWorkoutState.completed
+                                    ? AppTheme.primary
+                                    : AppTheme.backgroundDark,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -1171,7 +1154,7 @@ const _recoveryTips = [
     icon: LucideIcons.droplets,
     title: 'Stay Hydrated',
     subtitle: 'Aim for at least 2–3 litres today',
-    color: Color(0xFF6BAED6),
+    color: AppTheme.info,
   ),
   _RecoveryTip(
     icon: LucideIcons.bed,
@@ -1346,7 +1329,7 @@ class _ExerciseCard extends StatelessWidget {
       background: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF355E3B),
+          color: AppTheme.swapAction,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1380,7 +1363,7 @@ class _ExerciseCard extends StatelessWidget {
           border: Border.all(color: accentColor.withValues(alpha: 0.32)),
         ),
         child: Material(
-          color: Colors.transparent,
+          color: AppTheme.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () => _showEditSheet(context),
@@ -1517,16 +1500,16 @@ class _ExerciseCard extends StatelessWidget {
 
 Color _muscleAccentColor(String muscleGroup) {
   final key = muscleGroup.toLowerCase();
-  if (key.contains('chest')) return const Color(0xFFE9A23B);
-  if (key.contains('back')) return const Color(0xFF63B3ED);
+  if (key.contains('chest')) return AppTheme.muscleChest;
+  if (key.contains('back')) return AppTheme.muscleBack;
   if (key.contains('leg') || key.contains('quad') || key.contains('ham')) {
-    return const Color(0xFF34C38F);
+    return AppTheme.muscleLegs;
   }
   if (key.contains('shoulder') || key.contains('delt')) {
-    return const Color(0xFFB794F4);
+    return AppTheme.muscleShoulders;
   }
   if (key.contains('arm') || key.contains('bicep') || key.contains('tricep')) {
-    return const Color(0xFFFF8FA3);
+    return AppTheme.muscleArms;
   }
   if (key.contains('core') || key.contains('abs')) return AppTheme.xpGold;
   return AppTheme.primary;

@@ -422,6 +422,77 @@ class ApiClient {
     return _decode(res);
   }
 
+  static Future<Map<String, dynamic>> getGrowthOverview() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/body/growth'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getGrowthPhotos() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/body/photos'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> uploadGrowthPhoto({
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+    required String date,
+    int? measurementId,
+    String note = '',
+  }) async {
+    final req = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/body/photos'),
+    );
+    req.fields['date'] = date;
+    req.fields['note'] = note;
+    req.fields['mimeType'] = mimeType;
+    if (measurementId != null && measurementId > 0) {
+      req.fields['measurementId'] = '$measurementId';
+    }
+    req.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+      ),
+    );
+    req.headers['Accept'] = 'application/json';
+
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getGrowthGoals() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/body/goals'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> updateGrowthGoals({
+    double? weightGoalKg,
+    double? bodyFatGoalPercent,
+  }) async {
+    final res = await _client.put(
+      Uri.parse('$baseUrl/api/body/goals'),
+      headers: _headers,
+      body: jsonEncode({
+        'weightGoalKg': weightGoalKg,
+        'bodyFatGoalPercent': bodyFatGoalPercent,
+      }),
+    );
+    return _decode(res);
+  }
+
   // ─── Generation ──────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> triggerGeneration() async {

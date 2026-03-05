@@ -289,7 +289,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
               padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
               child: _ChartCard(
                 title: 'Duration trend',
-                color: const Color(0xFF6BAED6),
+                color: AppTheme.chartDuration,
                 points: durationPoints,
               ),
             ),

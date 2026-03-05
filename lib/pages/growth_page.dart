@@ -1,17 +1,19 @@
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_lucide/flutter_lucide.dart';
+import 'dart:io';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/models/body_measurement.dart';
+import 'package:buddy/models/growth.dart';
 import 'package:buddy/providers/body_provider.dart';
+import 'package:buddy/providers/growth_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
-
-// ─── Growth Page ─────────────────────────────────────────────────────────────
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 class GrowthPage extends ConsumerStatefulWidget {
   const GrowthPage({super.key});
@@ -21,6 +23,18 @@ class GrowthPage extends ConsumerStatefulWidget {
 }
 
 class _GrowthPageState extends ConsumerState<GrowthPage> {
+  final ImagePicker _imagePicker = ImagePicker();
+
+  Future<void> _refresh() async {
+    ref.invalidate(growthOverviewProvider);
+    ref.invalidate(growthPhotosProvider);
+    ref.invalidate(growthGoalsProvider);
+    ref.invalidate(bodyHistoryProvider);
+    ref.invalidate(latestBodyMeasurementProvider);
+    ref.invalidate(progressProvider);
+    await Future.delayed(const Duration(milliseconds: 350));
+  }
+
   void _openLogSheet() {
     showModalBottomSheet(
       context: context,
@@ -31,81 +45,179 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
       ),
       builder: (_) => _LogMeasurementSheet(
         onLogged: (result) {
-          // Invalidate providers so charts refresh
-          ref.invalidate(bodyHistoryProvider);
-          ref.invalidate(latestBodyMeasurementProvider);
-          ref.invalidate(progressProvider);
-          // Show XP celebration
+          _refresh();
           _showXpCelebration(result);
         },
       ),
     );
   }
 
+  Future<void> _pickAndUploadPhoto() async {
+    final file = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 92,
+      maxWidth: 2200,
+    );
+    if (file == null) return;
+
+    try {
+      final bytes = await file.readAsBytes();
+      final mimeType = _mimeFromName(file.name);
+      if (mimeType == 'image/gif') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('GIF uploads are not supported')),
+          );
+        }
+        return;
+      }
+      final today = DateTime.now().toIso8601String().split('T').first;
+      await ApiClient.uploadGrowthPhoto(
+        bytes: bytes,
+        fileName: file.name,
+        mimeType: mimeType,
+        date: today,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Progress photo added')));
+      }
+      _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to upload photo: $e')));
+    }
+  }
+
+  String _mimeFromName(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.heif')) return 'image/heif';
+    if (lower.endsWith('.avif')) return 'image/avif';
+    if (lower.endsWith('.bmp')) return 'image/bmp';
+    if (lower.endsWith('.tif') || lower.endsWith('.tiff')) return 'image/tiff';
+    if (lower.endsWith('.jfif')) return 'image/jpeg';
+    return 'image/jpeg';
+  }
+
+  void _showGoalEditSheet(GrowthGoalData goals) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.cardDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _GoalEditSheet(initial: goals),
+    ).then((saved) {
+      if (saved == true) {
+        _refresh();
+      }
+    });
+  }
+
   void _showXpCelebration(BodyLogResult result) {
     HapticFeedback.mediumImpact();
     showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.7),
+      barrierColor: AppTheme.oledBlack.withValues(alpha: 0.7),
       builder: (_) => _XpCelebrationDialog(result: result),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasLoggedData =
-        ref.watch(bodyHistoryProvider).asData?.value.isNotEmpty ?? false;
+    final overviewAsync = ref.watch(growthOverviewProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.oledBlack,
       body: SafeArea(
         child: Column(
           children: [
-            _GrowthHeader(onLogTap: _openLogSheet),
-
+            _GrowthHeader(
+              onLogTap: _openLogSheet,
+              onPhotoTap: _pickAndUploadPhoto,
+            ),
             Expanded(
               child: RefreshIndicator(
                 color: AppTheme.primary,
                 backgroundColor: AppTheme.cardDark,
-                onRefresh: () async {
-                  ref.invalidate(bodyHistoryProvider);
-                  ref.invalidate(latestBodyMeasurementProvider);
-                  await Future.delayed(const Duration(milliseconds: 400));
-                },
-                child: hasLoggedData
-                    ? SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(bottom: 120),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const SizedBox(height: 16),
-                            const _StatsStrip(),
-                            const SizedBox(height: 20),
-                            _MetricsGrid(),
-                            const SizedBox(height: 24),
-                            const _HistoryTimeline(),
-                          ],
-                        ),
-                      )
-                    : ListView(
+                onRefresh: _refresh,
+                child: overviewAsync.when(
+                  loading: () => ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [SizedBox(height: 300)],
+                  ),
+                  error: (e, _) => ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(24),
+                    children: [
+                      AppEmptyState(
+                        icon: LucideIcons.triangle_alert,
+                        title: 'Could not load Growth',
+                        subtitle: '$e',
+                      ),
+                    ],
+                  ),
+                  data: (overview) {
+                    if (overview.totalLogs == 0) {
+                      return ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.only(
-                          top: 20,
+                          top: 80,
                           left: 16,
                           right: 16,
-                          bottom: 120,
                         ),
                         children: const [
-                          SizedBox(height: 90),
                           AppEmptyState(
                             icon: LucideIcons.trending_up,
                             title: 'No growth logs yet',
                             subtitle:
-                                'Start tracking measurements to unlock trend lines, progression insights, and XP milestones.',
+                                'Start check-ins to unlock trends, goals, body-composition, and milestone rewards.',
                           ),
                         ],
+                      );
+                    }
+
+                    return SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 120),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 16),
+                          _StatsStrip(overview: overview),
+                          const SizedBox(height: 16),
+                          _LevelCard(overview: overview),
+                          const SizedBox(height: 20),
+                          _MetricGrid(metrics: overview.metricCards),
+                          const SizedBox(height: 20),
+                          _PhotoCompareCard(
+                            firstPhoto: overview.firstPhoto,
+                            latestPhoto: overview.latestPhoto,
+                          ),
+                          const SizedBox(height: 20),
+                          _AchievementsCard(items: overview.achievements),
+                          const SizedBox(height: 20),
+                          _CompositionCard(series: overview.compositionSeries),
+                          const SizedBox(height: 20),
+                          _GoalsCard(
+                            goals: overview.goals,
+                            onEdit: () => _showGoalEditSheet(overview.goals),
+                          ),
+                          const SizedBox(height: 20),
+                          const _HistoryTimeline(),
+                        ],
                       ),
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -115,11 +227,11 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
   }
 }
 
-// ─── Header ───────────────────────────────────────────────────────────────────
-
 class _GrowthHeader extends StatelessWidget {
   final VoidCallback onLogTap;
-  const _GrowthHeader({required this.onLogTap});
+  final VoidCallback onPhotoTap;
+
+  const _GrowthHeader({required this.onLogTap, required this.onPhotoTap});
 
   @override
   Widget build(BuildContext context) {
@@ -151,113 +263,105 @@ class _GrowthHeader extends StatelessWidget {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onLogTap,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppTheme.primary.withValues(alpha: 0.25),
-                ),
-              ),
-              child: const Icon(
-                LucideIcons.plus,
-                color: AppTheme.primary,
-                size: 20,
-              ),
-            ),
-          ),
+          _IconAction(icon: LucideIcons.image_plus, onTap: onPhotoTap),
+          const SizedBox(width: 10),
+          _IconAction(icon: LucideIcons.plus, onTap: onLogTap),
         ],
       ),
     );
   }
 }
 
-// ─── Stats Strip (latest entry quick stats) ───────────────────────────────────
+class _IconAction extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
 
-class _StatsStrip extends ConsumerWidget {
-  const _StatsStrip();
+  const _IconAction({required this.icon, required this.onTap});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final latestAsync = ref.watch(latestBodyMeasurementProvider);
-    final histAsync = ref.watch(bodyHistoryProvider);
-
-    final totalLogs = histAsync.when(
-      data: (h) => h.length,
-      loading: () => 0,
-      error: (_, __) => 0,
-    );
-
-    return latestAsync.when(
-      data: (latest) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Row(
-          children: [
-            _StatChip(
-              icon: LucideIcons.clipboard_list,
-              label: 'LOGS',
-              value: '$totalLogs',
-            ),
-            const SizedBox(width: 10),
-            _StatChip(
-              icon: LucideIcons.scale,
-              label: 'WEIGHT',
-              value: latest?.weightKg != null
-                  ? '${latest!.weightKg!.toStringAsFixed(1)} kg'
-                  : '—',
-            ),
-            const SizedBox(width: 10),
-            _StatChip(
-              icon: LucideIcons.calendar,
-              label: 'LAST LOG',
-              value: latest != null ? _formatDate(latest.date) : 'Never',
-            ),
-          ],
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppTheme.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
         ),
+        child: Icon(icon, color: AppTheme.primary, size: 20),
       ),
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
     );
   }
+}
 
-  String _formatDate(String date) {
-    try {
-      final parts = date.split('-');
-      if (parts.length < 3) return date;
-      final months = [
-        '',
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      return '${parts[2]} ${months[int.parse(parts[1])]}';
-    } catch (_) {
-      return date;
-    }
+class _StatsStrip extends StatelessWidget {
+  final GrowthOverviewData overview;
+
+  const _StatsStrip({required this.overview});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _StatChip(
+                label: 'LOGS',
+                value: '${overview.totalLogs}',
+                icon: LucideIcons.clipboard_list,
+              ),
+              const SizedBox(width: 10),
+              _StatChip(
+                label: 'WEIGHT',
+                value: overview.currentWeightKg == null
+                    ? '—'
+                    : '${overview.currentWeightKg!.toStringAsFixed(1)} kg',
+                icon: LucideIcons.scale,
+              ),
+              const SizedBox(width: 10),
+              _StatChip(
+                label: 'LAST LOG',
+                value: overview.lastLogDate ?? 'Never',
+                icon: LucideIcons.calendar,
+              ),
+            ],
+          ),
+          if (overview.weightTrend.length >= 2) ...[
+            const SizedBox(height: 10),
+            Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.cardDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.borderDark),
+              ),
+              child: CustomPaint(
+                painter: _SparklinePainter(
+                  overview.weightTrend.map((e) => e.value).toList(),
+                ),
+                size: Size.infinite,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
 class _StatChip extends StatelessWidget {
-  final IconData icon;
   final String label;
   final String value;
+  final IconData icon;
 
   const _StatChip({
-    required this.icon,
     required this.label,
     required this.value,
+    required this.icon,
   });
 
   @override
@@ -304,50 +408,94 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-// ─── Metrics Grid (sparkline tiles) ──────────────────────────────────────────
+class _LevelCard extends StatelessWidget {
+  final GrowthOverviewData overview;
 
-class _MetricsGrid extends ConsumerWidget {
-  final _metrics = const [
-    _MetricConfig('Weight', 'kg', LucideIcons.scale, 'weightKg'),
-    _MetricConfig('Chest', 'cm', LucideIcons.activity, 'chestCm'),
-    _MetricConfig('Waist', 'cm', LucideIcons.minimize_2, 'waistCm'),
-    _MetricConfig('Hips', 'cm', LucideIcons.circle, 'hipsCm'),
-    _MetricConfig('Arms', 'cm', LucideIcons.dumbbell, 'armsCm'),
-    _MetricConfig('Thighs', 'cm', LucideIcons.footprints, 'thighsCm'),
-  ];
+  const _LevelCard({required this.overview});
 
-  _MetricsGrid();
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.levelArc.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'LEVEL ${overview.currentLevel} • ${overview.levelLabel.toUpperCase()}',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.levelArc,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  '${overview.totalXp} XP',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.xpGold,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${overview.currentStreak} day streak',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: overview.levelProgressFraction.clamp(0.0, 1.0),
+                minHeight: 6,
+                backgroundColor: AppTheme.borderDark,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppTheme.levelArc,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-  double? _getValue(BodyMeasurement m, String key) {
-    switch (key) {
-      case 'weightKg':
-        return m.weightKg;
-      case 'chestCm':
-        return m.chestCm;
-      case 'waistCm':
-        return m.waistCm;
-      case 'hipsCm':
-        return m.hipsCm;
-      case 'armsCm':
-        return m.armsCm;
-      case 'thighsCm':
-        return m.thighsCm;
-      default:
-        return null;
-    }
+class _MetricGrid extends StatelessWidget {
+  final List<GrowthMetricCard> metrics;
+
+  const _MetricGrid({required this.metrics});
+
+  Color _deltaColor(GrowthMetricCard metric, double delta) {
+    final isPositive = delta >= 0;
+    final isHigherGood = metric.direction == 'higher';
+    final good = isHigherGood ? isPositive : !isPositive;
+    return good ? AppTheme.primary : AppTheme.error;
+  }
+
+  String _formatDelta(double v, String unit) {
+    final sign = v >= 0 ? '+' : '';
+    return '$sign${v.toStringAsFixed(1)}$unit';
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final histAsync = ref.watch(bodyHistoryProvider);
-    final history = histAsync.when(
-      data: (h) => h,
-      loading: () => <BodyMeasurement>[],
-      error: (_, __) => <BodyMeasurement>[],
-    );
-    // history is newest-first, reverse for chart
-    final chronological = history.reversed.toList();
-
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -366,37 +514,83 @@ class _MetricsGrid extends ConsumerWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
+            itemCount: metrics.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.4,
+              childAspectRatio: 1.26,
             ),
-            itemCount: _metrics.length,
             itemBuilder: (_, i) {
-              final metric = _metrics[i];
-              final dataPoints = chronological
-                  .map((m) => _getValue(m, metric.key))
-                  .where((v) => v != null)
-                  .cast<double>()
-                  .toList();
-
-              double? latest;
-              double? previous;
-              if (dataPoints.length >= 1) latest = dataPoints.last;
-              if (dataPoints.length >= 2)
-                previous = dataPoints[dataPoints.length - 2];
-
-              double? delta;
-              if (latest != null && previous != null) {
-                delta = latest - previous;
-              }
-
-              return _MetricTile(
-                config: metric,
-                dataPoints: dataPoints,
-                latest: latest,
-                delta: delta,
+              final metric = metrics[i];
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.borderDark),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      metric.label.toUpperCase(),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      metric.latestValue == null
+                          ? '—'
+                          : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textCream,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (metric.deltaSinceLast != null)
+                          _DeltaBadge(
+                            label: 'vs last',
+                            value: _formatDelta(
+                              metric.deltaSinceLast!,
+                              metric.unit == '%' ? '%' : ' ${metric.unit}',
+                            ),
+                            color: _deltaColor(metric, metric.deltaSinceLast!),
+                          ),
+                        if (metric.deltaSinceStart != null)
+                          _DeltaBadge(
+                            label: 'vs start',
+                            value: _formatDelta(
+                              metric.deltaSinceStart!,
+                              metric.unit == '%' ? '%' : ' ${metric.unit}',
+                            ),
+                            color: _deltaColor(metric, metric.deltaSinceStart!),
+                          ),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (metric.sparkline.length >= 2)
+                      SizedBox(
+                        height: 24,
+                        child: CustomPaint(
+                          painter: _SparklinePainter(
+                            metric.sparkline.map((e) => e.value).toList(),
+                          ),
+                          size: Size.infinite,
+                        ),
+                      ),
+                  ],
+                ),
               );
             },
           ),
@@ -406,203 +600,600 @@ class _MetricsGrid extends ConsumerWidget {
   }
 }
 
-class _MetricConfig {
+class _DeltaBadge extends StatelessWidget {
   final String label;
-  final String unit;
-  final IconData icon;
-  final String key;
+  final String value;
+  final Color color;
 
-  const _MetricConfig(this.label, this.unit, this.icon, this.key);
-}
-
-class _MetricTile extends StatelessWidget {
-  final _MetricConfig config;
-  final List<double> dataPoints;
-  final double? latest;
-  final double? delta;
-
-  const _MetricTile({
-    required this.config,
-    required this.dataPoints,
-    this.latest,
-    this.delta,
+  const _DeltaBadge({
+    required this.label,
+    required this.value,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasData = latest != null;
-    Color? deltaColor;
-    String? deltaText;
-    if (delta != null) {
-      // For weight, loss = good (green). For measurements, gain = good.
-      final isWeight = config.key == 'weightKg';
-      final isPositive = delta! > 0;
-      deltaColor = isWeight
-          ? (isPositive ? const Color(0xFFE57373) : const Color(0xFF81C784))
-          : (isPositive ? AppTheme.primary : const Color(0xFFE57373));
-      final sign = isPositive ? '+' : '';
-      deltaText = '$sign${delta!.toStringAsFixed(1)} ${config.unit}';
-    }
-
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: hasData
-              ? AppTheme.primary.withValues(alpha: 0.2)
-              : AppTheme.borderDark,
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$label $value',
+        style: GoogleFonts.plusJakartaSans(
+          color: color,
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(config.icon, color: AppTheme.primary, size: 12),
-              const SizedBox(width: 4),
+    );
+  }
+}
+
+class _PhotoCompareCard extends StatefulWidget {
+  final GrowthPhotoData? firstPhoto;
+  final GrowthPhotoData? latestPhoto;
+
+  const _PhotoCompareCard({
+    required this.firstPhoto,
+    required this.latestPhoto,
+  });
+
+  @override
+  State<_PhotoCompareCard> createState() => _PhotoCompareCardState();
+}
+
+class _PhotoCompareCardState extends State<_PhotoCompareCard> {
+  double _slider = 0.5;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'PHOTO COMPARISON',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.primary,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (widget.firstPhoto == null || widget.latestPhoto == null)
               Text(
-                config.label.toUpperCase(),
+                'Add at least 2 progress photos to compare.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.primary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
+                  color: AppTheme.textSageMuted,
+                  fontSize: 12,
+                ),
+              )
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: 190,
+                  width: double.infinity,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      return Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Image.network(
+                              widget.firstPhoto!.imageUrl,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: ClipRect(
+                              clipper: _HorizontalRevealClipper(_slider),
+                              child: Image.network(
+                                widget.latestPhoto!.imageUrl,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: _slider * width - 1,
+                            top: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 2,
+                              color: AppTheme.textCream.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
-              const Spacer(),
-              if (deltaText != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: deltaColor!.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    deltaText,
+            if (widget.firstPhoto != null && widget.latestPhoto != null) ...[
+              Slider(
+                value: _slider,
+                min: 0,
+                max: 1,
+                activeColor: AppTheme.primary,
+                inactiveColor: AppTheme.borderDark,
+                onChanged: (v) => setState(() => _slider = v),
+              ),
+              Row(
+                children: [
+                  Text(
+                    'FIRST: ${widget.firstPhoto!.date}',
                     style: GoogleFonts.plusJakartaSans(
-                      color: deltaColor,
-                      fontSize: 8,
+                      color: AppTheme.textSageMuted,
+                      fontSize: 10,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'LATEST: ${widget.latestPhoto!.date}',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HorizontalRevealClipper extends CustomClipper<Rect> {
+  final double ratio;
+
+  _HorizontalRevealClipper(this.ratio);
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTWH(0, 0, size.width * ratio, size.height);
+
+  @override
+  bool shouldReclip(_HorizontalRevealClipper oldClipper) =>
+      oldClipper.ratio != ratio;
+}
+
+class _AchievementsCard extends StatelessWidget {
+  final List<Map<String, dynamic>> items;
+
+  const _AchievementsCard({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ACHIEVEMENTS',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.primary,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 1.45,
+              ),
+              itemBuilder: (_, i) {
+                final item = items[i];
+                final unlocked = item['isUnlocked'] == true;
+                return Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: unlocked
+                        ? AppTheme.xpGold.withValues(alpha: 0.08)
+                        : AppTheme.backgroundDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: unlocked
+                          ? AppTheme.xpGold.withValues(alpha: 0.35)
+                          : AppTheme.borderDark,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            unlocked ? LucideIcons.trophy : LucideIcons.lock,
+                            color: unlocked
+                                ? AppTheme.xpGold
+                                : AppTheme.textSageMuted,
+                            size: 14,
+                          ),
+                          const Spacer(),
+                          Text(
+                            '+${item['xpReward'] ?? 0} XP',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: unlocked
+                                  ? AppTheme.xpGold
+                                  : AppTheme.textSageMuted,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        item['name']?.toString() ?? 'Achievement',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: unlocked
+                              ? AppTheme.textCream
+                              : AppTheme.textSageMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        unlocked
+                            ? 'Unlocked ${item['unlockedAt'] ?? ''}'.replaceAll(
+                                ' 00:00:00',
+                                '',
+                              )
+                            : 'Locked',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompositionCard extends StatelessWidget {
+  final List<GrowthCompositionPoint> series;
+
+  const _CompositionCard({required this.series});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'BODY COMPOSITION',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.primary,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (series.length < 2)
+              Text(
+                'Log weight + body fat for at least two entries to view composition trend.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 12,
+                ),
+              )
+            else
+              SizedBox(
+                height: 120,
+                child: CustomPaint(
+                  painter: _DualLinePainter(
+                    first: series.map((e) => e.fatMassKg).toList(),
+                    second: series.map((e) => e.leanMassKg).toList(),
+                  ),
+                  size: Size.infinite,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalsCard extends StatelessWidget {
+  final GrowthGoalData goals;
+  final VoidCallback onEdit;
+
+  const _GoalsCard({required this.goals, required this.onEdit});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'GOALS',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: onEdit,
+                  child: Text(
+                    'EDIT',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.primary,
+                      fontSize: 10,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          if (hasData)
-            Text(
-              '${latest!.toStringAsFixed(1)} ${config.unit}',
+              ],
+            ),
+            const SizedBox(height: 10),
+            _GoalRow(
+              title: 'Weight Goal',
+              current: goals.currentWeightKg == null
+                  ? '—'
+                  : '${goals.currentWeightKg!.toStringAsFixed(1)} kg',
+              target: goals.weightGoalKg == null
+                  ? '—'
+                  : '${goals.weightGoalKg!.toStringAsFixed(1)} kg',
+              remaining: goals.weightRemainingKg == null
+                  ? '—'
+                  : '${goals.weightRemainingKg!.toStringAsFixed(1)} kg',
+            ),
+            const SizedBox(height: 8),
+            _GoalRow(
+              title: 'Body Fat Goal',
+              current: goals.currentBodyFatPercent == null
+                  ? '—'
+                  : '${goals.currentBodyFatPercent!.toStringAsFixed(1)}%',
+              target: goals.bodyFatGoalPercent == null
+                  ? '—'
+                  : '${goals.bodyFatGoalPercent!.toStringAsFixed(1)}%',
+              remaining: goals.bodyFatRemainingPercent == null
+                  ? '—'
+                  : '${goals.bodyFatRemainingPercent!.toStringAsFixed(1)}%',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalRow extends StatelessWidget {
+  final String title;
+  final String current;
+  final String target;
+  final String remaining;
+
+  const _GoalRow({
+    required this.title,
+    required this.current,
+    required this.target,
+    required this.remaining,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundDark,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
               style: GoogleFonts.plusJakartaSans(
                 color: AppTheme.textCream,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            )
-          else
-            Text(
-              '—',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-                fontSize: 18,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
-          const Spacer(),
-          if (dataPoints.length >= 2)
-            SizedBox(
-              height: 28,
-              child: CustomPaint(
-                painter: _SparklinePainter(dataPoints),
-                size: Size.infinite,
-              ),
-            )
-          else
-            Text(
-              dataPoints.isEmpty ? 'No data yet' : 'Log more to see trend',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-                fontSize: 9,
-              ),
+          ),
+          Text(
+            '$current → $target • $remaining left',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 10,
             ),
+          ),
         ],
       ),
     );
   }
 }
 
-// ─── Sparkline Painter ────────────────────────────────────────────────────────
+class _GoalEditSheet extends StatefulWidget {
+  final GrowthGoalData initial;
 
-class _SparklinePainter extends CustomPainter {
-  final List<double> data;
-
-  _SparklinePainter(this.data);
+  const _GoalEditSheet({required this.initial});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (data.length < 2) return;
+  State<_GoalEditSheet> createState() => _GoalEditSheetState();
+}
 
-    final minV = data.reduce(math.min);
-    final maxV = data.reduce(math.max);
-    final range = maxV - minV == 0 ? 1.0 : maxV - minV;
+class _GoalEditSheetState extends State<_GoalEditSheet> {
+  late final TextEditingController _weightCtrl;
+  late final TextEditingController _bodyFatCtrl;
+  bool _saving = false;
 
-    final points = <Offset>[];
-    for (int i = 0; i < data.length; i++) {
-      final x = (i / (data.length - 1)) * size.width;
-      final y = size.height - ((data[i] - minV) / range) * size.height;
-      points.add(Offset(x, y));
-    }
-
-    // Draw gradient fill
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (int i = 1; i < points.length; i++) {
-      final cp1 = Offset(
-        (points[i - 1].dx + points[i].dx) / 2,
-        points[i - 1].dy,
-      );
-      final cp2 = Offset((points[i - 1].dx + points[i].dx) / 2, points[i].dy);
-      path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, points[i].dx, points[i].dy);
-    }
-
-    final fillPath = Path.from(path)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          AppTheme.primary.withValues(alpha: 0.25),
-          AppTheme.primary.withValues(alpha: 0.0),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    canvas.drawPath(fillPath, fillPaint);
-
-    // Draw line
-    final linePaint = Paint()
-      ..color = AppTheme.primary
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(path, linePaint);
-
-    // Dot at end
-    canvas.drawCircle(points.last, 3, Paint()..color = AppTheme.primary);
+  @override
+  void initState() {
+    super.initState();
+    _weightCtrl = TextEditingController(
+      text: widget.initial.weightGoalKg?.toStringAsFixed(1) ?? '',
+    );
+    _bodyFatCtrl = TextEditingController(
+      text: widget.initial.bodyFatGoalPercent?.toStringAsFixed(1) ?? '',
+    );
   }
 
   @override
-  bool shouldRepaint(_SparklinePainter old) => old.data != data;
+  void dispose() {
+    _weightCtrl.dispose();
+    _bodyFatCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ApiClient.updateGrowthGoals(
+        weightGoalKg: double.tryParse(_weightCtrl.text.trim()),
+        bodyFatGoalPercent: double.tryParse(_bodyFatCtrl.text.trim()),
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save goals: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Update Goals',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textCream,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _GoalInput(controller: _weightCtrl, label: 'Weight Goal (kg)'),
+          const SizedBox(height: 12),
+          _GoalInput(controller: _bodyFatCtrl, label: 'Body Fat Goal (%)'),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _saving ? null : _save,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: AppTheme.backgroundDark,
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save Goals'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-// ─── History Timeline ─────────────────────────────────────────────────────────
+class _GoalInput extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+
+  const _GoalInput({required this.controller, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+      ],
+      style: GoogleFonts.plusJakartaSans(color: AppTheme.textCream),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+        filled: true,
+        fillColor: AppTheme.backgroundDark,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+}
 
 class _HistoryTimeline extends ConsumerWidget {
   const _HistoryTimeline();
@@ -630,12 +1221,39 @@ class _HistoryTimeline extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              ...recent.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final m = entry.value;
-                final isLast = idx == recent.length - 1;
-                return _TimelineRow(measurement: m, isLast: isLast);
-              }),
+              ...recent.map(
+                (m) => Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.borderDark),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${m.date} • ${_measurementSummary(m)}',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textCream,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '+${m.xpEarned} XP',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.xpGold,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -644,148 +1262,99 @@ class _HistoryTimeline extends ConsumerWidget {
       error: (_, _) => const SizedBox.shrink(),
     );
   }
-}
 
-class _TimelineRow extends StatelessWidget {
-  final BodyMeasurement measurement;
-  final bool isLast;
-
-  const _TimelineRow({required this.measurement, required this.isLast});
-
-  @override
-  Widget build(BuildContext context) {
+  String _measurementSummary(BodyMeasurement m) {
     final parts = <String>[];
-    if (measurement.weightKg != null)
-      parts.add('${measurement.weightKg!.toStringAsFixed(1)} kg');
-    if (measurement.chestCm != null)
-      parts.add('Chest ${measurement.chestCm!.toStringAsFixed(0)}');
-    if (measurement.waistCm != null)
-      parts.add('Waist ${measurement.waistCm!.toStringAsFixed(0)}');
-    if (measurement.hipsCm != null)
-      parts.add('Hips ${measurement.hipsCm!.toStringAsFixed(0)}');
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Timeline line
-          SizedBox(
-            width: 24,
-            child: Column(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(width: 1.5, color: AppTheme.borderDark),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderDark),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          measurement.date,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.xpGold.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '+${measurement.xpEarned} XP',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.xpGold,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (parts.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: parts
-                            .map(
-                              (p) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.backgroundDark,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  p,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textCream,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ],
-                    if (measurement.notes.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        measurement.notes,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 10,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    if (m.weightKg != null) parts.add('${m.weightKg!.toStringAsFixed(1)}kg');
+    if (m.bodyFatPercent != null)
+      parts.add('${m.bodyFatPercent!.toStringAsFixed(1)}% BF');
+    if (m.waistCm != null)
+      parts.add('${m.waistCm!.toStringAsFixed(1)}cm waist');
+    return parts.isEmpty ? 'No measurements' : parts.join(' • ');
   }
 }
 
-// ─── Log Measurement Sheet (step form) ───────────────────────────────────────
+class _SparklinePainter extends CustomPainter {
+  final List<double> data;
+
+  _SparklinePainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.length < 2) return;
+
+    final minV = data.reduce(math.min);
+    final maxV = data.reduce(math.max);
+    final range = maxV - minV == 0 ? 1.0 : maxV - minV;
+
+    final points = <Offset>[];
+    for (int i = 0; i < data.length; i++) {
+      final x = (i / (data.length - 1)) * size.width;
+      final y = size.height - ((data[i] - minV) / range) * size.height;
+      points.add(Offset(x, y));
+    }
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (int i = 1; i < points.length; i++) {
+      path.lineTo(points[i].dx, points[i].dy);
+    }
+
+    final paint = Paint()
+      ..color = AppTheme.primary
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(path, paint);
+    canvas.drawCircle(points.last, 2.8, Paint()..color = AppTheme.primary);
+  }
+
+  @override
+  bool shouldRepaint(_SparklinePainter oldDelegate) => oldDelegate.data != data;
+}
+
+class _DualLinePainter extends CustomPainter {
+  final List<double> first;
+  final List<double> second;
+
+  _DualLinePainter({required this.first, required this.second});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (first.length < 2 || second.length < 2) return;
+    _drawLine(canvas, size, first, AppTheme.primary);
+    _drawLine(canvas, size, second, AppTheme.levelArc);
+  }
+
+  void _drawLine(Canvas canvas, Size size, List<double> points, Color color) {
+    final minV = points.reduce(math.min);
+    final maxV = points.reduce(math.max);
+    final range = maxV - minV == 0 ? 1.0 : maxV - minV;
+
+    final path = Path();
+    for (int i = 0; i < points.length; i++) {
+      final x = (i / (points.length - 1)) * size.width;
+      final y = size.height - ((points[i] - minV) / range) * size.height;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..strokeWidth = 1.8
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DualLinePainter oldDelegate) =>
+      oldDelegate.first != first || oldDelegate.second != second;
+}
 
 class _LogMeasurementSheet extends StatefulWidget {
   final void Function(BodyLogResult) onLogged;
@@ -798,70 +1367,42 @@ class _LogMeasurementSheet extends StatefulWidget {
 
 class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
   final _steps = const [
-    _StepConfig(
-      'Weight',
-      'kg',
-      LucideIcons.scale,
-      'weightKg',
-      'Step on the scale and enter your current weight',
-      40,
-      200,
-    ),
-    _StepConfig(
-      'Chest',
-      'cm',
-      LucideIcons.activity,
-      'chestCm',
-      'Measure around the fullest part of your chest',
-      50,
-      200,
-    ),
-    _StepConfig(
-      'Waist',
-      'cm',
-      LucideIcons.minimize_2,
-      'waistCm',
-      'Measure at your natural waistline, above the navel',
-      40,
-      200,
-    ),
-    _StepConfig(
-      'Hips',
-      'cm',
-      LucideIcons.circle,
-      'hipsCm',
-      'Measure around the widest part of your hips',
-      50,
-      200,
-    ),
-    _StepConfig(
-      'Arms',
-      'cm',
-      LucideIcons.dumbbell,
-      'armsCm',
-      'Average of both upper arms, flexed or relaxed',
-      20,
-      80,
-    ),
-    _StepConfig(
-      'Thighs',
-      'cm',
-      LucideIcons.footprints,
-      'thighsCm',
-      'Average of both thighs at the widest point',
-      30,
-      100,
-    ),
+    _StepConfig('Weight', 'kg', LucideIcons.scale, 'weightKg'),
+    _StepConfig('Body Fat', '%', LucideIcons.percent, 'bodyFatPercent'),
+    _StepConfig('Chest', 'cm', LucideIcons.activity, 'chestCm'),
+    _StepConfig('Waist', 'cm', LucideIcons.minimize_2, 'waistCm'),
+    _StepConfig('Hips', 'cm', LucideIcons.circle, 'hipsCm'),
+    _StepConfig('Arms', 'cm', LucideIcons.dumbbell, 'armsCm'),
+    _StepConfig('Thighs', 'cm', LucideIcons.footprints, 'thighsCm'),
   ];
 
   int _currentStep = 0;
   final Map<String, double?> _values = {};
   final _controller = TextEditingController();
+  XFile? _selectedPhoto;
   bool _submitting = false;
 
-  @override
-  void initState() {
-    super.initState();
+  Future<void> _pickPhoto() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 92,
+      maxWidth: 2200,
+    );
+    if (file == null) return;
+    final mime = _mimeFromName(file.name);
+    if (mime == 'image/gif') {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('GIF uploads are not supported')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _selectedPhoto = file);
+  }
+
+  void _removePhoto() {
+    setState(() => _selectedPhoto = null);
   }
 
   @override
@@ -871,23 +1412,17 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
   }
 
   void _advance({bool skip = false}) {
-    // Parse current value
-    if (!skip) {
-      final raw = _controller.text.trim();
-      final v = double.tryParse(raw);
-      _values[_steps[_currentStep].key] = v;
-    } else {
-      _values[_steps[_currentStep].key] = null;
-    }
-
+    _values[_steps[_currentStep].key] = skip
+        ? null
+        : double.tryParse(_controller.text.trim());
     if (_currentStep < _steps.length - 1) {
       setState(() {
         _currentStep++;
         _controller.clear();
       });
-    } else {
-      _submit();
+      return;
     }
+    _submit();
   }
 
   Future<void> _submit() async {
@@ -895,8 +1430,9 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
     setState(() => _submitting = true);
 
     try {
-      final today = DateTime.now().toIso8601String().split('T').first;
-      final payload = <String, dynamic>{'date': today};
+      final payload = <String, dynamic>{
+        'date': DateTime.now().toIso8601String().split('T').first,
+      };
       _values.forEach((key, value) {
         if (value != null) payload[key] = value;
       });
@@ -905,21 +1441,27 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
       final result = BodyLogResult.fromJson(
         res['data'] as Map<String, dynamic>,
       );
-
-      if (mounted) {
-        Navigator.of(context).pop();
-        widget.onLogged(result);
+      if (_selectedPhoto != null && result.measurementId > 0) {
+        final mimeType = _mimeFromName(_selectedPhoto!.name);
+        if (mimeType != 'image/gif') {
+          await ApiClient.uploadGrowthPhoto(
+            bytes: await _selectedPhoto!.readAsBytes(),
+            fileName: _selectedPhoto!.name,
+            mimeType: mimeType,
+            date: payload['date'] as String,
+            measurementId: result.measurementId,
+          );
+        }
       }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onLogged(result);
     } catch (e) {
-      if (mounted) {
-        setState(() => _submitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppTheme.cardDark,
-          ),
-        );
-      }
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -927,285 +1469,158 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
   Widget build(BuildContext context) {
     final step = _steps[_currentStep];
     final isLast = _currentStep == _steps.length - 1;
-    final progress = (_currentStep + 1) / _steps.length;
 
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.65,
       maxChildSize: 0.9,
-      builder: (_, __) => Column(
-        children: [
-          // Handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTheme.borderDark,
-              borderRadius: BorderRadius.circular(2),
+      builder: (context, _) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'LOG MEASUREMENTS ${_currentStep + 1}/${_steps.length}',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.primary,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+              ),
             ),
-          ),
-
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'LOG MEASUREMENTS',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 2,
-                      ),
+            const SizedBox(height: 16),
+            Text(
+              step.label,
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textCream,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.borderDark),
+              ),
+              child: _selectedPhoto == null
+                  ? Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.image,
+                          color: AppTheme.primary,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Add progress photo for this check-in',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                        TextButton(onPressed: _pickPhoto, child: const Text('Add')),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.file(
+                            File(_selectedPhoto!.path),
+                            width: 52,
+                            height: 52,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Photo attached to this check-in',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        TextButton(onPressed: _pickPhoto, child: const Text('Change')),
+                        TextButton(onPressed: _removePhoto, child: const Text('Remove')),
+                      ],
                     ),
-                    const Spacer(),
-                    Text(
-                      '${_currentStep + 1} / ${_steps.length}',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+              ],
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textCream,
+                fontSize: 34,
+                fontWeight: FontWeight.w700,
+              ),
+              decoration: InputDecoration(
+                suffixText: step.unit,
+                filled: true,
+                fillColor: AppTheme.backgroundDark,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(height: 10),
-                // Progress bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: AppTheme.borderDark,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      AppTheme.primary,
+              ),
+            ),
+            const Spacer(),
+            Row(
+              children: [
+                OutlinedButton(
+                  onPressed: () => _advance(skip: true),
+                  child: const Text('Skip'),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _submitting ? null : () => _advance(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      foregroundColor: AppTheme.backgroundDark,
                     ),
-                    minHeight: 4,
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(isLast ? 'Submit' : 'Next'),
                   ),
                 ),
               ],
             ),
-          ),
-
-          const Divider(height: 1, color: AppTheme.borderDark),
-
-          // Step content — AnimatedSwitcher gives fade + lift per step
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                // Incoming: fade in + rise from 24 px below
-                // Outgoing: fade out + drift 16 px upward
-                final offsetAnimation = Tween<Offset>(
-                  begin: const Offset(0, 0.06),
-                  end: Offset.zero,
-                ).animate(animation);
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: offsetAnimation,
-                    child: child,
-                  ),
-                );
-              },
-              child: Padding(
-                // Key drives the switch when the step index changes
-                key: ValueKey<int>(_currentStep),
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Icon + label
-                    Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(
-                            step.icon,
-                            color: AppTheme.primary,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              step.label,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textCream,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              'in ${step.unit}',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textSageMuted,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-                    Text(
-                      step.hint,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // Input field
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundDark,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppTheme.primary.withValues(alpha: 0.3),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'^\d*\.?\d*'),
-                                ),
-                              ],
-                              autofocus: true,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textCream,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: '0.0',
-                                hintStyle: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textSageMuted,
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 20),
-                            child: Text(
-                              step.unit,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.primary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    // Actions
-                    Row(
-                      children: [
-                        // Skip
-                        GestureDetector(
-                          onTap: () => _advance(skip: true),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.backgroundDark,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppTheme.borderDark),
-                            ),
-                            child: Text(
-                              'SKIP',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textSageMuted,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Next / Submit
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: _submitting ? null : () => _advance(),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primary,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Center(
-                                child: _submitting
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        isLast ? 'SUBMIT' : 'NEXT →',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          color: AppTheme.backgroundDark,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 1,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  String _mimeFromName(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.heif')) return 'image/heif';
+    if (lower.endsWith('.avif')) return 'image/avif';
+    if (lower.endsWith('.bmp')) return 'image/bmp';
+    if (lower.endsWith('.tif') || lower.endsWith('.tiff')) return 'image/tiff';
+    if (lower.endsWith('.jfif')) return 'image/jpeg';
+    return 'image/jpeg';
   }
 }
 
@@ -1214,264 +1629,77 @@ class _StepConfig {
   final String unit;
   final IconData icon;
   final String key;
-  final String hint;
-  final double min;
-  final double max;
 
-  const _StepConfig(
-    this.label,
-    this.unit,
-    this.icon,
-    this.key,
-    this.hint,
-    this.min,
-    this.max,
-  );
+  const _StepConfig(this.label, this.unit, this.icon, this.key);
 }
 
-// ─── XP Celebration Dialog ────────────────────────────────────────────────────
-
-class _XpCelebrationDialog extends StatefulWidget {
+class _XpCelebrationDialog extends StatelessWidget {
   final BodyLogResult result;
 
   const _XpCelebrationDialog({required this.result});
 
   @override
-  State<_XpCelebrationDialog> createState() => _XpCelebrationDialogState();
-}
-
-class _XpCelebrationDialogState extends State<_XpCelebrationDialog>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnim;
-  late Animation<double> _fadeAnim;
-  late Animation<double> _xpCountAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _scaleAnim = Tween<double>(
-      begin: 0.6,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
-      ),
-    );
-    _xpCountAnim =
-        Tween<double>(begin: 0, end: widget.result.xpEarned.toDouble()).animate(
-          CurvedAnimation(
-            parent: _controller,
-            curve: const Interval(0.2, 0.8, curve: Curves.easeOut),
-          ),
-        );
-
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final totalReward =
+        result.xpEarned + result.achievementXp + result.milestoneXp;
+
     return Dialog(
-      backgroundColor: Colors.transparent,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (_, child) => FadeTransition(
-          opacity: _fadeAnim,
-          child: ScaleTransition(scale: _scaleAnim, child: child),
+      backgroundColor: AppTheme.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.borderDark),
         ),
-        child: Container(
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppTheme.borderDark),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  LucideIcons.trending_up,
-                  color: AppTheme.primary,
-                  size: 28,
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.sparkles, color: AppTheme.primary, size: 28),
+            const SizedBox(height: 10),
+            Text(
+              'Check-in logged',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textCream,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(height: 20),
-              Text(
-                'Check-in Logged!',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '+$totalReward XP',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.xpGold,
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Consistency is how the body changes.',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // XP earned
-              AnimatedBuilder(
-                animation: _xpCountAnim,
-                builder: (_, _) => Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.xpGold.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppTheme.xpGold.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        LucideIcons.zap,
-                        color: AppTheme.xpGold,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '+${_xpCountAnim.value.toInt()} XP',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.xpGold,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Level up badge
-              if (widget.result.didLevelUp) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppTheme.primary, AppTheme.levelArc],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '⬆ LEVEL UP → ${widget.result.levelLabel.toUpperCase()}',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ],
-
-              // Achievement badges
-              if (widget.result.newAchievements.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                ...widget.result.newAchievements.map(
-                  (a) => Container(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: AppTheme.primary.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          LucideIcons.trophy,
-                          color: AppTheme.primary,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          a['name'] as String? ?? 'Achievement',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '+${a['xpReward']} XP',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.xpGold,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 24),
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
+            ),
+            if (result.newMilestones.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ...result.newMilestones.map(
+                (m) => Text(
+                  'Milestone: ${m['label'] ?? m['key']}',
+                  style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'AWESOME!',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.backgroundDark,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                      ),
-                    ),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
-          ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: AppTheme.backgroundDark,
+                ),
+                child: const Text('Awesome'),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -760,7 +760,7 @@ class _MacroProgressCard extends StatelessWidget {
                   label: 'Carbs',
                   value: consumedCarbs,
                   target: targetCarbs,
-                  color: const Color(0xFFB5C9AD),
+                  color: AppTheme.macroCarbs,
                 ),
               ),
               const SizedBox(width: 8),
@@ -838,7 +838,7 @@ class _SettingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppTheme.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
@@ -1231,7 +1231,7 @@ class _MealCardState extends State<_MealCard> {
         ),
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppTheme.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: _showDetailSheet,

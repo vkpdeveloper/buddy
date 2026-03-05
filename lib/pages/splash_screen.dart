@@ -232,7 +232,7 @@ class _SplashScreenState extends State<SplashScreen>
           border: Border.all(color: AppTheme.borderDark),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
+              color: AppTheme.oledBlack.withValues(alpha: 0.2),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),

@@ -163,8 +163,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           totalSteps: _totalSteps,
           startStep: 3,
           onComplete: () async {
-           final prefs = await SharedPreferences.getInstance();
-           await prefs.setBool('onboarding_completed', true);
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('onboarding_completed', true);
           },
         ),
       ),
@@ -362,7 +362,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                   )
                 : Icon(
-                    _isConnected ? LucideIcons.circle_check : LucideIcons.heart_pulse,
+                    _isConnected
+                        ? LucideIcons.circle_check
+                        : LucideIcons.heart_pulse,
                     color: AppTheme.primary,
                     size: 36,
                   ),
@@ -563,7 +565,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   children: [
                     Expanded(child: _buildSexButton('Male', _sex == 'Male')),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildSexButton('Female', _sex == 'Female')),
+                    Expanded(
+                      child: _buildSexButton('Female', _sex == 'Female'),
+                    ),
                   ],
                 ),
               ],
@@ -750,7 +754,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     // Water values: 1500 to 4000 in 250 ml steps
     final waterValues = List.generate(11, (i) => 1500 + i * 250);
-    final waterIndex = waterValues.indexWhere((v) => v >= _waterTargetMl.toInt());
+    final waterIndex = waterValues.indexWhere(
+      (v) => v >= _waterTargetMl.toInt(),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,11 +802,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   unit: 'steps',
                   onTap: () => _showDrumPicker(
                     title: 'Daily Step Goal',
-                    labels: stepValues.map((v) => v.toString().replaceAllMapped(
-                      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},',
-                    )).toList(),
+                    labels: stepValues
+                        .map(
+                          (v) => v.toString().replaceAllMapped(
+                            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                            (m) => '${m[1]},',
+                          ),
+                        )
+                        .toList(),
                     initialIndex: stepIndex < 0 ? 16 : stepIndex,
-                    onConfirm: (i) => setState(() => _stepGoal = stepValues[i].toDouble()),
+                    onConfirm: (i) =>
+                        setState(() => _stepGoal = stepValues[i].toDouble()),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -811,9 +823,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   unit: 'hours',
                   onTap: () => _showDrumPicker(
                     title: 'Sleep Target',
-                    labels: sleepValues.map((v) => '${v.toStringAsFixed(1)} hrs').toList(),
+                    labels: sleepValues
+                        .map((v) => '${v.toStringAsFixed(1)} hrs')
+                        .toList(),
                     initialIndex: sleepIndex < 0 ? 7 : sleepIndex,
-                    onConfirm: (i) => setState(() => _sleepTarget = sleepValues[i]),
+                    onConfirm: (i) =>
+                        setState(() => _sleepTarget = sleepValues[i]),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -824,9 +839,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   unit: 'L',
                   onTap: () => _showDrumPicker(
                     title: 'Daily Water Target',
-                    labels: waterValues.map((v) => '${(v / 1000).toStringAsFixed(1)} L  ($v ml)').toList(),
+                    labels: waterValues
+                        .map(
+                          (v) => '${(v / 1000).toStringAsFixed(1)} L  ($v ml)',
+                        )
+                        .toList(),
                     initialIndex: waterIndex < 0 ? 4 : waterIndex,
-                    onConfirm: (i) => setState(() => _waterTargetMl = waterValues[i].toDouble()),
+                    onConfirm: (i) => setState(
+                      () => _waterTargetMl = waterValues[i].toDouble(),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -842,7 +863,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
         Padding(
           padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
-          child: _buildPrimaryButton(label: 'LOOKS GOOD, LET\'S GO', onTap: _finalizeSetup),
+          child: _buildPrimaryButton(
+            label: 'LOOKS GOOD, LET\'S GO',
+            onTap: _finalizeSetup,
+          ),
         ),
       ],
     );
@@ -883,7 +907,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
@@ -1015,9 +1042,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             height: 4,
             margin: EdgeInsets.only(right: i < _totalSteps - 1 ? 6 : 0),
             decoration: BoxDecoration(
-              color: i <= activeIndex
-                  ? AppTheme.primary
-                  : AppTheme.borderDark,
+              color: i <= activeIndex ? AppTheme.primary : AppTheme.borderDark,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1089,8 +1114,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _showBirthDatePicker() {
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     final now = DateTime.now();
@@ -1106,7 +1141,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
 
     final years = List.generate(maxYear - minYear + 1, (i) => minYear + i);
-    final monthController = FixedExtentScrollController(initialItem: selMonth - 1);
+    final monthController = FixedExtentScrollController(
+      initialItem: selMonth - 1,
+    );
     final dayController = FixedExtentScrollController(initialItem: selDay - 1);
     final yearController = FixedExtentScrollController(
       initialItem: years.indexOf(selYear),
@@ -1141,7 +1178,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             }) {
               return Expanded(
                 child: CupertinoPicker(
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: AppTheme.transparent,
                   itemExtent: 52,
                   scrollController: controller,
                   selectionOverlay: const SizedBox.shrink(),
@@ -1203,7 +1240,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             decoration: BoxDecoration(
                               border: Border.symmetric(
                                 horizontal: BorderSide(
-                                  color: AppTheme.primary.withValues(alpha: 0.4),
+                                  color: AppTheme.primary.withValues(
+                                    alpha: 0.4,
+                                  ),
                                   width: 1.5,
                                 ),
                               ),
@@ -1243,7 +1282,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
                     child: GestureDetector(
                       onTap: () {
-                        final clamped = selDay.clamp(1, daysInMonth(selMonth, selYear));
+                        final clamped = selDay.clamp(
+                          1,
+                          daysInMonth(selMonth, selYear),
+                        );
                         setState(() {
                           _birthDate = DateTime(selYear, selMonth, clamped);
                         });
@@ -1293,7 +1335,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     _showDrumPicker(
       title: title,
-      labels: values.map((v) => decimals ? v.toStringAsFixed(1) : v.toStringAsFixed(0)).toList(),
+      labels: values
+          .map((v) => decimals ? v.toStringAsFixed(1) : v.toStringAsFixed(0))
+          .toList(),
       initialIndex: initialIndex < 0 ? 0 : initialIndex,
       onConfirm: (i) => onChanged(values[i]),
     );
@@ -1338,7 +1382,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(height: 8),
               Expanded(
                 child: CupertinoPicker(
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: AppTheme.transparent,
                   itemExtent: 52,
                   scrollController: FixedExtentScrollController(
                     initialItem: initialIndex,
@@ -1404,4 +1448,3 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 }
-
