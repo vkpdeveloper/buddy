@@ -1,1 +1,0 @@
-ALTER TABLE `exercise_catalog` ADD `video_link` text;

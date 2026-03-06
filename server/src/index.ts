@@ -66,7 +66,7 @@ app.onError((err, c) => {
 const port = parseInt(env.PORT);
 console.log(`\n🏋️  Buddy Fitness API`);
 console.log(`🚀 Running at: http://localhost:${port}`);
-console.log(`📦 DB: ${env.TURSO_DATABASE_URL}\n`);
+console.log(`📦 DB: ${env.DATABASE_URL}\n`);
 
 export default {
     port,
