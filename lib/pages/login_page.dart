@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:clerk_flutter/clerk_flutter.dart' as clerk;
 import 'package:clerk_auth/clerk_auth.dart' as clerk_auth;
 import 'package:buddy/app_theme.dart';
-import 'package:buddy/pages/splash_screen.dart';
+import 'package:buddy/pages/home_page.dart';
+import 'package:buddy/pages/onboarding_screen.dart';
+import 'package:buddy/services/api_client.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -53,11 +55,23 @@ class _LoginPageState extends State<LoginPage>
         context,
       ).ssoSignIn(context, clerk_auth.Strategy.oauthGoogle);
 
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SplashScreen()),
-        );
+      if (!mounted) return;
+
+      bool hasProfile = false;
+      try {
+        final res = await ApiClient.getProfile();
+        hasProfile = res['data'] != null;
+      } catch (_) {
+        hasProfile = false;
       }
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) =>
+              hasProfile ? const HomePage() : const OnboardingScreen(),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         setState(() {

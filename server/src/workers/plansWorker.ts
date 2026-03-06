@@ -13,16 +13,20 @@ export const plansWorker = new Worker(
 
         console.log(`[worker] Starting ${type} generation (job row ${jobRowId})`);
 
+        const [jobRow] = await db.select().from(generationJobs).where(eq(generationJobs.id, jobRowId)).limit(1);
+        if (!jobRow) throw new Error(`Job row ${jobRowId} not found`);
+        const { userId } = jobRow;
+
         await db.update(generationJobs)
             .set({ status: 'generating', updatedAt: new Date().toISOString() })
             .where(eq(generationJobs.id, jobRowId));
 
         try {
             if (type === 'diet') {
-                const { planId } = await runDietGeneration();
+                const { planId } = await runDietGeneration(userId);
                 console.log(`[worker] Diet plan generated: planId=${planId}`);
             } else {
-                const { planId } = await runWorkoutGeneration();
+                const { planId } = await runWorkoutGeneration(userId);
                 console.log(`[worker] Workout plan generated: planId=${planId}`);
             }
 

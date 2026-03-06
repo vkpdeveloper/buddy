@@ -1,5 +1,6 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
+import { eq } from 'drizzle-orm';
 import { env } from './env';
 import { db } from '../db';
 import { userProfile, workoutPlans, workoutDays, workoutExercises } from '../db/schema';
@@ -53,8 +54,8 @@ const CYCLE_TEMPLATES: Record<string, { days: { label: string; isRest: boolean }
     },
 };
 
-export async function runWorkoutGeneration(): Promise<{ planId: number }> {
-    const profiles = await db.select().from(userProfile).limit(1);
+export async function runWorkoutGeneration(userId: string): Promise<{ planId: number }> {
+    const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
     if (profiles.length === 0) throw new Error('Profile not found');
     const profile = profiles[0];
 
@@ -117,6 +118,7 @@ Return ONLY valid JSON in this EXACT format (no markdown):
     await db.update(workoutPlans).set({ isActive: false });
 
     const [insertedPlan] = await db.insert(workoutPlans).values({
+        userId,
         title: planData.title ?? `${cycleType.toUpperCase()} Plan`,
         cycleType: cycleType as any,
         daysPerWeek,

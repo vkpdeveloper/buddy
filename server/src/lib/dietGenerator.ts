@@ -1,5 +1,6 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
+import { eq } from 'drizzle-orm';
 import { env } from './env';
 import { db } from '../db';
 import { userProfile, dietPlans, dietDays, dietMeals } from '../db/schema';
@@ -52,8 +53,8 @@ const MEAL_LABELS: Record<string, string> = {
     dinner: 'Dinner', evening_snack: 'Evening Snack',
 };
 
-export async function runDietGeneration(): Promise<{ planId: number }> {
-    const profiles = await db.select().from(userProfile).limit(1);
+export async function runDietGeneration(userId: string): Promise<{ planId: number }> {
+    const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
     if (profiles.length === 0) throw new Error('Profile not found. Set up profile first.');
     const profile = profiles[0];
 
@@ -202,6 +203,7 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
     await db.update(dietPlans).set({ isActive: false });
 
     const [insertedPlan] = await db.insert(dietPlans).values({
+        userId,
         title: planData.title ?? '7-Day Diet Plan',
         totalCalories: macros.calories,
         proteinG: macros.proteinG,
