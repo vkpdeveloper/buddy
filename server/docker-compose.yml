@@ -1,14 +1,18 @@
 services:
   api:
-    build: .
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     restart: unless-stopped
-    command: ["bun", "run", "src/index.ts", "--target", "bun"]
+    command: ["bun", "run", "src/index.ts"]
 
   worker:
-    build: .
-    command: ["bun", "run", "src/worker.ts", "--target", "bun"]
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    command: ["bun", "run", "src/worker.ts"]
     restart: unless-stopped
     depends_on:
       - api
