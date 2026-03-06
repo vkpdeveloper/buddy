@@ -133,6 +133,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                       duration: const Duration(milliseconds: 160),
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isSelected ? AppTheme.primary : AppTheme.backgroundDark,
                         borderRadius: BorderRadius.circular(20),
@@ -281,6 +282,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
   Widget _chip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),

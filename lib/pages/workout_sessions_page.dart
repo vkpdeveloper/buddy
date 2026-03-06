@@ -320,7 +320,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
           if (sessions.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 80),
+                padding: EdgeInsets.fromLTRB(24, 0, 24, MediaQuery.paddingOf(context).bottom + 24),
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -340,7 +340,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+              padding: EdgeInsets.fromLTRB(24, 0, 24, MediaQuery.paddingOf(context).bottom + 24),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final raw = sessions[index];

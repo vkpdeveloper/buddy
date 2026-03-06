@@ -119,7 +119,7 @@ class _HealthDashboard extends ConsumerWidget {
       onRefresh: () => _refresh(ref),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 120),
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 92),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -593,57 +593,105 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
               ),
             ],
           ),
+          _StatsRing(
+            ringProgress: ringProgress,
+            workoutsCompleted: weekly?.workoutsCompleted ?? 0,
+            plannedWorkouts: weekly?.plannedWorkouts ?? 0,
+            level: progress?.currentLevel,
+            streak: progress?.currentStreak,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsRing extends StatelessWidget {
+  final double ringProgress;
+  final int workoutsCompleted;
+  final int plannedWorkouts;
+  final int? level;
+  final int? streak;
+
+  const _StatsRing({
+    required this.ringProgress,
+    required this.workoutsCompleted,
+    required this.plannedWorkouts,
+    this.level,
+    this.streak,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 58,
+      height: 58,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Workout completion ring
+          SizedBox(
+            width: 58,
+            height: 58,
+            child: CircularProgressIndicator(
+              value: ringProgress,
+              strokeWidth: 3.5,
+              backgroundColor: AppTheme.borderDark,
+              color: AppTheme.primary,
+              strokeCap: StrokeCap.round,
+            ),
+          ),
+          // Center: level number
           Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (progress != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.levelArc.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: AppTheme.levelArc.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Text(
-                    'L${progress.currentLevel} • ${progress.currentStreak}🔥',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.levelArc,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+              if (level != null)
+                Text(
+                  'L$level',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
                   ),
                 ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      value: ringProgress,
-                      strokeWidth: 4,
-                      backgroundColor: AppTheme.borderDark,
-                      color: AppTheme.primary,
-                    ),
-                    Text(
-                      '${weekly?.workoutsCompleted ?? 0}/${weekly?.plannedWorkouts ?? 0}',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+              Text(
+                '$workoutsCompleted/$plannedWorkouts',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
                 ),
               ),
             ],
           ),
+          // Streak badge at bottom-right of ring
+          if (streak != null && streak! > 0)
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.oledBlack,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppTheme.xpGold.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  '$streak🔥',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.xpGold,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

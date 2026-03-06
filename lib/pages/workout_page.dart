@@ -788,7 +788,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
 
     if (isRest) {
       return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+        padding: EdgeInsets.fromLTRB(24, 0, 24, MediaQuery.paddingOf(context).bottom + 92),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -1110,7 +1110,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               ),
             ),
           ),
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 92)),
       ],
     );
   }

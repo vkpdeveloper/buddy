@@ -315,7 +315,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
 
                     return SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(bottom: 120),
+                      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 92),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [

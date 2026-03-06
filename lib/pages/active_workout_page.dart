@@ -2433,6 +2433,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Text(
                                 'NEXT UP',
@@ -2441,6 +2442,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   fontSize: 9,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1.5,
+                                  height: 1,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -2451,6 +2453,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   color: AppTheme.textCream,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
+                                  height: 1,
                                 ),
                               ),
                             ],
