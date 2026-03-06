@@ -69,7 +69,6 @@ app.onError((err, c) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const port = parseInt(env.PORT);
-console.log(`🚀 Running at: http://localhost:${port}`);
 
 export default {
   port,
