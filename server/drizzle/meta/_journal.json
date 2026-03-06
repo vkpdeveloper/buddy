@@ -1,110 +1,12 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
-      "when": 1772609683362,
-      "tag": "0000_sudden_masque",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1772630341953,
-      "tag": "0001_peaceful_husk",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1772640943085,
-      "tag": "0002_lyrical_jubilee",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1772653778712,
-      "tag": "0003_strange_scarlet_spider",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1772700900171,
-      "tag": "0004_wet_pepper_potts",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1772719664714,
-      "tag": "0005_melted_living_tribunal",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1772721397215,
-      "tag": "0007_nappy_krista_starr",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1772723687688,
-      "tag": "0007_thin_the_twelve",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1772733422737,
-      "tag": "0008_nostalgic_the_anarchist",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "6",
-      "when": 1772734289279,
-      "tag": "0009_blue_jack_flag",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "6",
-      "when": 1772739739977,
-      "tag": "0010_common_plazm",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "6",
-      "when": 1772740445312,
-      "tag": "0011_confused_mother_askani",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "6",
-      "when": 1772785366351,
-      "tag": "0012_motionless_moondragon",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "6",
-      "when": 1772785536882,
-      "tag": "0013_stale_boom_boom",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "6",
-      "when": 1772796196525,
-      "tag": "0014_new_moira_mactaggert",
+      "version": "7",
+      "when": 1772823672183,
+      "tag": "0000_nappy_violations",
       "breakpoints": true
     }
   ]

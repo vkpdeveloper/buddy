@@ -1,1 +1,0 @@
-ALTER TABLE `progress_photos` ADD `measurement_id` integer REFERENCES body_measurements(id);

@@ -1,16 +1,18 @@
 import {
-    sqliteTable,
+    pgTable,
     text,
     integer,
     real,
+    boolean,
+    serial,
     uniqueIndex,
-} from 'drizzle-orm/sqlite-core';
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ─── User Profile (one row per Clerk user) ───────────────────────────────────
 
-export const userProfile = sqliteTable('user_profile', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const userProfile = pgTable('user_profile', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID (e.g. user_abc123)
     height: real('height').notNull().default(175),          // cm
     weight: real('weight').notNull().default(70),           // kg
@@ -27,7 +29,7 @@ export const userProfile = sqliteTable('user_profile', {
     workoutCycle: text('workout_cycle', {
         enum: ['ppl', 'upper_lower', 'ppl_upper', 'full_body'],
     }).notNull().default('ppl'),
-    useProteinPowder: integer('use_protein_powder', { mode: 'boolean' }).notNull().default(true),
+    useProteinPowder: boolean('use_protein_powder').notNull().default(true),
     proteinLevel: text('protein_level', {
         enum: ['high', 'moderate'],
     }).notNull().default('high'),
@@ -46,27 +48,27 @@ export const userProfile = sqliteTable('user_profile', {
         enum: ['myself', 'maid'],
     }).notNull().default('myself'),
     preferredFoods: text('preferred_foods').notNull().default('[]'), // JSON array of food names
-    profileCompleted: integer('profile_completed', { mode: 'boolean' }).notNull().default(false),
-    preferSupersets: integer('prefer_supersets', { mode: 'boolean' }).default(false),
-    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+    profileCompleted: boolean('profile_completed').notNull().default(false),
+    preferSupersets: boolean('prefer_supersets').default(false),
+    updatedAt: text('updated_at').default(sql`now()`),
 });
 
 // ─── Diet Plans ─────────────────────────────────────────────────────────────
 
-export const dietPlans = sqliteTable('diet_plans', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const dietPlans = pgTable('diet_plans', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     title: text('title').notNull(),
     totalCalories: integer('total_calories').notNull(),
     proteinG: real('protein_g').notNull(),
     carbsG: real('carbs_g').notNull(),
     fatG: real('fat_g').notNull(),
-    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: text('created_at').default(sql`now()`),
 });
 
-export const dietDays = sqliteTable('diet_days', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const dietDays = pgTable('diet_days', {
+    id: serial('id').primaryKey(),
     planId: integer('plan_id').notNull().references(() => dietPlans.id, { onDelete: 'cascade' }),
     dayNumber: integer('day_number').notNull(),            // 1–7
     dayName: text('day_name').notNull(),                   // Monday, Tuesday, etc.
@@ -74,11 +76,11 @@ export const dietDays = sqliteTable('diet_days', {
     proteinG: real('protein_g').notNull(),
     carbsG: real('carbs_g').notNull(),
     fatG: real('fat_g').notNull(),
-    isCompleted: integer('is_completed', { mode: 'boolean' }).notNull().default(false),
+    isCompleted: boolean('is_completed').notNull().default(false),
 });
 
-export const dietMeals = sqliteTable('diet_meals', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const dietMeals = pgTable('diet_meals', {
+    id: serial('id').primaryKey(),
     dayId: integer('day_id').notNull().references(() => dietDays.id, { onDelete: 'cascade' }),
     orderIndex: integer('order_index').notNull().default(0),
     mealType: text('meal_type', {
@@ -93,14 +95,14 @@ export const dietMeals = sqliteTable('diet_meals', {
     proteinG: real('protein_g').notNull(),
     carbsG: real('carbs_g').notNull(),
     fatG: real('fat_g').notNull(),
-    isCompleted: integer('is_completed', { mode: 'boolean' }).notNull().default(false),
+    isCompleted: boolean('is_completed').notNull().default(false),
     notes: text('notes').notNull().default(''),
 });
 
 // ─── Workout Plans ───────────────────────────────────────────────────────────
 
-export const workoutPlans = sqliteTable('workout_plans', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const workoutPlans = pgTable('workout_plans', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     title: text('title').notNull(),
     cycleType: text('cycle_type', {
@@ -108,21 +110,21 @@ export const workoutPlans = sqliteTable('workout_plans', {
     }).notNull(),
     daysPerWeek: integer('days_per_week').notNull(),
     equipment: text('equipment').notNull().default('["dumbbells"]'), // JSON array
-    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: text('created_at').default(sql`now()`),
 });
 
-export const workoutDays = sqliteTable('workout_days', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const workoutDays = pgTable('workout_days', {
+    id: serial('id').primaryKey(),
     planId: integer('plan_id').notNull().references(() => workoutPlans.id, { onDelete: 'cascade' }),
     dayNumber: integer('day_number').notNull(),
     dayLabel: text('day_label').notNull(),   // Push, Pull, Legs, Upper, Lower, Full Body, Rest
-    isRestDay: integer('is_rest_day', { mode: 'boolean' }).notNull().default(false),
+    isRestDay: boolean('is_rest_day').notNull().default(false),
     notes: text('notes').notNull().default(''),
 });
 
-export const workoutExercises = sqliteTable('workout_exercises', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const workoutExercises = pgTable('workout_exercises', {
+    id: serial('id').primaryKey(),
     dayId: integer('day_id').notNull().references(() => workoutDays.id, { onDelete: 'cascade' }),
     orderIndex: integer('order_index').notNull(),
     name: text('name').notNull(),
@@ -138,11 +140,11 @@ export const workoutExercises = sqliteTable('workout_exercises', {
 
 // ─── Diet Meal Logs (per-date completion tracking) ───────────────────────────
 
-export const dietMealLogs = sqliteTable('diet_meal_logs', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const dietMealLogs = pgTable('diet_meal_logs', {
+    id: serial('id').primaryKey(),
     mealId: integer('meal_id').notNull().references(() => dietMeals.id, { onDelete: 'cascade' }),
     date: text('date').notNull(),                   // 'YYYY-MM-DD'
-    isCompleted: integer('is_completed', { mode: 'boolean' }).notNull().default(false),
+    isCompleted: boolean('is_completed').notNull().default(false),
     actualMealName: text('actual_meal_name').notNull().default(''),
     actualCalories: integer('actual_calories'),
     actualProteinG: real('actual_protein_g'),
@@ -150,30 +152,30 @@ export const dietMealLogs = sqliteTable('diet_meal_logs', {
     actualFatG: real('actual_fat_g'),
     actualNotes: text('actual_notes').notNull().default(''),
     rawPayload: text('raw_payload').notNull().default('{}'),
-    loggedAt: text('logged_at').default(sql`(datetime('now'))`),
+    loggedAt: text('logged_at').default(sql`now()`),
 });
 
 // ─── Daily Logs (one row per user per day) ───────────────────────────────────
 
-export const dailyLogs = sqliteTable('daily_logs', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const dailyLogs = pgTable('daily_logs', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     date: text('date').notNull(),                           // 'YYYY-MM-DD'
     waterMl: integer('water_ml').notNull().default(0),
     sleepMinutes: integer('sleep_minutes').notNull().default(0),
     stepsCount: integer('steps_count').notNull().default(0),
     caloriesBurned: integer('calories_burned').notNull().default(0),
-    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at').default(sql`now()`),
 }, (t) => ({
     userDateUnique: uniqueIndex('daily_logs_user_date_unique').on(t.userId, t.date),
 }));
 
-export const workoutSessions = sqliteTable('workout_sessions', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const workoutSessions = pgTable('workout_sessions', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     planId: integer('plan_id').notNull().references(() => workoutPlans.id, { onDelete: 'cascade' }),
     dayId: integer('day_id').notNull().references(() => workoutDays.id, { onDelete: 'cascade' }),
-    startedAt: text('started_at').default(sql`(datetime('now'))`),
+    startedAt: text('started_at').default(sql`now()`),
     completedAt: text('completed_at'),
     totalDurationSeconds: integer('total_duration_seconds'),
     totalExercises: integer('total_exercises').notNull().default(0),
@@ -191,8 +193,8 @@ export const workoutSessions = sqliteTable('workout_sessions', {
 
 // ─── Gamification ─────────────────────────────────────────────────────────────
 
-export const userProgress = sqliteTable('user_progress', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const userProgress = pgTable('user_progress', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     totalXp: integer('total_xp').notNull().default(0),
     currentLevel: integer('current_level').notNull().default(1),
@@ -200,11 +202,11 @@ export const userProgress = sqliteTable('user_progress', {
     longestStreak: integer('longest_streak').notNull().default(0),
     lastWorkoutDate: text('last_workout_date'),          // 'YYYY-MM-DD'
     totalWorkoutsCompleted: integer('total_workouts_completed').notNull().default(0),
-    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at').default(sql`now()`),
 });
 
-export const achievements = sqliteTable('achievements', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const achievements = pgTable('achievements', {
+    id: serial('id').primaryKey(),
     slug: text('slug').notNull().unique(),
     name: text('name').notNull(),
     description: text('description').notNull(),
@@ -212,30 +214,30 @@ export const achievements = sqliteTable('achievements', {
     iconName: text('icon_name').notNull().default('emoji_events'),
 });
 
-export const userAchievements = sqliteTable('user_achievements', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const userAchievements = pgTable('user_achievements', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     achievementId: integer('achievement_id').notNull().references(() => achievements.id),
-    unlockedAt: text('unlocked_at').default(sql`(datetime('now'))`),
+    unlockedAt: text('unlocked_at').default(sql`now()`),
     sessionId: integer('session_id').references(() => workoutSessions.id),
 });
 
 // ─── Generation Jobs (async plan generation tracking) ────────────────────────
 
-export const generationJobs = sqliteTable('generation_jobs', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const generationJobs = pgTable('generation_jobs', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     type: text('type', { enum: ['diet', 'workout'] }).notNull(),
     status: text('status', { enum: ['pending', 'generating', 'done', 'failed'] }).notNull().default('pending'),
     error: text('error'),
-    createdAt: text('created_at').default(sql`(datetime('now'))`),
-    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+    createdAt: text('created_at').default(sql`now()`),
+    updatedAt: text('updated_at').default(sql`now()`),
 });
 
 // ─── Exercise Catalog (shared, no userId) ─────────────────────────────────────
 
-export const exerciseCatalog = sqliteTable('exercise_catalog', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const exerciseCatalog = pgTable('exercise_catalog', {
+    id: serial('id').primaryKey(),
     name: text('name').notNull().unique(),
     image: text('image'),
     description: text('description').notNull(),
@@ -248,8 +250,8 @@ export const exerciseCatalog = sqliteTable('exercise_catalog', {
 
 // ─── Personal Records ─────────────────────────────────────────────────────────
 
-export const personalRecords = sqliteTable('personal_records', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const personalRecords = pgTable('personal_records', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     exerciseNameNormalized: text('exercise_name_normalized').notNull(),
     exerciseNameDisplay: text('exercise_name_display').notNull(),
@@ -263,8 +265,8 @@ export const personalRecords = sqliteTable('personal_records', {
 
 // ─── Body Measurements (Growth tracking) ─────────────────────────────────────
 
-export const bodyMeasurements = sqliteTable('body_measurements', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const bodyMeasurements = pgTable('body_measurements', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     date: text('date').notNull(),                       // 'YYYY-MM-DD'
     weightKg: real('weight_kg'),                        // body weight in kg
@@ -276,11 +278,11 @@ export const bodyMeasurements = sqliteTable('body_measurements', {
     thighsCm: real('thighs_cm'),                        // avg thigh
     notes: text('notes').notNull().default(''),
     xpEarned: integer('xp_earned').notNull().default(0),
-    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    createdAt: text('created_at').default(sql`now()`),
 });
 
-export const progressPhotos = sqliteTable('progress_photos', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const progressPhotos = pgTable('progress_photos', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     date: text('date').notNull(),                       // 'YYYY-MM-DD'
     measurementId: integer('measurement_id').references(() => bodyMeasurements.id, { onDelete: 'set null' }),
@@ -288,16 +290,16 @@ export const progressPhotos = sqliteTable('progress_photos', {
     mimeType: text('mime_type').notNull(),
     sizeBytes: integer('size_bytes').notNull().default(0),
     note: text('note').notNull().default(''),
-    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    createdAt: text('created_at').default(sql`now()`),
 });
 
-export const bodyMilestones = sqliteTable('body_milestones', {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+export const bodyMilestones = pgTable('body_milestones', {
+    id: serial('id').primaryKey(),
     userId: text('user_id').notNull(),                      // Clerk user ID
     milestoneKey: text('milestone_key').notNull(),
     measurementId: integer('measurement_id').notNull().references(() => bodyMeasurements.id, { onDelete: 'cascade' }),
     xpReward: integer('xp_reward').notNull().default(0),
-    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    createdAt: text('created_at').default(sql`now()`),
 }, (t) => ({
     userMilestoneUnique: uniqueIndex('body_milestones_user_milestone_unique').on(t.userId, t.milestoneKey),
 }));
