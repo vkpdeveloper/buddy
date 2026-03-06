@@ -8,7 +8,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/models/gamification.dart';
+import 'package:buddy/models/pr.dart';
 import 'package:buddy/providers/health_provider.dart';
+import 'package:buddy/providers/pr_provider.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/api_client.dart';
@@ -138,6 +140,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
   bool _gamificationLoaded = false;
   SessionGamificationResult? _gamResult;
 
+  bool _inSupersetSecondHalf = false;
+  Map<String, PersonalRecord> _prMap = {};
+
   int _displayXp = 0;
   Timer? _xpCountTimer;
 
@@ -203,6 +208,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     _initializeSession();
     _startHeartRateSamplingLoop();
     _prewarmTts();
+    _loadPrMap();
   }
 
   @override
@@ -368,6 +374,24 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
 
     _restoreFallbackFromSetLogs();
     setState(() {});
+  }
+
+  Future<void> _loadPrMap() async {
+    try {
+      final map = await ApiClient.getPersonalRecords();
+      if (mounted) setState(() => _prMap = map);
+    } catch (_) {}
+  }
+
+  int? _supersetPartnerIndex(int exIndex) {
+    if (exIndex < 0 || exIndex >= widget.exercises.length) return null;
+    final groupId = widget.exercises[exIndex]['supersetGroupId'];
+    if (groupId == null) return null;
+    for (var i = 0; i < widget.exercises.length; i++) {
+      if (i == exIndex) continue;
+      if (widget.exercises[i]['supersetGroupId'] == groupId) return i;
+    }
+    return null;
   }
 
   int _computeSkippedExercises() {
@@ -782,6 +806,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       ref.invalidate(progressProvider);
       ref.invalidate(homeDashboardProvider);
       ref.invalidate(weeklyWorkoutSummaryProvider);
+      ref.invalidate(prMapProvider);
 
       if (mounted) {
         setState(() {
@@ -1282,14 +1307,61 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     return double.tryParse(text);
   }
 
-  // DONE ✓ — exercise completed, increment set count, go to rest
+  // DONE ✓ — exercise completed, increment set count, go to rest (or superset B)
   void _doneExercise() {
     _timer?.cancel();
     _ringController.stop();
     HapticFeedback.lightImpact();
     _updateSetLog(_SetStatus.completed, weightKg: _currentWeightInput());
-    setState(() => _completedSets++);
-    _startRest(_exerciseIndex, _setIndex);
+
+    final currentExIdx = _exerciseIndex;
+    final partnerIdx = _supersetPartnerIndex(currentExIdx);
+
+    if (partnerIdx != null && !_inSupersetSecondHalf) {
+      // A done → jump immediately to B (no rest)
+      setState(() {
+        _completedSets++;
+        _exerciseIndex = partnerIdx;
+        _inSupersetSecondHalf = true;
+        _phase = _WorkoutPhase.exercise;
+        _timerSeconds = 60;
+      });
+      // Prefill B's weight from previous completed set
+      final controller = _weightControllers[partnerIdx];
+      final prevB = _setLogs
+          .where(
+            (log) =>
+                log.exerciseIndex == partnerIdx &&
+                log.status == _SetStatus.completed &&
+                log.weightKg != null,
+          )
+          .toList();
+      if (controller != null &&
+          controller.text.trim().isEmpty &&
+          prevB.isNotEmpty) {
+        controller.text = prevB.last.weightKg!.toStringAsFixed(1);
+      }
+      final partnerEx = widget.exercises[partnerIdx];
+      final name = (partnerEx['name'] ?? 'Exercise').toString();
+      final sets = (partnerEx['sets'] ?? 3) as int;
+      final reps = partnerEx['repsOrTime'] ?? partnerEx['reps_or_time'] ?? '10';
+      final isLastSet = _setIndex >= sets - 1;
+      final setText = isLastSet ? 'Last set! ' : 'Set ${_setIndex + 1} of $sets. ';
+      _startCountdown(60, onDone: () => _playTTS('${setText}Do $reps reps.'));
+      _playTTS('Now: $name. ${setText}Do $reps. Go!');
+    } else if (_inSupersetSecondHalf) {
+      // B done → reset superset state and go to rest from A's perspective
+      setState(() {
+        _completedSets++;
+        _inSupersetSecondHalf = false;
+      });
+      final aIdx = _supersetPartnerIndex(currentExIdx) ?? currentExIdx;
+      _startRest(aIdx, _setIndex);
+    } else {
+      // Normal (no superset)
+      setState(() => _completedSets++);
+      _startRest(currentExIdx, _setIndex);
+    }
     _syncSessionLog(force: true);
   }
 
@@ -1298,7 +1370,14 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     _timer?.cancel();
     _ringController.stop();
     _updateSetLog(_SetStatus.skipped, weightKg: _currentWeightInput());
-    _startRest(_exerciseIndex, _setIndex);
+    final currentExIdx = _exerciseIndex;
+    if (_inSupersetSecondHalf) {
+      setState(() => _inSupersetSecondHalf = false);
+      final aIdx = _supersetPartnerIndex(currentExIdx) ?? currentExIdx;
+      _startRest(aIdx, _setIndex);
+    } else {
+      _startRest(currentExIdx, _setIndex);
+    }
     _syncSessionLog(force: true);
   }
 
@@ -2070,6 +2149,59 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                         ],
                       ),
                     ),
+                    if (!isRest) ...[
+                      Builder(
+                        builder: (context) {
+                          final partnerIdx =
+                              _supersetPartnerIndex(_exerciseIndex);
+                          if (partnerIdx == null) return const SizedBox.shrink();
+                          final partnerEx = widget.exercises[partnerIdx];
+                          final label = _inSupersetSecondHalf
+                              ? 'SUPERSET · Set ${_setIndex + 1}/$sets · Now: ${ex['name']}'
+                              : 'SUPERSET · Set ${_setIndex + 1}/$sets · Next: ${partnerEx['name']}';
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: AppTheme.accent.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    LucideIcons.link_2,
+                                    color: AppTheme.accent,
+                                    size: 13,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      label,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.accent,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.5,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                     const Spacer(),
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
@@ -2232,6 +2364,30 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                             ),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 6),
+                      Builder(
+                        builder: (context) {
+                          final normalized = (ex['name'] ?? '')
+                              .toString()
+                              .toLowerCase()
+                              .replaceAll(RegExp(r'[^a-z0-9]'), '');
+                          final pr = _prMap[normalized];
+                          return Text(
+                            pr != null
+                                ? 'PR: ${pr.weightKg % 1 == 0 ? pr.weightKg.toInt() : pr.weightKg}kg × ${pr.reps} reps'
+                                : 'No PR yet',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: pr != null
+                                  ? AppTheme.primary.withValues(alpha: 0.8)
+                                  : AppTheme.textSageMuted.withValues(
+                                      alpha: 0.5,
+                                    ),
+                              fontSize: 11,
+                            ),
+                            textAlign: TextAlign.center,
+                          );
+                        },
                       ),
                     ] else ...[
                       Text(
@@ -2735,6 +2891,78 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       ),
                     );
                   }).toList(),
+                ),
+              ),
+            ],
+
+            // New PRs
+            if (_gamResult != null && _gamResult!.newPrs.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              FadeTransition(
+                opacity: _achievementCtrl,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardDark,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.xpGold.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.trophy,
+                            color: AppTheme.xpGold,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'NEW PERSONAL RECORDS',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.xpGold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ..._gamResult!.newPrs.map(
+                        (pr) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  pr.exerciseNameDisplay,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.textCream,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                '${pr.weightKg % 1 == 0 ? pr.weightKg.toInt() : pr.weightKg}kg × ${pr.reps}',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.xpGold,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

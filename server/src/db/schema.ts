@@ -45,6 +45,7 @@ export const userProfile = sqliteTable('user_profile', {
     }).notNull().default('myself'),
     preferredFoods: text('preferred_foods').notNull().default('[]'), // JSON array of food names
     profileCompleted: integer('profile_completed', { mode: 'boolean' }).notNull().default(false),
+    preferSupersets: integer('prefer_supersets', { mode: 'boolean' }).default(false),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 });
 
@@ -127,6 +128,8 @@ export const workoutExercises = sqliteTable('workout_exercises', {
     muscleGroup: text('muscle_group').notNull().default(''),
     equipment: text('equipment').notNull().default(''),
     notes: text('notes').notNull().default(''),
+    supersetGroupId: integer('superset_group_id'),   // null = standalone; same int = paired on that day
+    supersetOrder: integer('superset_order'),         // 0 = first in pair, 1 = second
 });
 
 // ─── Diet Meal Logs (per-date completion tracking) ───────────────────────────
@@ -216,6 +219,34 @@ export const generationJobs = sqliteTable('generation_jobs', {
     error: text('error'),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+});
+
+// ─── Body Measurements (Growth tracking) ─────────────────────────────────────
+
+// ─── Exercise Catalog ─────────────────────────────────────────────────────────
+
+export const exerciseCatalog = sqliteTable('exercise_catalog', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull().unique(),
+    image: text('image'),
+    description: text('description').notNull(),
+    muscleGroup: text('muscle_group').notNull(), // Chest, Back, Legs, Shoulders, Arms, Core
+    equipment: text('equipment').notNull(),       // Barbell, Dumbbell, Cable, Bodyweight, etc.
+    category: text('category').notNull(),         // compound | isolation
+    notes: text('notes'),
+    videoLink: text('video_link'),               // YouTube URL
+});
+
+// ─── Personal Records ─────────────────────────────────────────────────────────
+
+export const personalRecords = sqliteTable('personal_records', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    exerciseNameNormalized: text('exercise_name_normalized').notNull().unique(),
+    exerciseNameDisplay: text('exercise_name_display').notNull(),
+    weightKg: real('weight_kg').notNull(),
+    reps: integer('reps').notNull(),
+    achievedAt: text('achieved_at').notNull(),   // ISO timestamp
+    sessionId: integer('session_id').references(() => workoutSessions.id, { onDelete: 'set null' }),
 });
 
 // ─── Body Measurements (Growth tracking) ─────────────────────────────────────

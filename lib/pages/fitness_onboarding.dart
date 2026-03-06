@@ -84,6 +84,9 @@ class _FitnessOnboardingExtensionState
   final Set<String> _selectedEquipment = {};
   String _workoutCycle = '';
 
+  // Page 5: Supersets preference
+  bool? _preferSupersets;
+
   // Derived from the chosen split
   int get _daysPerWeek =>
       const {
@@ -241,7 +244,7 @@ class _FitnessOnboardingExtensionState
 
   void _nextPage() {
     if (!_validateCurrentPage()) return;
-    if (_currentPage < 3) {
+    if (_currentPage < 4) {
       setState(() => _currentPage++);
       _pageController.animateToPage(
         _currentPage,
@@ -313,6 +316,7 @@ class _FitnessOnboardingExtensionState
         'cookingBy': _cookingBy,
         'preferredFoods': _selectedFoods.toList(),
         'profileCompleted': true,
+        'preferSupersets': _preferSupersets ?? false,
       });
 
       // Trigger async generation — returns immediately, worker runs in background
@@ -394,6 +398,7 @@ class _FitnessOnboardingExtensionState
                 _buildActivityPage(),
                 _buildDietPreferencesPage(),
                 _buildWorkoutSetupPage(),
+                _buildSupersetPreferencePage(),
               ],
             ),
           ),
@@ -1715,6 +1720,109 @@ class _FitnessOnboardingExtensionState
                                       alpha: 0.6,
                                     ),
                                     fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(
+                              LucideIcons.circle_check,
+                              color: AppTheme.primary,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: _buildGenerateButton(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSupersetPreferencePage() {
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    final options = [
+      (true, 'Yes, include supersets',
+          'Pair exercises back-to-back for more intensity and time efficiency.'),
+      (false, 'Keep it simple',
+          'One exercise at a time with full rest between sets.'),
+    ];
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Do you want supersets?',
+                  style: GoogleFonts.crimsonPro(
+                    color: AppTheme.textCream,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w600,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Supersets pair two exercises back-to-back with no rest in between — great for saving time and boosting intensity. For example: Bench Press straight into DB Flyes, then rest.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 14,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                ...options.map((opt) {
+                  final (value, label, subtitle) = opt;
+                  final isSelected = _preferSupersets == value;
+                  return GestureDetector(
+                    onTap: () => setState(() => _preferSupersets = value),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary.withValues(alpha: 0.1)
+                            : AppTheme.cardDark,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  label,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.textCream,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  subtitle,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.textSageMuted,
+                                    fontSize: 12,
+                                    height: 1.4,
                                   ),
                                 ),
                               ],

@@ -61,6 +61,25 @@ class AchievementData {
   );
 }
 
+class PersonalRecordResult {
+  final String exerciseNameDisplay;
+  final double weightKg;
+  final int reps;
+
+  const PersonalRecordResult({
+    required this.exerciseNameDisplay,
+    required this.weightKg,
+    required this.reps,
+  });
+
+  factory PersonalRecordResult.fromJson(Map<String, dynamic> j) =>
+      PersonalRecordResult(
+        exerciseNameDisplay: j['exerciseNameDisplay'] as String? ?? '',
+        weightKg: (j['weightKg'] as num?)?.toDouble() ?? 0.0,
+        reps: (j['reps'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class SessionGamificationResult {
   final int xpEarned;
   final XpBreakdown xpBreakdown;
@@ -71,6 +90,7 @@ class SessionGamificationResult {
   final String levelLabel;
   final int currentStreak;
   final List<AchievementData> newAchievements;
+  final List<PersonalRecordResult> newPrs;
 
   const SessionGamificationResult({
     required this.xpEarned,
@@ -82,6 +102,7 @@ class SessionGamificationResult {
     required this.levelLabel,
     required this.currentStreak,
     required this.newAchievements,
+    this.newPrs = const [],
   });
 
   factory SessionGamificationResult.fromJson(Map<String, dynamic> j) =>
@@ -98,6 +119,9 @@ class SessionGamificationResult {
         currentStreak: (j['currentStreak'] as num?)?.toInt() ?? 0,
         newAchievements: ((j['newAchievements'] as List?) ?? [])
             .map((e) => AchievementData.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        newPrs: ((j['newPrs'] as List?) ?? [])
+            .map((e) => PersonalRecordResult.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }

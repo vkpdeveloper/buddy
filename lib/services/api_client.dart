@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:buddy/models/pr.dart';
+import 'package:buddy/models/exercise_catalog.dart';
 
 class ApiClient {
   // Change this to your server's LAN IP if testing on a physical device
@@ -321,6 +323,69 @@ class ApiClient {
         'hrSnapshots': hrSnapshots,
         'dayLabel': dayLabel,
       }),
+    );
+    return _decode(res);
+  }
+
+  // ─── Exercises & PRs ─────────────────────────────────────────────────
+
+  static Future<Map<String, PersonalRecord>> getPersonalRecords() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/exercises/prs'),
+      headers: _headers,
+    );
+    final decoded = _decode(res);
+    final rawMap = (decoded['data'] as Map<String, dynamic>?) ?? {};
+    return rawMap.map((key, value) => MapEntry(
+          key,
+          PersonalRecord.fromJson(value as Map<String, dynamic>),
+        ));
+  }
+
+  static Future<List<ExerciseCatalogItem>> getExerciseCatalog({
+    String? muscleGroup,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/exercises').replace(
+      queryParameters: muscleGroup != null ? {'muscleGroup': muscleGroup} : null,
+    );
+    final res = await _client.get(uri, headers: _headers);
+    final decoded = _decode(res);
+    final list = (decoded['data'] as List?) ?? [];
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(ExerciseCatalogItem.fromJson)
+        .toList();
+  }
+
+  static Future<void> addExerciseToDay(
+    int dayId,
+    ExerciseCatalogItem exercise,
+  ) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/workout/days/$dayId/exercises'),
+      headers: _headers,
+      body: jsonEncode({
+        'name': exercise.name,
+        'muscleGroup': exercise.muscleGroup,
+        'equipment': exercise.equipment,
+        'category': exercise.category,
+        'notes': exercise.notes,
+        'sets': 3,
+        'repsOrTime': '10-12',
+        'restSeconds': 60,
+      }),
+    );
+    _decode(res);
+  }
+
+  static Future<Map<String, dynamic>> regenerateWorkoutPlan({
+    required int planId,
+    String? constraints,
+  }) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/workout/regenerate'),
+      headers: _headers,
+      body: jsonEncode({'planId': planId, 'constraints': constraints ?? ''}),
     );
     return _decode(res);
   }

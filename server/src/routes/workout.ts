@@ -6,7 +6,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import { env } from '../lib/env';
 import { db } from '../db';
-import { userProfile, workoutPlans, workoutDays, workoutExercises, workoutSessions, userProgress, achievements, userAchievements } from '../db/schema';
+import { userProfile, workoutPlans, workoutDays, workoutExercises, workoutSessions, userProgress, achievements, userAchievements, personalRecords } from '../db/schema';
 import { calculateXp, calculateNewStreak, checkAchievements, getLevel, getLevelLabel } from '../lib/xp';
 import { ensureUserProgress } from './progress';
 
@@ -126,6 +126,16 @@ const normalizeExerciseName = (name: string): string => name
     .replace(/[^a-z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+const parseRepsLowerBound = (repsOrTime: string): number | null => {
+    const raw = repsOrTime.trim();
+    // Skip time-based entries like "30s", "2min", "45 seconds"
+    if (/^[\d.]+\s*(s|sec|secs|second|seconds|m|min|minute|minutes)$/i.test(raw)) return null;
+    const rangeMatch = raw.match(/(\d+)\s*[-–]\s*\d+/);
+    if (rangeMatch) return Number(rangeMatch[1]);
+    const numMatch = raw.match(/^(\d+)/);
+    return numMatch ? Number(numMatch[1]) : null;
+};
 
 const fallbackExercisePool: Record<string, Array<{
     name: string;
@@ -318,6 +328,19 @@ router.post('/generate', async (c) => {
         const uniqueDayLabels = [...new Set(workDays.map(d => d.label))];
 
         const equipmentDisplay = equipment.map(e => e.replace('_', ' ')).join(', ');
+        const preferSupersets = profile.preferSupersets === true;
+
+        const supersetNote = preferSupersets
+            ? `
+- SUPERSETS: Pair compatible exercises as supersets (antagonist pairs like chest/back, or compound+isolation for same muscle). Paired exercises get a "supersetGroupId" (integer starting from 1) and "supersetOrder" (0 = first in pair, 1 = second). Standalone exercises get supersetGroupId: null. Example pair: Bench Press (supersetGroupId: 1, supersetOrder: 0) + DB Flyes (supersetGroupId: 1, supersetOrder: 1).`
+            : '';
+
+        const supersetFormat = preferSupersets
+            ? `          "supersetGroupId": 1,
+          "supersetOrder": 0,
+          `
+            : `          "supersetGroupId": null,
+          `;
 
         const systemPrompt = `You are an elite personal trainer and strength coach. Generate a detailed, periodized workout plan.
 
@@ -330,7 +353,7 @@ STRICT RULES:
 - Be specific: use proper exercise names (e.g., "Romanian Deadlift", "Incline Dumbbell Press", "Cable Lateral Raise")
 - Vary rep ranges: include heavy compound (4-6 reps), moderate (8-12 reps), and higher rep (15-20 reps) work
 - Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s
-- For Cable Machine exercises, only include them if "cable" appears in the equipment list
+- For Cable Machine exercises, only include them if "cable" appears in the equipment list${supersetNote}
 
 Return ONLY valid JSON in this EXACT format (no markdown):
 {
@@ -347,7 +370,7 @@ Return ONLY valid JSON in this EXACT format (no markdown):
           "restSeconds": 150,
           "muscleGroup": "Chest",
           "equipment": "Barbell",
-          "notes": "Control the descent for 2-3 seconds"
+          ${supersetFormat}"notes": "Control the descent for 2-3 seconds"
         }
       ]
     }
@@ -411,6 +434,8 @@ Return ONLY valid JSON in this EXACT format (no markdown):
                         muscleGroup: ex.muscleGroup ?? ex.muscle_group ?? '',
                         equipment: ex.equipment ?? '',
                         notes: ex.notes ?? '',
+                        supersetGroupId: ex.supersetGroupId ?? null,
+                        supersetOrder: ex.supersetOrder ?? null,
                     });
                 }
             }
@@ -965,6 +990,61 @@ router.put('/sessions/:id/complete', zValidator('json', z.object({
             updatedAt: new Date().toISOString(),
         });
 
+        // ── PR tracking ───────────────────────────────────────────────────────
+        const newPrs: typeof personalRecords.$inferSelect[] = [];
+        try {
+            const completedSession = session[0];
+            if (completedSession) {
+                const dayExercises = await db.select().from(workoutExercises)
+                    .where(eq(workoutExercises.dayId, completedSession.dayId))
+                    .orderBy(workoutExercises.orderIndex);
+
+                const setLogs = body.setLogs ?? [];
+                const achievedAt = new Date().toISOString();
+
+                for (const log of setLogs) {
+                    if (!log || typeof log !== 'object') continue;
+                    const status = String(log.status ?? '');
+                    if (status !== 'completed') continue;
+                    const weightKg = Number(log.weightKg);
+                    if (!Number.isFinite(weightKg) || weightKg <= 0) continue;
+
+                    const exerciseName = String(log.exerciseName ?? '');
+                    if (!exerciseName) continue;
+                    const normalized = normalizeExerciseName(exerciseName);
+
+                    const exerciseIndex = Number(log.exerciseIndex ?? -1);
+                    const dayEx = dayExercises[exerciseIndex];
+                    const repsOrTime = dayEx?.repsOrTime ?? '10-12';
+                    const reps = parseRepsLowerBound(repsOrTime);
+                    if (reps === null) continue;
+
+                    const [existing] = await db.select().from(personalRecords)
+                        .where(eq(personalRecords.exerciseNameNormalized, normalized))
+                        .limit(1);
+
+                    if (!existing || weightKg >= existing.weightKg) {
+                        const [upserted] = await db.insert(personalRecords).values({
+                            exerciseNameNormalized: normalized,
+                            exerciseNameDisplay: exerciseName,
+                            weightKg,
+                            reps,
+                            achievedAt,
+                            sessionId,
+                        }).onConflictDoUpdate({
+                            target: personalRecords.exerciseNameNormalized,
+                            set: { weightKg, reps, achievedAt, sessionId, exerciseNameDisplay: exerciseName },
+                        }).returning();
+                        if (upserted && (!existing || weightKg > existing.weightKg)) {
+                            newPrs.push(upserted);
+                        }
+                    }
+                }
+            }
+        } catch (prErr) {
+            console.error('[sessions/complete] PR tracking error:', prErr);
+        }
+
         return c.json({
             success: true,
             data: {
@@ -977,10 +1057,159 @@ router.put('/sessions/:id/complete', zValidator('json', z.object({
                 levelLabel: getLevelLabel(finalLevel),
                 currentStreak: newStreak,
                 newAchievements: earnedAchievementRows,
+                newPrs,
             },
         });
     } catch (err) {
         console.error('[sessions/complete]', err);
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── POST /api/workout/days/:dayId/exercises ─────────────────────────────────
+router.post('/days/:dayId/exercises', async (c) => {
+    try {
+        const dayId = parseInt(c.req.param('dayId'));
+        const body = await c.req.json();
+        const name = String(body.name ?? '').trim();
+        if (!name) return c.json({ success: false, error: 'name is required' }, 400);
+
+        const existing = await db.select().from(workoutExercises)
+            .where(eq(workoutExercises.dayId, dayId))
+            .orderBy(desc(workoutExercises.orderIndex))
+            .limit(1);
+        const nextOrder = existing.length > 0 ? (existing[0].orderIndex + 1) : 1;
+
+        const [inserted] = await db.insert(workoutExercises).values({
+            dayId,
+            orderIndex: nextOrder,
+            name,
+            sets: Number(body.sets) || 3,
+            repsOrTime: String(body.repsOrTime ?? '10-12'),
+            restSeconds: Number(body.restSeconds) || 60,
+            muscleGroup: String(body.muscleGroup ?? ''),
+            equipment: String(body.equipment ?? ''),
+            notes: String(body.notes ?? ''),
+        }).returning();
+
+        return c.json({ success: true, data: inserted });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── POST /api/workout/regenerate ────────────────────────────────────────────
+router.post('/regenerate', async (c) => {
+    try {
+        const body = await c.req.json();
+        const planId = Number(body.planId);
+        const constraints = String(body.constraints ?? '').trim();
+
+        if (!planId) return c.json({ success: false, error: 'planId is required' }, 400);
+
+        const profiles = await db.select().from(userProfile).limit(1);
+        if (profiles.length === 0) return c.json({ success: false, error: 'Profile not found' }, 400);
+        const profile = profiles[0];
+
+        const equipment: string[] = JSON.parse(profile.equipment);
+        const cycleType = profile.workoutCycle;
+        const daysPerWeek = profile.weeklyWorkoutDays;
+
+        const template = CYCLE_TEMPLATES[cycleType];
+        const workDays = template.days.filter(d => !d.isRest).slice(0, daysPerWeek);
+        const uniqueDayLabels = [...new Set(workDays.map(d => d.label))];
+        const equipmentDisplay = equipment.map(e => e.replace('_', ' ')).join(', ');
+
+        const constraintNote = constraints
+            ? `\n\nUSER CONSTRAINTS: ${constraints}\nAvoid or modify exercises that conflict with these constraints.`
+            : '';
+
+        const systemPrompt = `You are an elite personal trainer. Generate a detailed workout plan.
+
+STRICT RULES:
+- ONLY use these available equipment: ${equipmentDisplay}
+- Split type: ${cycleType.replace('_', ' ').toUpperCase()}
+- Generate exercises for these distinct workout days: ${uniqueDayLabels.join(', ')}
+- 5-7 exercises per workout day
+- Include sets, reps (or time), rest periods, and the primary muscle group for EACH exercise
+- Vary rep ranges: include heavy compound (4-6 reps), moderate (8-12 reps), and higher rep (15-20 reps) work
+- Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s${constraintNote}
+
+Return ONLY valid JSON in this EXACT format (no markdown):
+{
+  "title": "Plan Title",
+  "days": [
+    {
+      "dayLabel": "Push",
+      "exercises": [
+        { "orderIndex": 1, "name": "Barbell Bench Press", "sets": 4, "repsOrTime": "6-8", "restSeconds": 150, "muscleGroup": "Chest", "equipment": "Barbell", "notes": "..." }
+      ]
+    }
+  ]
+}`;
+
+        const { text } = await generateText({
+            model: google('gemini-3.1-flash-lite-preview'),
+            system: systemPrompt,
+            prompt: `Regenerate the workout plan. Equipment: ${equipmentDisplay}. Split: ${cycleType}. Days: ${uniqueDayLabels.join(', ')}.${constraints ? ` User constraints: ${constraints}` : ''}`,
+            maxOutputTokens: 6000,
+        });
+
+        let planData: any;
+        try {
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) throw new Error('No JSON found');
+            planData = JSON.parse(jsonMatch[0]);
+        } catch {
+            return c.json({ success: false, error: 'AI returned invalid JSON. Please try again.' }, 500);
+        }
+
+        // Deactivate existing plans
+        await db.update(workoutPlans).set({ isActive: false });
+
+        const [insertedPlan] = await db.insert(workoutPlans).values({
+            title: planData.title ?? `${cycleType.toUpperCase()} Plan (Updated)`,
+            cycleType: cycleType as any,
+            daysPerWeek,
+            equipment: JSON.stringify(equipment),
+            isActive: true,
+        }).returning();
+
+        const aiDayMap: Record<string, any[]> = {};
+        for (const aiDay of planData.days ?? []) {
+            aiDayMap[aiDay.dayLabel] = aiDay.exercises ?? [];
+        }
+
+        for (let i = 0; i < template.days.length; i++) {
+            const templateDay = template.days[i];
+            const [insertedDay] = await db.insert(workoutDays).values({
+                planId: insertedPlan.id,
+                dayNumber: i + 1,
+                dayLabel: templateDay.label,
+                isRestDay: templateDay.isRest,
+            }).returning();
+
+            if (!templateDay.isRest) {
+                const exercises = aiDayMap[templateDay.label] ?? [];
+                for (const ex of exercises) {
+                    await db.insert(workoutExercises).values({
+                        dayId: insertedDay.id,
+                        orderIndex: ex.orderIndex ?? 1,
+                        name: ex.name ?? 'Exercise',
+                        sets: ex.sets ?? 3,
+                        repsOrTime: String(ex.repsOrTime ?? '10-12'),
+                        restSeconds: ex.restSeconds ?? 60,
+                        muscleGroup: ex.muscleGroup ?? '',
+                        equipment: ex.equipment ?? '',
+                        notes: ex.notes ?? '',
+                    });
+                }
+            }
+        }
+
+        return c.json({ success: true, data: { planId: insertedPlan.id } });
+    } catch (err) {
+        console.error('[workout/regenerate]', err);
         return c.json({ success: false, error: String(err) }, 500);
     }
 });

@@ -45,6 +45,7 @@ const profileSchema = z.object({
     cookingBy: z.enum(['myself', 'maid']).optional(),
     preferredFoods: z.array(z.string()).optional(),
     profileCompleted: z.boolean().optional(),
+    preferSupersets: z.boolean().optional(),
 });
 
 // PUT /api/profile — upsert profile
@@ -76,6 +77,7 @@ router.put('/', zValidator('json', profileSchema), async (c) => {
         if (body.cookingBy !== undefined) updateData.cookingBy = body.cookingBy as 'myself' | 'maid';
         if (body.preferredFoods !== undefined) updateData.preferredFoods = JSON.stringify(body.preferredFoods);
         if (body.profileCompleted !== undefined) updateData.profileCompleted = body.profileCompleted;
+        if (body.preferSupersets !== undefined) updateData.preferSupersets = body.preferSupersets;
 
         let result;
         if (profiles.length === 0) {

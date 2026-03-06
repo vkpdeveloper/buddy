@@ -4,15 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/models/pr.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:buddy/pages/active_workout_page.dart';
 import 'package:buddy/pages/workout_sessions_page.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
+import 'package:buddy/providers/pr_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/exercise_library_sheet.dart';
 import 'package:buddy/providers/generation_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -36,6 +39,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   int _stretchSecondsLeft = 0;
   int _todayHydrationMl = 0;
   bool _isHydrationLogging = false;
+  bool _regenLoading = false;
 
   String get _todayDate {
     final now = DateTime.now();
@@ -214,6 +218,82 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
       }
       setState(() => _stretchSecondsLeft -= 1);
     });
+  }
+
+  Future<void> _showRegenerateDialog() async {
+    final planId = _activePlanId;
+    if (planId == null) return;
+    final ctrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardDark,
+        title: Text(
+          'Regenerate Plan',
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textCream,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Describe any injuries or constraints to work around.',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              maxLines: 3,
+              style: GoogleFonts.plusJakartaSans(color: AppTheme.textCream, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'e.g. knee injury, avoid squats...',
+                hintStyle: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted, fontSize: 12),
+                filled: true,
+                fillColor: AppTheme.backgroundDark,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.borderDark),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.borderDark),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Regenerate', style: GoogleFonts.plusJakartaSans(color: AppTheme.primary, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _regenLoading = true);
+    try {
+      await ApiClient.regenerateWorkoutPlan(planId: planId, constraints: ctrl.text.trim());
+      if (!mounted) return;
+      await _loadPlans();
+      ref.invalidate(prMapProvider);
+      AppSnackbar.success(context, 'Plan updated!');
+    } catch (_) {
+      if (!mounted) return;
+      AppSnackbar.error(context, 'Could not regenerate plan. Try again.');
+    } finally {
+      if (mounted) setState(() => _regenLoading = false);
+    }
   }
 
   Future<void> _replaceExercise(
@@ -521,6 +601,28 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 ),
               ),
               const SizedBox(width: 10),
+              GestureDetector(
+                onTap: _showRegenerateDialog,
+                child: _regenLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.primary,
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.borderDark),
+                        ),
+                        child: const Icon(LucideIcons.refresh_cw, color: AppTheme.textSageMuted, size: 13),
+                      ),
+              ),
+              const SizedBox(width: 6),
               GestureDetector(
                 onTap: () {
                   Navigator.push(
@@ -952,21 +1054,114 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
-              (ctx, i) => _ExerciseCard(
-                exercise: exercises[i],
-                index: i,
-                onUpdate: () => _loadPlanDetail(_activePlanId!),
-                onReplace: () => _replaceExercise(
-                  day,
-                  Map<String, dynamic>.from(exercises[i] as Map),
-                ),
-              ),
+              (ctx, i) {
+                final prMap = ref.watch(prMapProvider).asData?.value ?? {};
+                return _buildExerciseItem(
+                  exercises: exercises,
+                  day: day,
+                  index: i,
+                  prMap: prMap,
+                );
+              },
               childCount: exercises.length,
             ),
           ),
         ),
+        if (dayId != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              child: GestureDetector(
+                onTap: () => showExerciseLibrarySheet(
+                  context,
+                  dayId: dayId,
+                  onAdded: () {
+                    _loadPlanDetail(_activePlanId!);
+                    ref.invalidate(prMapProvider);
+                  },
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.25),
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(LucideIcons.plus, color: AppTheme.primary, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'ADD FROM LIBRARY',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
+    );
+  }
+
+  Widget _buildExerciseItem({
+    required List<dynamic> exercises,
+    required Map<String, dynamic> day,
+    required int index,
+    required Map<String, PersonalRecord> prMap,
+  }) {
+    final ex = exercises[index] as Map<String, dynamic>;
+    final groupId = ex['supersetGroupId'] ?? ex['superset_group_id'];
+    final supersetOrder = (ex['supersetOrder'] ?? ex['superset_order'] as num?)?.toInt() ?? 0;
+
+    // Only render superset pair card for the first exercise in the pair (order 0)
+    if (groupId != null && supersetOrder != 0) {
+      return const SizedBox.shrink();
+    }
+
+    if (groupId != null) {
+      // Find partner
+      final partner = exercises.whereType<Map<String, dynamic>>().firstWhere(
+        (e) => (e['supersetGroupId'] ?? e['superset_group_id']) == groupId &&
+            ((e['supersetOrder'] ?? e['superset_order'] as num?)?.toInt() ?? 0) == 1,
+        orElse: () => <String, dynamic>{},
+      );
+
+      if (partner.isNotEmpty) {
+        final exName = (ex['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+        final partnerName = (partner['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+        return _SupersetPairCard(
+          exerciseA: ex,
+          exerciseB: partner,
+          indexA: index,
+          indexB: exercises.indexOf(partner),
+          prA: prMap[exName],
+          prB: prMap[partnerName],
+          onUpdate: () => _loadPlanDetail(_activePlanId!),
+          onReplaceA: () => _replaceExercise(day, Map<String, dynamic>.from(ex)),
+          onReplaceB: () => _replaceExercise(day, Map<String, dynamic>.from(partner)),
+        );
+      }
+    }
+
+    final normalized = (ex['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+    return _ExerciseCard(
+      exercise: ex,
+      index: index,
+      pr: prMap[normalized],
+      onUpdate: () => _loadPlanDetail(_activePlanId!),
+      onReplace: () => _replaceExercise(day, Map<String, dynamic>.from(ex)),
     );
   }
 
@@ -1150,6 +1345,7 @@ String _formatRest(int seconds) {
 class _ExerciseCard extends StatelessWidget {
   final Map<String, dynamic> exercise;
   final int index;
+  final PersonalRecord? pr;
   final VoidCallback onUpdate;
   final Future<void> Function() onReplace;
 
@@ -1158,6 +1354,7 @@ class _ExerciseCard extends StatelessWidget {
     required this.index,
     required this.onUpdate,
     required this.onReplace,
+    this.pr,
   });
 
   void _showEditSheet(BuildContext context) {
@@ -1455,11 +1652,235 @@ class _ExerciseCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // PR badge
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        const Icon(LucideIcons.trophy, color: AppTheme.xpGold, size: 11),
+                        const SizedBox(width: 5),
+                        Text(
+                          pr != null
+                              ? 'PR: ${pr!.weightKg}kg × ${pr!.reps} reps'
+                              : 'No PR yet',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: pr != null
+                                ? AppTheme.xpGold.withValues(alpha: 0.85)
+                                : AppTheme.textSageMuted.withValues(alpha: 0.45),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Superset Pair Card ───────────────────────────────────────────────────────
+
+class _SupersetPairCard extends StatelessWidget {
+  final Map<String, dynamic> exerciseA;
+  final Map<String, dynamic> exerciseB;
+  final int indexA;
+  final int indexB;
+  final PersonalRecord? prA;
+  final PersonalRecord? prB;
+  final VoidCallback onUpdate;
+  final Future<void> Function() onReplaceA;
+  final Future<void> Function() onReplaceB;
+
+  const _SupersetPairCard({
+    required this.exerciseA,
+    required this.exerciseB,
+    required this.indexA,
+    required this.indexB,
+    required this.onUpdate,
+    required this.onReplaceA,
+    required this.onReplaceB,
+    this.prA,
+    this.prB,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        children: [
+          // SUPERSET label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
+            ),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.zap, color: AppTheme.primary, size: 12),
+                const SizedBox(width: 5),
+                Text(
+                  'SUPERSET',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _SupersetExerciseRow(
+            exercise: exerciseA,
+            index: indexA,
+            pr: prA,
+            onUpdate: onUpdate,
+            onReplace: onReplaceA,
+            isLast: false,
+          ),
+          // Connector line
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(LucideIcons.arrow_down, color: AppTheme.primary, size: 12),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(height: 1, color: AppTheme.borderDark),
+                ),
+              ],
+            ),
+          ),
+          _SupersetExerciseRow(
+            exercise: exerciseB,
+            index: indexB,
+            pr: prB,
+            onUpdate: onUpdate,
+            onReplace: onReplaceB,
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupersetExerciseRow extends StatelessWidget {
+  final Map<String, dynamic> exercise;
+  final int index;
+  final PersonalRecord? pr;
+  final VoidCallback onUpdate;
+  final Future<void> Function() onReplace;
+  final bool isLast;
+
+  const _SupersetExerciseRow({
+    required this.exercise,
+    required this.index,
+    required this.onUpdate,
+    required this.onReplace,
+    required this.isLast,
+    this.pr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final name = exercise['name'] ?? 'Exercise';
+    final muscle = (exercise['muscleGroup'] ?? exercise['muscle_group'] ?? '') as String;
+    final sets = exercise['sets'] ?? 3;
+    final reps = (exercise['repsOrTime'] ?? exercise['reps_or_time'] ?? '10-12').toString();
+    final restRaw = exercise['restSeconds'] ?? exercise['rest_seconds'] ?? 60;
+    final restSecs = (restRaw is int) ? restRaw : int.tryParse('$restRaw') ?? 60;
+    final accentColor = _muscleAccentColor(muscle);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(14, 10, 14, isLast ? 14 : 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(top: 1, right: 10),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              isLast ? 'B' : 'A',
+              style: GoogleFonts.plusJakartaSans(
+                color: accentColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      '$sets × $reps  ·  rest ${_formatRest(restSecs)}',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                if (pr != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.trophy, color: AppTheme.xpGold, size: 10),
+                      const SizedBox(width: 4),
+                      Text(
+                        'PR: ${pr!.weightKg}kg × ${pr!.reps}',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.xpGold.withValues(alpha: 0.8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

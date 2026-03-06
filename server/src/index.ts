@@ -12,6 +12,8 @@ import logsRouter from './routes/logs';
 import progressRouter, { seedAchievements, ensureUserProgress } from './routes/progress';
 import bodyRouter from './routes/body';
 import generationRouter from './routes/generation';
+import exercisesRouter from './routes/exercises';
+import { seedCatalog } from './lib/seedCatalog';
 
 const app = new Hono();
 
@@ -42,10 +44,12 @@ app.route('/api/logs', logsRouter);
 app.route('/api/progress', progressRouter);
 app.route('/api/body', bodyRouter);
 app.route('/api/generation', generationRouter);
+app.route('/api/exercises', exercisesRouter);
 
 // ─── Startup tasks ────────────────────────────────────────────────────────────
 seedAchievements().catch(console.error);
 ensureUserProgress().catch(console.error);
+seedCatalog().catch(console.error);
 
 // ─── 404 Fallback ─────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ success: false, error: 'Route not found' }, 404));
