@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateText } from 'ai';
+import { generateObject } from 'ai';
 import { env } from '../lib/env';
 import { db } from '../db';
 import { userProfile, workoutPlans, workoutDays, workoutExercises, workoutSessions, userProgress, achievements, userAchievements, personalRecords } from '../db/schema';
@@ -12,6 +12,37 @@ import { ensureUserProgress } from './progress';
 
 const router = new Hono();
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
+
+const WorkoutExerciseSchema = z.object({
+    orderIndex: z.number().int(),
+    name: z.string(),
+    sets: z.number().int(),
+    repsOrTime: z.string(),
+    restSeconds: z.number().int(),
+    muscleGroup: z.string(),
+    equipment: z.string(),
+    notes: z.string(),
+    supersetGroupId: z.number().int().nullable().optional(),
+    supersetOrder: z.number().int().nullable().optional(),
+});
+
+const WorkoutPlanSchema = z.object({
+    title: z.string(),
+    days: z.array(z.object({
+        dayLabel: z.string(),
+        exercises: z.array(WorkoutExerciseSchema),
+    })),
+});
+
+const ExerciseReplacementResultSchema = z.object({
+    name: z.string(),
+    sets: z.number().int(),
+    repsOrTime: z.string(),
+    restSeconds: z.number().int(),
+    muscleGroup: z.string(),
+    equipment: z.string(),
+    notes: z.string(),
+});
 
 type WorkoutExerciseRow = typeof workoutExercises.$inferSelect;
 
@@ -340,12 +371,6 @@ router.post('/generate', async (c) => {
 - SUPERSETS: Pair compatible exercises as supersets (antagonist pairs like chest/back, or compound+isolation for same muscle). Paired exercises get a "supersetGroupId" (integer starting from 1) and "supersetOrder" (0 = first in pair, 1 = second). Standalone exercises get supersetGroupId: null. Example pair: Bench Press (supersetGroupId: 1, supersetOrder: 0) + DB Flyes (supersetGroupId: 1, supersetOrder: 1).`
             : '';
 
-        const supersetFormat = preferSupersets
-            ? `          "supersetGroupId": 1,
-          "supersetOrder": 0,
-          `
-            : `          "supersetGroupId": null,
-          `;
 
         const systemPrompt = `You are an elite personal trainer and strength coach. Generate a detailed, periodized workout plan.
 
@@ -358,46 +383,15 @@ STRICT RULES:
 - Be specific: use proper exercise names (e.g., "Romanian Deadlift", "Incline Dumbbell Press", "Cable Lateral Raise")
 - Vary rep ranges: include heavy compound (4-6 reps), moderate (8-12 reps), and higher rep (15-20 reps) work
 - Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s
-- For Cable Machine exercises, only include them if "cable" appears in the equipment list${supersetNote}
+- For Cable Machine exercises, only include them if "cable" appears in the equipment list${supersetNote}`;
 
-Return ONLY valid JSON in this EXACT format (no markdown):
-{
-  "title": "PPL Hypertrophy Program",
-  "days": [
-    {
-      "dayLabel": "Push",
-      "exercises": [
-        {
-          "orderIndex": 1,
-          "name": "Barbell Bench Press",
-          "sets": 4,
-          "repsOrTime": "6-8",
-          "restSeconds": 150,
-          "muscleGroup": "Chest",
-          "equipment": "Barbell",
-          ${supersetFormat}"notes": "Control the descent for 2-3 seconds"
-        }
-      ]
-    }
-  ]
-}`;
-
-        const { text } = await generateText({
+        const { object: planData } = await generateObject({
             model: google('gemini-3.1-flash-lite-preview'),
+            schema: WorkoutPlanSchema,
             system: systemPrompt,
             prompt: `Generate the workout plan. Available equipment: ${equipmentDisplay}. Split: ${cycleType}. Workout days needed: ${uniqueDayLabels.join(', ')}.`,
             maxOutputTokens: 6000,
         });
-
-        let planData: any;
-        try {
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error('No JSON found');
-            planData = JSON.parse(jsonMatch[0]);
-        } catch (parseErr) {
-            console.error('Failed to parse workout AI response:', text.substring(0, 500));
-            return c.json({ success: false, error: 'AI returned invalid JSON. Please try again.' }, 500);
-        }
 
         // Deactivate all existing workout plans
         await db.update(workoutPlans).set({ isActive: false }).where(eq(workoutPlans.userId, userId));
@@ -521,7 +515,7 @@ router.post('/exercises/:id/replace', zValidator('json', replaceExerciseSchema),
             body.currentExerciseNames.map((name) => normalizeExerciseName(name)),
         );
 
-        const prompt = `Generate exactly one replacement exercise as valid JSON.
+        const prompt = `Generate exactly one replacement exercise.
 
 Context:
 - Day label: ${body.dayLabel}
@@ -531,9 +525,7 @@ Context:
 
 Rules:
 - Keep it distinct from all existing exercises
-- Keep training intent similar to the current exercise: ${target.name}
-- Return exactly these keys: name, sets, repsOrTime, restSeconds, muscleGroup, equipment, notes
-- No markdown, no additional keys`;
+- Keep training intent similar to the current exercise: ${target.name}`;
 
         let candidate: {
             name: string;
@@ -546,26 +538,22 @@ Rules:
         } | null = null;
 
         try {
-            const { text } = await generateText({
+            const { object } = await generateObject({
                 model: google('gemini-3.1-flash-lite-preview'),
+                schema: ExerciseReplacementResultSchema,
                 prompt,
                 maxOutputTokens: 500,
             });
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
-                const name = String(parsed.name ?? '').trim();
-                if (name.length > 1 && !existingNames.has(normalizeExerciseName(name))) {
-                    candidate = {
-                        name,
-                        sets: Math.max(1, Number(parsed.sets) || target.sets || 3),
-                        repsOrTime: String(parsed.repsOrTime ?? target.repsOrTime ?? '10-12'),
-                        restSeconds: Math.max(20, Number(parsed.restSeconds) || target.restSeconds || 60),
-                        muscleGroup: String(parsed.muscleGroup ?? body.muscleGroup ?? target.muscleGroup ?? ''),
-                        equipment: String(parsed.equipment ?? target.equipment ?? ''),
-                        notes: String(parsed.notes ?? target.notes ?? ''),
-                    };
-                }
+            if (object.name.trim().length > 1 && !existingNames.has(normalizeExerciseName(object.name))) {
+                candidate = {
+                    name: object.name.trim(),
+                    sets: Math.max(1, object.sets || target.sets || 3),
+                    repsOrTime: object.repsOrTime || String(target.repsOrTime ?? '10-12'),
+                    restSeconds: Math.max(20, object.restSeconds || target.restSeconds || 60),
+                    muscleGroup: object.muscleGroup || body.muscleGroup || target.muscleGroup || '',
+                    equipment: object.equipment || target.equipment || '',
+                    notes: object.notes || target.notes || '',
+                };
             }
         } catch {
             candidate = null;
@@ -1167,36 +1155,15 @@ STRICT RULES:
 - 5-7 exercises per workout day
 - Include sets, reps (or time), rest periods, and the primary muscle group for EACH exercise
 - Vary rep ranges: include heavy compound (4-6 reps), moderate (8-12 reps), and higher rep (15-20 reps) work
-- Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s${constraintNote}
+- Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s${constraintNote}`;
 
-Return ONLY valid JSON in this EXACT format (no markdown):
-{
-  "title": "Plan Title",
-  "days": [
-    {
-      "dayLabel": "Push",
-      "exercises": [
-        { "orderIndex": 1, "name": "Barbell Bench Press", "sets": 4, "repsOrTime": "6-8", "restSeconds": 150, "muscleGroup": "Chest", "equipment": "Barbell", "notes": "..." }
-      ]
-    }
-  ]
-}`;
-
-        const { text } = await generateText({
+        const { object: planData } = await generateObject({
             model: google('gemini-3.1-flash-lite-preview'),
+            schema: WorkoutPlanSchema,
             system: systemPrompt,
             prompt: `Regenerate the workout plan. Equipment: ${equipmentDisplay}. Split: ${cycleType}. Days: ${uniqueDayLabels.join(', ')}.${constraints ? ` User constraints: ${constraints}` : ''}`,
             maxOutputTokens: 6000,
         });
-
-        let planData: any;
-        try {
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error('No JSON found');
-            planData = JSON.parse(jsonMatch[0]);
-        } catch {
-            return c.json({ success: false, error: 'AI returned invalid JSON. Please try again.' }, 500);
-        }
 
         // Deactivate existing plans
         await db.update(workoutPlans).set({ isActive: false }).where(eq(workoutPlans.userId, userId));

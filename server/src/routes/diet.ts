@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq, and, asc } from 'drizzle-orm';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateText } from 'ai';
+import { generateObject } from 'ai';
 import { env } from '../lib/env';
 import { db } from '../db';
 import { userProfile, dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs } from '../db/schema';
@@ -11,6 +11,32 @@ import { calculateBMR, calculateTDEE, calculateMacros } from '../lib/macros';
 
 const router = new Hono();
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
+
+const DietPlanSchema = z.object({
+    title: z.string(),
+    days: z.array(z.object({
+        dayNumber: z.number().int(),
+        dayName: z.string(),
+        totalCalories: z.number(),
+        proteinG: z.number(),
+        carbsG: z.number(),
+        fatG: z.number(),
+        meals: z.array(z.object({
+            mealType: z.string(),
+            mealName: z.string(),
+            ingredients: z.array(z.object({
+                name: z.string(),
+                quantity: z.string(),
+            })),
+            calories: z.number(),
+            proteinG: z.number(),
+            carbsG: z.number(),
+            fatG: z.number(),
+            notes: z.string(),
+            recipe: z.string(),
+        })),
+    })),
+});
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -243,40 +269,6 @@ ${useProteinPowder ? '- Include protein powder shakes: once post-workout (if pos
 - Generate exactly ${mealCount} meals per day using ONLY the meal types listed above
 - Meals must be feasible within the ${mealPrepLabel} prep time limit
 
-Return ONLY a valid JSON object in this EXACT structure (no markdown, no explanation):
-{
-  "title": "${planTitle}",
-  "days": [
-    {
-      "dayNumber": 1,
-      "dayName": "Monday",
-      "totalCalories": 2100,
-      "proteinG": 160,
-      "carbsG": 220,
-      "fatG": 58,
-      "meals": [
-        {
-          "mealType": "breakfast",
-          "mealName": "Moong Dal Chilla",
-          "ingredients": [
-            { "name": "Green moong dal", "quantity": "100g" },
-            { "name": "Onion", "quantity": "30g" },
-            { "name": "Tomato", "quantity": "20g" },
-            { "name": "Green chilli", "quantity": "1 piece" },
-            { "name": "Mint-coriander chutney", "quantity": "2 tbsp (30g)" }
-          ],
-          "calories": 380,
-          "proteinG": 22,
-          "carbsG": 45,
-          "fatG": 8,
-          "notes": "Soak dal overnight",
-          "recipe": "A light, high-protein Indian crepe made from ground moong dal. Quick to prep and perfect as a filling breakfast — crispy outside, soft inside.\n\n- Soak moong dal 4–6 hrs, then blend with onion, green chilli, ginger and salt into a smooth thick batter.\n- Heat a non-stick tawa on medium. Pour a ladle of batter and spread into a thin circle.\n- Drizzle ½ tsp oil around the edges. Cook 2–3 min until the base is golden and edges lift.\n- Flip and cook for 1 min. Serve hot with mint-coriander chutney."
-        }
-      ]
-    }
-  ]
-}
-
 INGREDIENT RULES:
 - Each ingredient must have a RAW "name" (no quality adjectives like "fresh", "good quality") and an exact "quantity" (e.g., "100g", "2 medium pieces", "1 tbsp", "200ml")
 - List every ingredient by its raw weight/volume as it would be measured before cooking
@@ -294,22 +286,13 @@ RECIPE RULES:
 
 STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not add any other meal types.`;
 
-        const { text } = await generateText({
+        const { object: planData } = await generateObject({
             model: google('gemini-3.1-flash-lite-preview'),
+            schema: DietPlanSchema,
             system: systemPrompt,
             prompt: `Generate the full 7-day diet plan for a ${profile.age}-year-old ${profile.sex} weighing ${profile.weight}kg, height ${profile.height}cm. Goal: ${profile.goal.replace('_', ' ')}. Activity: ${profile.activityLevel.replace('_', ' ')}.`,
             maxOutputTokens: 8000,
         });
-
-        let planData: any;
-        try {
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error('No JSON found in response');
-            planData = JSON.parse(jsonMatch[0]);
-        } catch (parseErr) {
-            console.error('Failed to parse AI response:', text.substring(0, 500));
-            return c.json({ success: false, error: 'AI returned invalid JSON. Please try again.' }, 500);
-        }
 
         // Deactivate all existing plans for this user
         await db.update(dietPlans).set({ isActive: false }).where(eq(dietPlans.userId, userId));
@@ -337,35 +320,30 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not
                 fatG: day.fatG ?? macros.fatG,
             }).returning();
 
-            if (day.meals && Array.isArray(day.meals)) {
-                const sortedMeals = [...day.meals].sort((a, b) => {
-                    const left = MEAL_ORDER[a.mealType ?? ''] ?? 99;
-                    const right = MEAL_ORDER[b.mealType ?? ''] ?? 99;
+            const sortedMeals = [...day.meals].sort((a, b) => {
+                    const left = MEAL_ORDER[a.mealType] ?? 99;
+                    const right = MEAL_ORDER[b.mealType] ?? 99;
                     return left - right;
                 });
                 let index = 0;
                 for (const meal of sortedMeals) {
                     index += 1;
-                    const mealType = meal.mealType ?? 'breakfast';
                     await db.insert(dietMeals).values({
                         dayId: insertedDay.id,
                         orderIndex: index,
-                        mealType,
-                        mealTime: normalizeMealTime(meal.mealTime ?? meal.meal_time, mealType),
-                        mealName: meal.mealName ?? meal.name ?? 'Meal',
+                        mealType: meal.mealType as any,
+                        mealTime: normalizeMealTime(undefined, meal.mealType),
+                        mealName: meal.mealName,
                         description: '',
-                        ingredients: JSON.stringify(
-                            Array.isArray(meal.ingredients) ? meal.ingredients : []
-                        ),
-                        calories: meal.calories ?? 300,
-                        proteinG: meal.proteinG ?? meal.protein_g ?? 20,
-                        carbsG: meal.carbsG ?? meal.carbs_g ?? 30,
-                        fatG: meal.fatG ?? meal.fat_g ?? 10,
-                        notes: meal.notes ?? '',
-                        recipe: meal.recipe ?? '',
+                        ingredients: JSON.stringify(meal.ingredients),
+                        calories: meal.calories,
+                        proteinG: meal.proteinG,
+                        carbsG: meal.carbsG,
+                        fatG: meal.fatG,
+                        notes: meal.notes,
+                        recipe: meal.recipe,
                     });
                 }
-            }
         }
 
         return c.json({ success: true, data: { planId: insertedPlan.id, macros } });

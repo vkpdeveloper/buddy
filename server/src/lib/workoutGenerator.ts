@@ -1,11 +1,29 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateText } from 'ai';
+import { generateObject } from 'ai';
 import { eq } from 'drizzle-orm';
 import { env } from './env';
+import { z } from 'zod';
 import { db } from '../db';
 import { userProfile, workoutPlans, workoutDays, workoutExercises } from '../db/schema';
 
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
+
+const WorkoutPlanSchema = z.object({
+    title: z.string(),
+    days: z.array(z.object({
+        dayLabel: z.string(),
+        exercises: z.array(z.object({
+            orderIndex: z.number().int(),
+            name: z.string(),
+            sets: z.number().int(),
+            repsOrTime: z.string(),
+            restSeconds: z.number().int(),
+            muscleGroup: z.string(),
+            equipment: z.string(),
+            notes: z.string(),
+        })),
+    })),
+});
 
 const CYCLE_TEMPLATES: Record<string, { days: { label: string; isRest: boolean }[] }> = {
     ppl: {
@@ -79,41 +97,15 @@ STRICT RULES:
 - Be specific: use proper exercise names (e.g., "Romanian Deadlift", "Incline Dumbbell Press", "Cable Lateral Raise")
 - Vary rep ranges: include heavy compound (4-6 reps), moderate (8-12 reps), and higher rep (15-20 reps) work
 - Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s
-- For Cable Machine exercises, only include them if "cable" appears in the equipment list
+- For Cable Machine exercises, only include them if "cable" appears in the equipment list`;
 
-Return ONLY valid JSON in this EXACT format (no markdown):
-{
-  "title": "PPL Hypertrophy Program",
-  "days": [
-    {
-      "dayLabel": "Push",
-      "exercises": [
-        {
-          "orderIndex": 1,
-          "name": "Barbell Bench Press",
-          "sets": 4,
-          "repsOrTime": "6-8",
-          "restSeconds": 150,
-          "muscleGroup": "Chest",
-          "equipment": "Barbell",
-          "notes": "Control the descent for 2-3 seconds"
-        }
-      ]
-    }
-  ]
-}`;
-
-    const { text } = await generateText({
+    const { object: planData } = await generateObject({
         model: google('gemini-3.1-flash-lite-preview'),
+        schema: WorkoutPlanSchema,
         system: systemPrompt,
         prompt: `Generate the workout plan. Available equipment: ${equipmentDisplay}. Split: ${cycleType}. Workout days needed: ${uniqueDayLabels.join(', ')}.`,
         maxOutputTokens: 6000,
     });
-
-    let planData: any;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON found in AI response');
-    planData = JSON.parse(jsonMatch[0]);
 
     await db.update(workoutPlans).set({ isActive: false });
 

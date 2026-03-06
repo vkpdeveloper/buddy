@@ -1,12 +1,39 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateText } from 'ai';
+import { generateObject } from 'ai';
 import { eq } from 'drizzle-orm';
 import { env } from './env';
+import { z } from 'zod';
 import { db } from '../db';
 import { userProfile, dietPlans, dietDays, dietMeals } from '../db/schema';
 import { calculateBMR, calculateTDEE, calculateMacros } from './macros';
 
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
+
+const DietPlanSchema = z.object({
+    title: z.string(),
+    days: z.array(z.object({
+        dayNumber: z.number().int(),
+        dayName: z.string(),
+        totalCalories: z.number(),
+        proteinG: z.number(),
+        carbsG: z.number(),
+        fatG: z.number(),
+        meals: z.array(z.object({
+            mealType: z.string(),
+            mealName: z.string(),
+            ingredients: z.array(z.object({
+                name: z.string(),
+                quantity: z.string(),
+            })),
+            calories: z.number(),
+            proteinG: z.number(),
+            carbsG: z.number(),
+            fatG: z.number(),
+            notes: z.string(),
+            recipe: z.string(),
+        })),
+    })),
+});
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -146,36 +173,6 @@ ${useProteinPowder ? '- Include protein powder shakes: once post-workout (if pos
 - Generate exactly ${mealCount} meals per day using ONLY the meal types listed above
 - Meals must be feasible within the ${mealPrepLabel} prep time limit
 
-Return ONLY a valid JSON object in this EXACT structure (no markdown, no explanation):
-{
-  "title": "${planTitle}",
-  "days": [
-    {
-      "dayNumber": 1,
-      "dayName": "Monday",
-      "totalCalories": 2100,
-      "proteinG": 160,
-      "carbsG": 220,
-      "fatG": 58,
-      "meals": [
-        {
-          "mealType": "breakfast",
-          "mealName": "Moong Dal Chilla",
-          "ingredients": [
-            { "name": "Green moong dal", "quantity": "100g" }
-          ],
-          "calories": 380,
-          "proteinG": 22,
-          "carbsG": 45,
-          "fatG": 8,
-          "notes": "Soak dal overnight",
-          "recipe": "A light, high-protein Indian crepe..."
-        }
-      ]
-    }
-  ]
-}
-
 INGREDIENT RULES:
 - Each ingredient must have a RAW "name" and an exact "quantity"
 - Do NOT include a "description" field
@@ -188,17 +185,13 @@ RECIPE RULES:
 
 STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
 
-    const { text } = await generateText({
+    const { object: planData } = await generateObject({
         model: google('gemini-3.1-flash-lite-preview'),
+        schema: DietPlanSchema,
         system: systemPrompt,
         prompt: `Generate the full 7-day diet plan for a ${profile.age}-year-old ${profile.sex} weighing ${profile.weight}kg, height ${profile.height}cm. Goal: ${profile.goal.replace('_', ' ')}. Activity: ${profile.activityLevel.replace('_', ' ')}.`,
         maxOutputTokens: 8000,
     });
-
-    let planData: any;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON found in AI response');
-    planData = JSON.parse(jsonMatch[0]);
 
     await db.update(dietPlans).set({ isActive: false });
 
@@ -223,23 +216,21 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
             fatG: day.fatG ?? macros.fatG,
         }).returning();
 
-        if (day.meals && Array.isArray(day.meals)) {
-            for (const meal of day.meals) {
+        for (const meal of day.meals) {
                 await db.insert(dietMeals).values({
                     dayId: insertedDay.id,
-                    mealType: meal.mealType ?? 'breakfast',
-                    mealName: meal.mealName ?? meal.name ?? 'Meal',
+                    mealType: meal.mealType as any,
+                    mealName: meal.mealName,
                     description: '',
-                    ingredients: JSON.stringify(Array.isArray(meal.ingredients) ? meal.ingredients : []),
-                    calories: meal.calories ?? 300,
-                    proteinG: meal.proteinG ?? meal.protein_g ?? 20,
-                    carbsG: meal.carbsG ?? meal.carbs_g ?? 30,
-                    fatG: meal.fatG ?? meal.fat_g ?? 10,
-                    notes: meal.notes ?? '',
-                    recipe: meal.recipe ?? '',
+                    ingredients: JSON.stringify(meal.ingredients),
+                    calories: meal.calories,
+                    proteinG: meal.proteinG,
+                    carbsG: meal.carbsG,
+                    fatG: meal.fatG,
+                    notes: meal.notes,
+                    recipe: meal.recipe,
                 });
             }
-        }
     }
 
     return { planId: insertedPlan.id };
