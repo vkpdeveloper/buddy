@@ -1766,11 +1766,10 @@ class _FitnessOnboardingExtensionState
               children: [
                 Text(
                   'Do you want supersets?',
-                  style: GoogleFonts.crimsonPro(
+                  style: GoogleFonts.sora(
                     color: AppTheme.textCream,
                     fontSize: 30,
                     fontWeight: FontWeight.w600,
-                    fontStyle: FontStyle.italic,
                   ),
                 ),
                 const SizedBox(height: 10),

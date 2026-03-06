@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'app_theme.dart';
 import 'pages/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Pre-warm fonts to avoid flash of unstyled text on first render
+  await GoogleFonts.pendingFonts([
+    GoogleFonts.sora(),
+    GoogleFonts.plusJakartaSans(),
+  ]);
 
   await SoLoud.instance.init();
   await NotificationService.initialize();

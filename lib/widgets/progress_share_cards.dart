@@ -320,11 +320,10 @@ class _ShareCardShell extends StatelessWidget {
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.crimsonPro(
+              style: GoogleFonts.sora(
                 color: AppTheme.textCream,
                 fontSize: 34,
                 fontWeight: FontWeight.w600,
-                fontStyle: FontStyle.italic,
               ),
             ),
             Text(

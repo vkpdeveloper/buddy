@@ -13,6 +13,7 @@ Future<void> showExerciseLibrarySheet(
   BuildContext context, {
   required int dayId,
   required VoidCallback onAdded,
+  int? replaceExerciseId,
 }) async {
   await showModalBottomSheet<void>(
     context: context,
@@ -21,15 +22,24 @@ Future<void> showExerciseLibrarySheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (ctx) => _ExerciseLibrarySheet(dayId: dayId, onAdded: onAdded),
+    builder: (ctx) => _ExerciseLibrarySheet(
+      dayId: dayId,
+      onAdded: onAdded,
+      replaceExerciseId: replaceExerciseId,
+    ),
   );
 }
 
 class _ExerciseLibrarySheet extends StatefulWidget {
   final int dayId;
   final VoidCallback onAdded;
+  final int? replaceExerciseId;
 
-  const _ExerciseLibrarySheet({required this.dayId, required this.onAdded});
+  const _ExerciseLibrarySheet({
+    required this.dayId,
+    required this.onAdded,
+    this.replaceExerciseId,
+  });
 
   @override
   State<_ExerciseLibrarySheet> createState() => _ExerciseLibrarySheetState();
@@ -58,15 +68,30 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
     if (mounted) setState(() => _isLoading = false);
   }
 
-  Future<void> _addExercise(ExerciseCatalogItem item) async {
+  Future<void> _selectExercise(ExerciseCatalogItem item) async {
     if (_isAdding) return;
     setState(() => _isAdding = true);
     try {
-      await ApiClient.addExerciseToDay(widget.dayId, item);
+      if (widget.replaceExerciseId != null) {
+        await ApiClient.updateExercise(widget.replaceExerciseId!, {
+          'name': item.name,
+          'muscleGroup': item.muscleGroup,
+          'notes': item.notes ?? '',
+        });
+      } else {
+        await ApiClient.addExerciseToDay(widget.dayId, item);
+      }
       widget.onAdded();
       if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (mounted) AppSnackbar.error(context, 'Could not add exercise.');
+      if (mounted) {
+        AppSnackbar.error(
+          context,
+          widget.replaceExerciseId != null
+              ? 'Could not swap exercise.'
+              : 'Could not add exercise.',
+        );
+      }
     }
     if (mounted) setState(() => _isAdding = false);
   }
@@ -99,7 +124,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
               child: Row(
                 children: [
                   Text(
-                    'Exercise Library',
+                    widget.replaceExerciseId != null ? 'Swap Exercise' : 'Exercise Library',
                     style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.textCream,
                       fontSize: 18,
@@ -252,7 +277,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                                   const SizedBox(width: 8),
                                 ],
                                 GestureDetector(
-                                  onTap: _isAdding ? null : () => _addExercise(item),
+                                  onTap: _isAdding ? null : () => _selectExercise(item),
                                   child: Container(
                                     width: 32,
                                     height: 32,

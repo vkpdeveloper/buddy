@@ -219,6 +219,14 @@ class ApiClient {
     return _decode(res);
   }
 
+  static Future<Map<String, dynamic>> deleteWorkoutExercise(int id) async {
+    final res = await _client.delete(
+      Uri.parse('$baseUrl/api/workout/exercises/$id'),
+      headers: _headers,
+    );
+    return _decode(res);
+  }
+
   static Future<Map<String, dynamic>> startSession(
     int planId,
     int dayId, {

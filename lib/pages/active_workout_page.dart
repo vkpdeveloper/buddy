@@ -1678,11 +1678,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           const SizedBox(height: 8),
           Text(
             'Today\'s Session',
-            style: GoogleFonts.crimsonPro(
+            style: GoogleFonts.sora(
               color: AppTheme.textCream,
               fontSize: 32,
               fontWeight: FontWeight.w600,
-              fontStyle: FontStyle.italic,
             ),
           ),
           const SizedBox(height: 16),
@@ -1724,11 +1723,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: GoogleFonts.crimsonPro(
+            style: GoogleFonts.sora(
               color: AppTheme.textCream,
               fontSize: 30,
               fontWeight: FontWeight.w600,
-              fontStyle: FontStyle.italic,
             ),
           ),
           const SizedBox(height: 8),
@@ -1830,11 +1828,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               const SizedBox(height: 12),
               Text(
                 'Workout Paused',
-                style: GoogleFonts.crimsonPro(
+                style: GoogleFonts.sora(
                   color: AppTheme.textCream,
                   fontSize: 30,
                   fontWeight: FontWeight.w600,
-                  fontStyle: FontStyle.italic,
                 ),
               ),
               const SizedBox(height: 6),
@@ -2284,11 +2281,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.crimsonPro(
+                        style: GoogleFonts.sora(
                           color: AppTheme.textCream,
                           fontSize: 30,
                           fontWeight: FontWeight.w600,
-                          fontStyle: FontStyle.italic,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -2392,11 +2388,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                     ] else ...[
                       Text(
                         'Rest',
-                        style: GoogleFonts.crimsonPro(
+                        style: GoogleFonts.sora(
                           color: AppTheme.textCream,
                           fontSize: 36,
                           fontWeight: FontWeight.w600,
-                          fontStyle: FontStyle.italic,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -2723,11 +2718,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                     const SizedBox(height: 6),
                     Text(
                       widget.dayLabel,
-                      style: GoogleFonts.crimsonPro(
+                      style: GoogleFonts.sora(
                         color: AppTheme.textCream,
                         fontSize: 30,
                         fontWeight: FontWeight.w600,
-                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],

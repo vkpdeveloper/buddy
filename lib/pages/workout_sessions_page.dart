@@ -125,11 +125,10 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
           Expanded(
             child: Text(
               'Workout Sessions',
-              style: GoogleFonts.crimsonPro(
+              style: GoogleFonts.sora(
                 color: AppTheme.textCream,
                 fontSize: 28,
                 fontWeight: FontWeight.w600,
-                fontStyle: FontStyle.italic,
               ),
             ),
           ),

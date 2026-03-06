@@ -119,7 +119,9 @@ class _HealthDashboard extends ConsumerWidget {
       onRefresh: () => _refresh(ref),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 92),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.paddingOf(context).bottom + 92,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -583,11 +585,10 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
               const SizedBox(height: 4),
               Text(
                 '${_greeting()},\n$_userName',
-                style: GoogleFonts.crimsonPro(
+                style: GoogleFonts.sora(
                   color: AppTheme.textCream,
                   fontSize: 25,
                   fontWeight: FontWeight.w500,
-                  fontStyle: FontStyle.italic,
                   height: 1.1,
                 ),
               ),

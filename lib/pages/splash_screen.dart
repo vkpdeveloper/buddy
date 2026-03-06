@@ -139,7 +139,7 @@ class _SplashScreenState extends State<SplashScreen>
                     const SizedBox(height: 32),
                     Text(
                       'Buddy',
-                      style: GoogleFonts.crimsonPro(
+                      style: GoogleFonts.sora(
                         color: AppTheme.textCream,
                         fontSize: 42,
                         fontWeight: FontWeight.w600,

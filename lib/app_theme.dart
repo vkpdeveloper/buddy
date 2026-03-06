@@ -41,7 +41,8 @@ class AppTheme {
 
   // Domain accents
   static const Color macroCarbs = Color(0xFF7A8076);
-  static const Color swapAction = Color(0xFF355E3B);
+  static const Color swapAction = Color(0xFF1E2535);
+  static const Color deleteAction = Color(0xFF5C2020);
   static const Color chartDuration = Color(0xFF6C7E92);
 
   // Muscle group accents
@@ -60,6 +61,21 @@ class AppTheme {
   static const Color textGray888 = textSageMuted;
   static const Color textGray666 = textSageMuted;
   static const Color textGray333 = accent;
+
+  /// Display/heading font style (Sora). Use for large titles and section headers.
+  static TextStyle displayStyle({
+    double fontSize = 28,
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = textCream,
+    double? letterSpacing,
+  }) {
+    return GoogleFonts.sora(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+    );
+  }
 
   static ThemeData get darkTheme {
     return ThemeData(

@@ -612,6 +612,18 @@ Rules:
     }
 });
 
+// ─── DELETE /api/workout/exercises/:id ──────────────────────────────────────
+router.delete('/exercises/:id', async (c) => {
+    try {
+        const id = parseInt(c.req.param('id'));
+        const deleted = await db.delete(workoutExercises).where(eq(workoutExercises.id, id)).returning();
+        if (deleted.length === 0) return c.json({ success: false, error: 'Exercise not found' }, 404);
+        return c.json({ success: true, data: deleted[0] });
+    } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
 // ─── GET /api/workout/sessions/history ──────────────────────────────────────
 router.get('/sessions/history', async (c) => {
     try {

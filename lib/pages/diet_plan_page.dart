@@ -474,11 +474,10 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 ),
                 Text(
                   'Diet Plan',
-                  style: GoogleFonts.crimsonPro(
+                  style: GoogleFonts.sora(
                     color: AppTheme.textCream,
                     fontSize: 26,
                     fontWeight: FontWeight.w600,
-                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ],

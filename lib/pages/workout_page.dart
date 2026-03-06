@@ -229,7 +229,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardDark,
         title: Text(
-          'Regenerate Plan',
+          'Adjust Your Plan',
           style: GoogleFonts.plusJakartaSans(
             color: AppTheme.textCream,
             fontWeight: FontWeight.w700,
@@ -240,7 +240,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Describe any injuries or constraints to work around.',
+              'Got any injuries or things you want to avoid? Tell us and we\'ll rework your workouts around them.',
               style: GoogleFonts.plusJakartaSans(
                 color: AppTheme.textSageMuted,
                 fontSize: 13,
@@ -250,10 +250,16 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             TextField(
               controller: ctrl,
               maxLines: 3,
-              style: GoogleFonts.plusJakartaSans(color: AppTheme.textCream, fontSize: 13),
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textCream,
+                fontSize: 13,
+              ),
               decoration: InputDecoration(
-                hintText: 'e.g. knee injury, avoid squats...',
-                hintStyle: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted, fontSize: 12),
+                hintText: 'e.g. bad knee, no overhead pressing, keep it short...',
+                hintStyle: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 12,
+                ),
                 filled: true,
                 fillColor: AppTheme.backgroundDark,
                 border: OutlineInputBorder(
@@ -271,11 +277,20 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted)),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Regenerate', style: GoogleFonts.plusJakartaSans(color: AppTheme.primary, fontWeight: FontWeight.w700)),
+            child: Text(
+              'Update My Plan',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -283,37 +298,37 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     if (confirmed != true || !mounted) return;
     setState(() => _regenLoading = true);
     try {
-      await ApiClient.regenerateWorkoutPlan(planId: planId, constraints: ctrl.text.trim());
+      await ApiClient.regenerateWorkoutPlan(
+        planId: planId,
+        constraints: ctrl.text.trim(),
+      );
       if (!mounted) return;
       await _loadPlans();
       ref.invalidate(prMapProvider);
       AppSnackbar.success(context, 'Plan updated!');
     } catch (_) {
       if (!mounted) return;
-      AppSnackbar.error(context, 'Could not regenerate plan. Try again.');
+      AppSnackbar.error(context, 'Couldn\'t update your plan. Give it another try.');
     } finally {
       if (mounted) setState(() => _regenLoading = false);
     }
   }
 
-  Future<void> _replaceExercise(
-    Map<String, dynamic> day,
-    Map<String, dynamic> exercise,
-  ) async {
+  Future<void> _deleteExercise(Map<String, dynamic> exercise) async {
     final exerciseName = (exercise['name'] ?? 'this exercise').toString();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppTheme.cardDark,
         title: Text(
-          'Swap Exercise?',
+          'Remove Exercise?',
           style: GoogleFonts.plusJakartaSans(
             color: AppTheme.textCream,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
-          'Replace $exerciseName with a new variation for this day?',
+          'Remove $exerciseName from this day? This cannot be undone.',
           style: GoogleFonts.plusJakartaSans(
             color: AppTheme.textSageMuted,
             fontSize: 13,
@@ -330,9 +345,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(
-              'Swap',
+              'Remove',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
+                color: AppTheme.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -340,39 +355,38 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     try {
-      await ApiClient.replaceWorkoutExercise(
+      await ApiClient.deleteWorkoutExercise(
         (exercise['id'] as num?)?.toInt() ?? 0,
-        {
-          'planId': _activePlanId,
-          'dayId': (day['id'] as num?)?.toInt(),
-          'dayLabel': (day['dayLabel'] ?? day['day_label'] ?? 'Workout')
-              .toString(),
-          'muscleGroup':
-              (exercise['muscleGroup'] ?? exercise['muscle_group'] ?? '')
-                  .toString(),
-          'currentExerciseIds': (((day['exercises'] as List?) ?? const [])
-              .whereType<Map>()
-              .map((item) => (item['id'] as num?)?.toInt() ?? 0)
-              .where((id) => id > 0)
-              .toList()),
-          'currentExerciseNames': (((day['exercises'] as List?) ?? const [])
-              .whereType<Map>()
-              .map((item) => (item['name'] ?? '').toString())
-              .where((name) => name.isNotEmpty)
-              .toList()),
-        },
       );
       if (!mounted) return;
       await _loadPlanDetail(_activePlanId!);
       if (!mounted) return;
-      AppSnackbar.success(context, 'Exercise swapped successfully.');
+      AppSnackbar.success(context, 'Exercise removed.');
     } catch (_) {
       if (!mounted) return;
-      AppSnackbar.error(context, 'Could not swap this exercise right now.');
+      AppSnackbar.error(context, 'Could not remove exercise. Try again.');
     }
+  }
+
+  Future<void> _replaceExercise(
+    Map<String, dynamic> day,
+    Map<String, dynamic> exercise,
+  ) async {
+    final exerciseId = (exercise['id'] as num?)?.toInt() ?? 0;
+    final dayId = (day['id'] as num?)?.toInt() ?? 0;
+    if (exerciseId == 0 || dayId == 0 || !mounted) return;
+    await showExerciseLibrarySheet(
+      context,
+      dayId: dayId,
+      replaceExerciseId: exerciseId,
+      onAdded: () {
+        _loadPlanDetail(_activePlanId!);
+        ref.invalidate(prMapProvider);
+      },
+    );
   }
 
   @override
@@ -503,11 +517,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 ),
                 Text(
                   'Workout Plan',
-                  style: GoogleFonts.crimsonPro(
+                  style: GoogleFonts.sora(
                     color: AppTheme.textCream,
                     fontSize: 26,
                     fontWeight: FontWeight.w600,
-                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ],
@@ -613,13 +626,20 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                         ),
                       )
                     : Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.cardDark,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppTheme.borderDark),
                         ),
-                        child: const Icon(LucideIcons.refresh_cw, color: AppTheme.textSageMuted, size: 13),
+                        child: const Icon(
+                          LucideIcons.refresh_cw,
+                          color: AppTheme.textSageMuted,
+                          size: 13,
+                        ),
                       ),
               ),
               const SizedBox(width: 6),
@@ -788,7 +808,12 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
 
     if (isRest) {
       return SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, MediaQuery.paddingOf(context).bottom + 92),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          0,
+          24,
+          MediaQuery.paddingOf(context).bottom + 92,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -818,11 +843,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   const SizedBox(height: 20),
                   Text(
                     'Rest Day',
-                    style: GoogleFonts.crimsonPro(
+                    style: GoogleFonts.sora(
                       color: AppTheme.textCream,
                       fontSize: 28,
                       fontWeight: FontWeight.w600,
-                      fontStyle: FontStyle.italic,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1053,18 +1077,15 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (ctx, i) {
-                final prMap = ref.watch(prMapProvider).asData?.value ?? {};
-                return _buildExerciseItem(
-                  exercises: exercises,
-                  day: day,
-                  index: i,
-                  prMap: prMap,
-                );
-              },
-              childCount: exercises.length,
-            ),
+            delegate: SliverChildBuilderDelegate((ctx, i) {
+              final prMap = ref.watch(prMapProvider).asData?.value ?? {};
+              return _buildExerciseItem(
+                exercises: exercises,
+                day: day,
+                index: i,
+                prMap: prMap,
+              );
+            }, childCount: exercises.length),
           ),
         ),
         if (dayId != null)
@@ -1093,7 +1114,11 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(LucideIcons.plus, color: AppTheme.primary, size: 16),
+                      const Icon(
+                        LucideIcons.plus,
+                        color: AppTheme.primary,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'ADD FROM LIBRARY',
@@ -1110,7 +1135,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               ),
             ),
           ),
-        SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 92)),
+        SliverToBoxAdapter(
+          child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 92),
+        ),
       ],
     );
   }
@@ -1123,7 +1150,8 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   }) {
     final ex = exercises[index] as Map<String, dynamic>;
     final groupId = ex['supersetGroupId'] ?? ex['superset_group_id'];
-    final supersetOrder = (ex['supersetOrder'] ?? ex['superset_order'] as num?)?.toInt() ?? 0;
+    final supersetOrder =
+        (ex['supersetOrder'] ?? ex['superset_order'] as num?)?.toInt() ?? 0;
 
     // Only render superset pair card for the first exercise in the pair (order 0)
     if (groupId != null && supersetOrder != 0) {
@@ -1133,14 +1161,25 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     if (groupId != null) {
       // Find partner
       final partner = exercises.whereType<Map<String, dynamic>>().firstWhere(
-        (e) => (e['supersetGroupId'] ?? e['superset_group_id']) == groupId &&
-            ((e['supersetOrder'] ?? e['superset_order'] as num?)?.toInt() ?? 0) == 1,
+        (e) =>
+            (e['supersetGroupId'] ?? e['superset_group_id']) == groupId &&
+            ((e['supersetOrder'] ?? e['superset_order'] as num?)?.toInt() ??
+                    0) ==
+                1,
         orElse: () => <String, dynamic>{},
       );
 
       if (partner.isNotEmpty) {
-        final exName = (ex['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
-        final partnerName = (partner['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+        final exName = (ex['name'] ?? '')
+            .toString()
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+            .trim();
+        final partnerName = (partner['name'] ?? '')
+            .toString()
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+            .trim();
         return _SupersetPairCard(
           exerciseA: ex,
           exerciseB: partner,
@@ -1149,19 +1188,26 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           prA: prMap[exName],
           prB: prMap[partnerName],
           onUpdate: () => _loadPlanDetail(_activePlanId!),
-          onReplaceA: () => _replaceExercise(day, Map<String, dynamic>.from(ex)),
-          onReplaceB: () => _replaceExercise(day, Map<String, dynamic>.from(partner)),
+          onReplaceA: () =>
+              _replaceExercise(day, Map<String, dynamic>.from(ex)),
+          onReplaceB: () =>
+              _replaceExercise(day, Map<String, dynamic>.from(partner)),
         );
       }
     }
 
-    final normalized = (ex['name'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+    final normalized = (ex['name'] ?? '')
+        .toString()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
+        .trim();
     return _ExerciseCard(
       exercise: ex,
       index: index,
       pr: prMap[normalized],
       onUpdate: () => _loadPlanDetail(_activePlanId!),
       onReplace: () => _replaceExercise(day, Map<String, dynamic>.from(ex)),
+      onDelete: () => _deleteExercise(Map<String, dynamic>.from(ex)),
     );
   }
 
@@ -1348,12 +1394,14 @@ class _ExerciseCard extends StatelessWidget {
   final PersonalRecord? pr;
   final VoidCallback onUpdate;
   final Future<void> Function() onReplace;
+  final Future<void> Function() onDelete;
 
   const _ExerciseCard({
     required this.exercise,
     required this.index,
     required this.onUpdate,
     required this.onReplace,
+    required this.onDelete,
     this.pr,
   });
 
@@ -1485,18 +1533,47 @@ class _ExerciseCard extends StatelessWidget {
 
     return Dismissible(
       key: ValueKey('exercise-${exercise['id']}-${exercise['name']}'),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        await onReplace();
+      direction: DismissDirection.horizontal,
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          Future.delayed(Duration.zero, onDelete);
+        } else {
+          Future.delayed(Duration.zero, onReplace);
+        }
         return false;
       },
       background: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
+          color: AppTheme.deleteAction,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            const Icon(LucideIcons.trash_2, color: AppTheme.error, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              'DELETE',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.error,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
           color: AppTheme.swapAction,
           borderRadius: BorderRadius.circular(20),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         alignment: Alignment.centerRight,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -1657,7 +1734,11 @@ class _ExerciseCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 8),
                     child: Row(
                       children: [
-                        const Icon(LucideIcons.trophy, color: AppTheme.xpGold, size: 11),
+                        const Icon(
+                          LucideIcons.trophy,
+                          color: AppTheme.xpGold,
+                          size: 11,
+                        ),
                         const SizedBox(width: 5),
                         Text(
                           pr != null
@@ -1666,7 +1747,9 @@ class _ExerciseCard extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             color: pr != null
                                 ? AppTheme.xpGold.withValues(alpha: 0.85)
-                                : AppTheme.textSageMuted.withValues(alpha: 0.45),
+                                : AppTheme.textSageMuted.withValues(
+                                    alpha: 0.45,
+                                  ),
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1725,7 +1808,9 @@ class _SupersetPairCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               color: AppTheme.primary.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(19),
+              ),
             ),
             child: Row(
               children: [
@@ -1763,7 +1848,11 @@ class _SupersetPairCard extends StatelessWidget {
                     color: AppTheme.primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(LucideIcons.arrow_down, color: AppTheme.primary, size: 12),
+                  child: const Icon(
+                    LucideIcons.arrow_down,
+                    color: AppTheme.primary,
+                    size: 12,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1806,11 +1895,15 @@ class _SupersetExerciseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = exercise['name'] ?? 'Exercise';
-    final muscle = (exercise['muscleGroup'] ?? exercise['muscle_group'] ?? '') as String;
+    final muscle =
+        (exercise['muscleGroup'] ?? exercise['muscle_group'] ?? '') as String;
     final sets = exercise['sets'] ?? 3;
-    final reps = (exercise['repsOrTime'] ?? exercise['reps_or_time'] ?? '10-12').toString();
+    final reps = (exercise['repsOrTime'] ?? exercise['reps_or_time'] ?? '10-12')
+        .toString();
     final restRaw = exercise['restSeconds'] ?? exercise['rest_seconds'] ?? 60;
-    final restSecs = (restRaw is int) ? restRaw : int.tryParse('$restRaw') ?? 60;
+    final restSecs = (restRaw is int)
+        ? restRaw
+        : int.tryParse('$restRaw') ?? 60;
     final accentColor = _muscleAccentColor(muscle);
 
     return Padding(
@@ -1864,7 +1957,11 @@ class _SupersetExerciseRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(LucideIcons.trophy, color: AppTheme.xpGold, size: 10),
+                      const Icon(
+                        LucideIcons.trophy,
+                        color: AppTheme.xpGold,
+                        size: 10,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'PR: ${pr!.weightKg}kg × ${pr!.reps}',

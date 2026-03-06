@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-enum AppSnackbarType { info, success, error }
+enum AppSnackbarType { info, success, warning, error }
 
 class AppSnackbar {
   const AppSnackbar._();
@@ -19,21 +19,30 @@ class AppSnackbar {
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
 
-    final (icon, bgColor, borderColor) = switch (type) {
+    final (icon, iconColor, bgColor, borderColor) = switch (type) {
       AppSnackbarType.info => (
-        LucideIcons.circle_alert,
-        AppTheme.cardDark,
-        AppTheme.borderDark,
+        LucideIcons.info,
+        AppTheme.info,
+        AppTheme.info.withValues(alpha: 0.08),
+        AppTheme.info.withValues(alpha: 0.35),
       ),
       AppSnackbarType.success => (
         LucideIcons.circle_check,
-        AppTheme.primary.withValues(alpha: 0.16),
-        AppTheme.primary.withValues(alpha: 0.5),
+        AppTheme.success,
+        AppTheme.success.withValues(alpha: 0.08),
+        AppTheme.success.withValues(alpha: 0.35),
+      ),
+      AppSnackbarType.warning => (
+        LucideIcons.triangle_alert,
+        AppTheme.warning,
+        AppTheme.warning.withValues(alpha: 0.08),
+        AppTheme.warning.withValues(alpha: 0.35),
       ),
       AppSnackbarType.error => (
-        LucideIcons.circle_alert,
-        AppTheme.dangerBg,
-        AppTheme.errorBg,
+        LucideIcons.circle_x,
+        AppTheme.error,
+        AppTheme.error.withValues(alpha: 0.08),
+        AppTheme.error.withValues(alpha: 0.35),
       ),
     };
 
@@ -42,15 +51,25 @@ class AppSnackbar {
         duration: duration,
         behavior: SnackBarBehavior.floating,
         elevation: 0,
-        backgroundColor: bgColor,
+        dismissDirection: DismissDirection.horizontal,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        backgroundColor: AppTheme.cardDark,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           side: BorderSide(color: borderColor),
         ),
         content: Row(
           children: [
-            Icon(icon, color: AppTheme.textCream, size: 16),
-            const SizedBox(width: 10),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 15),
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
@@ -85,6 +104,19 @@ class AppSnackbar {
       context,
       message,
       type: AppSnackbarType.success,
+      duration: duration ?? const Duration(seconds: 3),
+    );
+  }
+
+  static void warning(
+    BuildContext context,
+    String message, {
+    Duration? duration,
+  }) {
+    show(
+      context,
+      message,
+      type: AppSnackbarType.warning,
       duration: duration ?? const Duration(seconds: 3),
     );
   }
