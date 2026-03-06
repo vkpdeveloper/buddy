@@ -14,6 +14,7 @@ import progressRouter, { seedAchievements } from "./routes/progress";
 import bodyRouter from "./routes/body";
 import generationRouter from "./routes/generation";
 import exercisesRouter from "./routes/exercises";
+import mediaRouter from "./routes/media";
 import { seedCatalog } from "./lib/seedCatalog";
 
 const app = new Hono();
@@ -54,6 +55,7 @@ app.route("/api/progress", progressRouter);
 app.route("/api/body", bodyRouter);
 app.route("/api/generation", generationRouter);
 app.route("/api/exercises", exercisesRouter);
+app.route("/api/diet/media", mediaRouter);
 
 // ─── Startup tasks ────────────────────────────────────────────────────────────
 seedAchievements().catch(console.error);

@@ -33,6 +33,12 @@ export function createProgressPhotoObjectKey(mimeType: string): string {
   return `growth/photos/${now}-${randomUUID()}.${ext}`;
 }
 
+export function createMealPhotoObjectKey(mimeType: string): string {
+  const now = Date.now();
+  const ext = fileExtFromMimeType(mimeType);
+  return `meals/photos/${now}-${randomUUID()}.${ext}`;
+}
+
 export async function uploadPrivateObject(params: {
   objectKey: string;
   body: Uint8Array;

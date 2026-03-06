@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/generation_provider.dart';
@@ -10,6 +11,7 @@ import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -984,6 +986,15 @@ class _MealCardState extends State<_MealCard> {
       text: (widget.actualLog?['notes'] ?? '').toString(),
     );
 
+    File? selectedPhoto;
+    int? attachmentId;
+    bool isUploading = false;
+    bool isAnalyzing = false;
+    double? aiConfidence;
+    String? uploadError;
+
+    final picker = ImagePicker();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.cardDark,
@@ -991,110 +1002,325 @@ class _MealCardState extends State<_MealCard> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       isScrollControlled: true,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'LOG ACTUAL',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-              ),
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          Future<void> pickAndUpload(ImageSource source) async {
+            final picked = await picker.pickImage(
+              source: source,
+              imageQuality: 85,
+              maxWidth: 1280,
+            );
+            if (picked == null) return;
+            final file = File(picked.path);
+            final ext = picked.path.split('.').last.toLowerCase();
+            final mime = ext == 'png'
+                ? 'image/png'
+                : ext == 'webp'
+                    ? 'image/webp'
+                    : 'image/jpeg';
+
+            setSheetState(() {
+              selectedPhoto = file;
+              isUploading = true;
+              uploadError = null;
+              attachmentId = null;
+              aiConfidence = null;
+            });
+
+            try {
+              final res = await ApiClient.uploadMealPhoto(file, mime);
+              final data = res['data'] as Map<String, dynamic>;
+              setSheetState(() {
+                attachmentId = data['id'] as int;
+                isUploading = false;
+              });
+            } catch (e) {
+              setSheetState(() {
+                isUploading = false;
+                uploadError = 'Upload failed';
+              });
+            }
+          }
+
+          Future<void> runAnalysis() async {
+            if (attachmentId == null) return;
+            setSheetState(() => isAnalyzing = true);
+            try {
+              final res = await ApiClient.analyzeMealPhoto(attachmentId!);
+              final result = (res['data'] as Map<String, dynamic>)['analysisResult']
+                  as Map<String, dynamic>;
+              final macros = result['macros'] as Map<String, dynamic>;
+              setSheetState(() {
+                calCtrl.text = (macros['calories'] as num).toInt().toString();
+                protCtrl.text = (macros['proteinG'] as num).toStringAsFixed(1);
+                carbsCtrl.text = (macros['carbsG'] as num).toStringAsFixed(1);
+                fatCtrl.text = (macros['fatG'] as num).toStringAsFixed(1);
+                aiConfidence = (result['confidence'] as num).toDouble();
+                isAnalyzing = false;
+              });
+            } catch (e) {
+              setSheetState(() => isAnalyzing = false);
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
             ),
-            const SizedBox(height: 12),
-            _EditField(controller: mealNameCtrl, label: 'What you ate'),
-            const SizedBox(height: 8),
-            Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _EditField(
-                    controller: calCtrl,
-                    label: 'Calories',
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _EditField(
-                    controller: protCtrl,
-                    label: 'Protein (g)',
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _EditField(
-                    controller: carbsCtrl,
-                    label: 'Carbs (g)',
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _EditField(
-                    controller: fatCtrl,
-                    label: 'Fat (g)',
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _EditField(controller: notesCtrl, label: 'Notes', maxLines: 2),
-            const SizedBox(height: 14),
-            GestureDetector(
-              onTap: () async {
-                await widget.onLogActual({
-                  'mealName': mealNameCtrl.text.trim().isEmpty
-                      ? 'Meal'
-                      : mealNameCtrl.text.trim(),
-                  'calories': int.tryParse(calCtrl.text) ?? 0,
-                  'proteinG': double.tryParse(protCtrl.text) ?? 0,
-                  'carbsG': double.tryParse(carbsCtrl.text) ?? 0,
-                  'fatG': double.tryParse(fatCtrl.text) ?? 0,
-                  'notes': notesCtrl.text.trim(),
-                  'rawPayload': {
-                    'plannedMeal': meal,
-                    'source': 'diet_log_actual',
-                  },
-                });
-                if (!mounted) return;
-                Navigator.of(context).pop();
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'SAVE ACTUAL LOG',
+                Text(
+                  'LOG ACTUAL',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.backgroundDark,
+                    color: AppTheme.primary,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1.1,
+                    letterSpacing: 2,
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+
+                // Photo row
+                Row(
+                  children: [
+                    if (selectedPhoto != null) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          selectedPhoto!,
+                          width: 56,
+                          height: 56,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: isUploading
+                            ? null
+                            : () async {
+                                final choice = await showModalBottomSheet<ImageSource>(
+                                  context: context,
+                                  backgroundColor: AppTheme.cardDark,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(16)),
+                                  ),
+                                  builder: (pickerCtx) => SafeArea(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ListTile(
+                                          leading: const Icon(LucideIcons.camera,
+                                              color: AppTheme.primary),
+                                          title: Text('Camera',
+                                              style: GoogleFonts.plusJakartaSans(
+                                                  color: AppTheme.textCream)),
+                                          onTap: () => Navigator.pop(
+                                              pickerCtx, ImageSource.camera),
+                                        ),
+                                        ListTile(
+                                          leading: const Icon(LucideIcons.image,
+                                              color: AppTheme.primary),
+                                          title: Text('Gallery',
+                                              style: GoogleFonts.plusJakartaSans(
+                                                  color: AppTheme.textCream)),
+                                          onTap: () => Navigator.pop(
+                                              pickerCtx, ImageSource.gallery),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                                if (choice != null) await pickAndUpload(choice);
+                              },
+                        icon: isUploading
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.primary),
+                              )
+                            : const Icon(LucideIcons.camera,
+                                color: AppTheme.primary, size: 14),
+                        label: Text(
+                          isUploading
+                              ? 'Uploading…'
+                              : selectedPhoto == null
+                                  ? 'Add Photo'
+                                  : 'Change Photo',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppTheme.primary),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                        ),
+                      ),
+                    ),
+                    if (attachmentId != null) ...[
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: isAnalyzing ? null : runAnalysis,
+                        icon: isAnalyzing
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppTheme.backgroundDark),
+                              )
+                            : const Icon(LucideIcons.sparkles,
+                                size: 14,
+                                color: AppTheme.backgroundDark),
+                        label: Text(
+                          isAnalyzing ? 'Analyzing…' : 'Analyze',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.backgroundDark,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          elevation: 0,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+
+                if (uploadError != null) ...[
+                  const SizedBox(height: 6),
+                  Text(uploadError!,
+                      style: GoogleFonts.plusJakartaSans(
+                          color: Colors.redAccent, fontSize: 11)),
+                ],
+
+                if (aiConfidence != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(LucideIcons.sparkles,
+                          size: 12, color: AppTheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'AI estimate — ${(aiConfidence! * 100).toStringAsFixed(0)}% confident',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+                _EditField(controller: mealNameCtrl, label: 'What you ate'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _EditField(
+                        controller: calCtrl,
+                        label: 'Calories',
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _EditField(
+                        controller: protCtrl,
+                        label: 'Protein (g)',
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _EditField(
+                        controller: carbsCtrl,
+                        label: 'Carbs (g)',
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _EditField(
+                        controller: fatCtrl,
+                        label: 'Fat (g)',
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _EditField(controller: notesCtrl, label: 'Notes', maxLines: 2),
+                const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: () async {
+                    await widget.onLogActual({
+                      'mealName': mealNameCtrl.text.trim().isEmpty
+                          ? 'Meal'
+                          : mealNameCtrl.text.trim(),
+                      'calories': int.tryParse(calCtrl.text) ?? 0,
+                      'proteinG': double.tryParse(protCtrl.text) ?? 0,
+                      'carbsG': double.tryParse(carbsCtrl.text) ?? 0,
+                      'fatG': double.tryParse(fatCtrl.text) ?? 0,
+                      'notes': notesCtrl.text.trim(),
+                      'attachmentId': attachmentId,
+                      'rawPayload': {
+                        'plannedMeal': meal,
+                        'source': attachmentId != null
+                            ? 'ai_photo_analysis'
+                            : 'diet_log_actual',
+                        'aiConfidence': aiConfidence,
+                      },
+                    });
+                    if (!mounted) return;
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'SAVE ACTUAL LOG',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.backgroundDark,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -1209,6 +1435,8 @@ class _MealCardState extends State<_MealCard> {
         ((meal['proteinG'] ?? meal['protein_g']) as num?)?.toDouble() ?? 0;
 
     final hasActual = widget.actualLog != null;
+    final rawPayload = widget.actualLog?['rawPayload'];
+    final hasPhoto = rawPayload is Map && rawPayload['attachmentId'] != null;
 
     return Container(
       key: widget.key,
@@ -1314,6 +1542,14 @@ class _MealCardState extends State<_MealCard> {
                                     ),
                                   ),
                                 ),
+                                if (hasPhoto) ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    LucideIcons.camera,
+                                    size: 11,
+                                    color: AppTheme.primary,
+                                  ),
+                                ],
                               ],
                             ],
                           ),

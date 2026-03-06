@@ -591,6 +591,7 @@ router.put('/log/:date/actual', zValidator('json', z.object({
     fatG: z.number().min(0),
     notes: z.string().optional(),
     rawPayload: z.record(z.string(), z.unknown()).optional(),
+    attachmentId: z.number().int().positive().optional(),
 })), async (c) => {
     try {
         const date = c.req.param('date');
@@ -603,10 +604,17 @@ router.put('/log/:date/actual', zValidator('json', z.object({
             fatG,
             notes,
             rawPayload,
+            attachmentId,
         } = c.req.valid('json');
 
         const [existing] = await db.select().from(dietMealLogs)
             .where(and(eq(dietMealLogs.mealId, mealId), eq(dietMealLogs.date, date)));
+
+        const mergedPayload: Record<string, unknown> = { ...(rawPayload ?? {}) };
+        if (attachmentId != null) {
+            mergedPayload.attachmentId = attachmentId;
+            mergedPayload.source = mergedPayload.source ?? 'ai_photo_analysis';
+        }
 
         const values = {
             isCompleted: true,
@@ -616,7 +624,7 @@ router.put('/log/:date/actual', zValidator('json', z.object({
             actualCarbsG: carbsG,
             actualFatG: fatG,
             actualNotes: notes ?? '',
-            rawPayload: JSON.stringify(rawPayload ?? {}),
+            rawPayload: JSON.stringify(mergedPayload),
             loggedAt: new Date().toISOString(),
         };
 

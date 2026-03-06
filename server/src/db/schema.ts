@@ -6,6 +6,8 @@ import {
     boolean,
     serial,
     uniqueIndex,
+    jsonb,
+    timestamp,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -291,6 +293,19 @@ export const progressPhotos = pgTable('progress_photos', {
     sizeBytes: integer('size_bytes').notNull().default(0),
     note: text('note').notNull().default(''),
     createdAt: text('created_at').default(sql`now()`),
+});
+
+// ─── Meal Media Attachments (photo → AI nutrition analysis) ──────────────────
+
+export const mealMediaAttachments = pgTable('meal_media_attachments', {
+    id: serial('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    objectKey: text('object_key').notNull(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    aiAnalysisStatus: text('ai_analysis_status').notNull().default('pending'), // pending | analyzing | completed | failed
+    aiAnalysisResult: jsonb('ai_analysis_result'),  // { ingredients, macros, confidence }
+    createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 export const bodyMilestones = pgTable('body_milestones', {
