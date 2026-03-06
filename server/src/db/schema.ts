@@ -3,13 +3,15 @@ import {
     text,
     integer,
     real,
+    uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
-// ─── User Profile (single row, id always = 1) ───────────────────────────────
+// ─── User Profile (one row per Clerk user) ───────────────────────────────────
 
 export const userProfile = sqliteTable('user_profile', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID (e.g. user_abc123)
     height: real('height').notNull().default(175),          // cm
     weight: real('weight').notNull().default(70),           // kg
     age: integer('age').notNull().default(25),
@@ -53,6 +55,7 @@ export const userProfile = sqliteTable('user_profile', {
 
 export const dietPlans = sqliteTable('diet_plans', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID
     title: text('title').notNull(),
     totalCalories: integer('total_calories').notNull(),
     proteinG: real('protein_g').notNull(),
@@ -98,6 +101,7 @@ export const dietMeals = sqliteTable('diet_meals', {
 
 export const workoutPlans = sqliteTable('workout_plans', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID
     title: text('title').notNull(),
     cycleType: text('cycle_type', {
         enum: ['ppl', 'upper_lower', 'ppl_upper', 'full_body'],
@@ -149,20 +153,24 @@ export const dietMealLogs = sqliteTable('diet_meal_logs', {
     loggedAt: text('logged_at').default(sql`(datetime('now'))`),
 });
 
-// ─── Daily Logs (one row per day) ────────────────────────────────────────────
+// ─── Daily Logs (one row per user per day) ───────────────────────────────────
 
 export const dailyLogs = sqliteTable('daily_logs', {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    date: text('date').notNull().unique(),          // 'YYYY-MM-DD'
+    userId: text('user_id').notNull(),                      // Clerk user ID
+    date: text('date').notNull(),                           // 'YYYY-MM-DD'
     waterMl: integer('water_ml').notNull().default(0),
     sleepMinutes: integer('sleep_minutes').notNull().default(0),
     stepsCount: integer('steps_count').notNull().default(0),
     caloriesBurned: integer('calories_burned').notNull().default(0),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
-});
+}, (t) => ({
+    userDateUnique: uniqueIndex('daily_logs_user_date_unique').on(t.userId, t.date),
+}));
 
 export const workoutSessions = sqliteTable('workout_sessions', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID
     planId: integer('plan_id').notNull().references(() => workoutPlans.id, { onDelete: 'cascade' }),
     dayId: integer('day_id').notNull().references(() => workoutDays.id, { onDelete: 'cascade' }),
     startedAt: text('started_at').default(sql`(datetime('now'))`),
@@ -185,6 +193,7 @@ export const workoutSessions = sqliteTable('workout_sessions', {
 
 export const userProgress = sqliteTable('user_progress', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID
     totalXp: integer('total_xp').notNull().default(0),
     currentLevel: integer('current_level').notNull().default(1),
     currentStreak: integer('current_streak').notNull().default(0),
@@ -205,6 +214,7 @@ export const achievements = sqliteTable('achievements', {
 
 export const userAchievements = sqliteTable('user_achievements', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID
     achievementId: integer('achievement_id').notNull().references(() => achievements.id),
     unlockedAt: text('unlocked_at').default(sql`(datetime('now'))`),
     sessionId: integer('session_id').references(() => workoutSessions.id),
@@ -214,6 +224,7 @@ export const userAchievements = sqliteTable('user_achievements', {
 
 export const generationJobs = sqliteTable('generation_jobs', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID
     type: text('type', { enum: ['diet', 'workout'] }).notNull(),
     status: text('status', { enum: ['pending', 'generating', 'done', 'failed'] }).notNull().default('pending'),
     error: text('error'),
@@ -221,9 +232,7 @@ export const generationJobs = sqliteTable('generation_jobs', {
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 });
 
-// ─── Body Measurements (Growth tracking) ─────────────────────────────────────
-
-// ─── Exercise Catalog ─────────────────────────────────────────────────────────
+// ─── Exercise Catalog (shared, no userId) ─────────────────────────────────────
 
 export const exerciseCatalog = sqliteTable('exercise_catalog', {
     id: integer('id').primaryKey({ autoIncrement: true }),
@@ -241,18 +250,22 @@ export const exerciseCatalog = sqliteTable('exercise_catalog', {
 
 export const personalRecords = sqliteTable('personal_records', {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    exerciseNameNormalized: text('exercise_name_normalized').notNull().unique(),
+    userId: text('user_id').notNull(),                      // Clerk user ID
+    exerciseNameNormalized: text('exercise_name_normalized').notNull(),
     exerciseNameDisplay: text('exercise_name_display').notNull(),
     weightKg: real('weight_kg').notNull(),
     reps: integer('reps').notNull(),
     achievedAt: text('achieved_at').notNull(),   // ISO timestamp
     sessionId: integer('session_id').references(() => workoutSessions.id, { onDelete: 'set null' }),
-});
+}, (t) => ({
+    userExerciseUnique: uniqueIndex('personal_records_user_exercise_unique').on(t.userId, t.exerciseNameNormalized),
+}));
 
 // ─── Body Measurements (Growth tracking) ─────────────────────────────────────
 
 export const bodyMeasurements = sqliteTable('body_measurements', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID
     date: text('date').notNull(),                       // 'YYYY-MM-DD'
     weightKg: real('weight_kg'),                        // body weight in kg
     bodyFatPercent: real('body_fat_percent'),           // body fat percentage
@@ -268,6 +281,7 @@ export const bodyMeasurements = sqliteTable('body_measurements', {
 
 export const progressPhotos = sqliteTable('progress_photos', {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: text('user_id').notNull(),                      // Clerk user ID
     date: text('date').notNull(),                       // 'YYYY-MM-DD'
     measurementId: integer('measurement_id').references(() => bodyMeasurements.id, { onDelete: 'set null' }),
     objectKey: text('object_key').notNull().unique(),
@@ -279,8 +293,11 @@ export const progressPhotos = sqliteTable('progress_photos', {
 
 export const bodyMilestones = sqliteTable('body_milestones', {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    milestoneKey: text('milestone_key').notNull().unique(),
+    userId: text('user_id').notNull(),                      // Clerk user ID
+    milestoneKey: text('milestone_key').notNull(),
     measurementId: integer('measurement_id').notNull().references(() => bodyMeasurements.id, { onDelete: 'cascade' }),
     xpReward: integer('xp_reward').notNull().default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
-});
+}, (t) => ({
+    userMilestoneUnique: uniqueIndex('body_milestones_user_milestone_unique').on(t.userId, t.milestoneKey),
+}));

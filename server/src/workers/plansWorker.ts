@@ -38,7 +38,7 @@ export const plansWorker = new Worker(
             throw err;
         }
     },
-    { connection },
+    { connection, concurrency: 2 },
 );
 
 plansWorker.on('completed', (job) => {

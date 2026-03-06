@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { asc, and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import {
   achievements,
@@ -160,26 +160,24 @@ function milestoneEvaluations(params: {
   return evals;
 }
 
-async function ensureProgressRow() {
-  let rows = await db.select().from(userProgress).limit(1);
+async function ensureProgressRow(userId: string) {
+  let rows = await db.select().from(userProgress).where(eq(userProgress.userId, userId)).limit(1);
   if (rows.length === 0) {
-    await db.insert(userProgress).values({});
-    rows = await db.select().from(userProgress).limit(1);
+    await db.insert(userProgress).values({ userId });
+    rows = await db.select().from(userProgress).where(eq(userProgress.userId, userId)).limit(1);
   }
   return rows[0];
 }
 
-async function ensureProfileRow() {
-  let rows = await db.select().from(userProfile).limit(1);
-  if (rows.length === 0) {
-    await db.insert(userProfile).values({});
-    rows = await db.select().from(userProfile).limit(1);
-  }
+async function ensureProfileRow(userId: string) {
+  const rows = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
+  if (rows.length === 0) return null;
   return rows[0];
 }
 
 router.post('/log', async (c) => {
   try {
+    const userId = c.var.userId;
     const body = (await c.req.json()) as {
       date: string;
       weightKg?: number | null;
@@ -196,14 +194,15 @@ router.post('/log', async (c) => {
       return c.json({ success: false, error: 'date is required' }, 400);
     }
 
-    const progress = await ensureProgressRow();
-    const profile = await ensureProfileRow();
+    const progress = await ensureProgressRow(userId);
+    const profile = await ensureProfileRow(userId);
     const multiplier = getStreakMultiplier(progress.currentStreak);
     const xpEarned = Math.round(BODY_LOG_XP_BASE * multiplier);
 
     const inserted = await db
       .insert(bodyMeasurements)
       .values({
+        userId,
         date: body.date,
         weightKg: body.weightKg ?? null,
         bodyFatPercent: body.bodyFatPercent ?? null,
@@ -223,9 +222,9 @@ router.post('/log', async (c) => {
     let addedAchievementXp = 0;
     let addedMilestoneXp = 0;
 
-    const totalLogs = await db.select().from(bodyMeasurements);
+    const totalLogs = await db.select().from(bodyMeasurements).where(eq(bodyMeasurements.userId, userId));
 
-    const existingUnlocks = await db.select().from(userAchievements);
+    const existingUnlocks = await db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
     const achievementIds = existingUnlocks.map((r) => r.achievementId);
     const unlockedAchievements =
       achievementIds.length > 0
@@ -244,13 +243,13 @@ router.post('/log', async (c) => {
 
       if (firstLogAchievement.length > 0) {
         const ach = firstLogAchievement[0];
-        await db.insert(userAchievements).values({ achievementId: ach.id });
+        await db.insert(userAchievements).values({ userId, achievementId: ach.id });
         addedAchievementXp += ach.xpReward;
         newAchievements.push(ach);
       }
     }
 
-    const milestones = await db.select().from(bodyMilestones);
+    const milestones = await db.select().from(bodyMilestones).where(eq(bodyMilestones.userId, userId));
     const milestoneKeys = new Set(milestones.map((m) => m.milestoneKey));
 
     const chrono = [...totalLogs].sort((a, b) => a.date.localeCompare(b.date));
@@ -264,6 +263,7 @@ router.post('/log', async (c) => {
     for (const milestone of milestoneCandidates) {
       if (milestoneKeys.has(milestone.key)) continue;
       await db.insert(bodyMilestones).values({
+        userId,
         milestoneKey: milestone.key,
         measurementId: createdMeasurement.id,
         xpReward: MILESTONE_XP_REWARD,
@@ -287,7 +287,7 @@ router.post('/log', async (c) => {
         currentLevel: newLevel,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(userProgress.id, progress.id));
+      .where(eq(userProgress.userId, userId));
 
     return c.json({
       success: true,
@@ -320,9 +320,11 @@ router.post('/log', async (c) => {
 
 router.get('/history', async (c) => {
   try {
+    const userId = c.var.userId;
     const rows = await db
       .select()
       .from(bodyMeasurements)
+      .where(eq(bodyMeasurements.userId, userId))
       .orderBy(desc(bodyMeasurements.date), desc(bodyMeasurements.createdAt), desc(bodyMeasurements.id))
       .limit(120);
     return c.json({ success: true, data: rows });
@@ -333,9 +335,11 @@ router.get('/history', async (c) => {
 
 router.get('/latest', async (c) => {
   try {
+    const userId = c.var.userId;
     const rows = await db
       .select()
       .from(bodyMeasurements)
+      .where(eq(bodyMeasurements.userId, userId))
       .orderBy(desc(bodyMeasurements.date), desc(bodyMeasurements.createdAt), desc(bodyMeasurements.id))
       .limit(1);
     return c.json({ success: true, data: rows[0] ?? null });
@@ -346,6 +350,7 @@ router.get('/latest', async (c) => {
 
 router.post('/photos', async (c) => {
   try {
+    const userId = c.var.userId;
     const form = await c.req.formData();
     const file = form.get('file');
     const mimeTypeFromField = String(form.get('mimeType') ?? '');
@@ -391,7 +396,7 @@ router.post('/photos', async (c) => {
       const measurement = await db
         .select()
         .from(bodyMeasurements)
-        .where(eq(bodyMeasurements.id, parsed))
+        .where(and(eq(bodyMeasurements.userId, userId), eq(bodyMeasurements.id, parsed)))
         .limit(1);
       if (measurement.length === 0) {
         return c.json({ success: false, error: 'measurementId not found' }, 404);
@@ -411,6 +416,7 @@ router.post('/photos', async (c) => {
     const inserted = await db
       .insert(progressPhotos)
       .values({
+        userId,
         date,
         measurementId,
         objectKey,
@@ -432,7 +438,8 @@ router.post('/photos', async (c) => {
 
 router.get('/photos', async (c) => {
   try {
-    const rows = await db.select().from(progressPhotos).orderBy(desc(progressPhotos.date), desc(progressPhotos.id));
+    const userId = c.var.userId;
+    const rows = await db.select().from(progressPhotos).where(eq(progressPhotos.userId, userId)).orderBy(desc(progressPhotos.date), desc(progressPhotos.id));
     const data = await Promise.all(
       rows.map(async (row) => {
         const imageUrl = await signPrivateObjectUrl(row.objectKey);
@@ -448,11 +455,14 @@ router.get('/photos', async (c) => {
 
 router.get('/goals', async (c) => {
   try {
-    const profile = await ensureProfileRow();
+    const userId = c.var.userId;
+    const profile = await ensureProfileRow(userId);
+    if (!profile) return c.json({ success: false, error: 'Profile not found' }, 404);
     const latest = (
       await db
         .select()
         .from(bodyMeasurements)
+        .where(eq(bodyMeasurements.userId, userId))
         .orderBy(desc(bodyMeasurements.date), desc(bodyMeasurements.createdAt), desc(bodyMeasurements.id))
         .limit(1)
     )[0] ?? null;
@@ -481,12 +491,14 @@ router.get('/goals', async (c) => {
 
 router.put('/goals', async (c) => {
   try {
+    const userId = c.var.userId;
     const payload = (await c.req.json()) as {
       weightGoalKg?: number | null;
       bodyFatGoalPercent?: number | null;
     };
 
-    const profile = await ensureProfileRow();
+    const profile = await ensureProfileRow(userId);
+    if (!profile) return c.json({ success: false, error: 'Profile not found' }, 404);
 
     const updateData: Partial<typeof userProfile.$inferInsert> = {
       updatedAt: new Date().toISOString(),
@@ -502,7 +514,7 @@ router.put('/goals', async (c) => {
     const updated = await db
       .update(userProfile)
       .set(updateData)
-      .where(eq(userProfile.id, profile.id))
+      .where(eq(userProfile.userId, userId))
       .returning();
 
     return c.json({ success: true, data: updated[0] });
@@ -513,12 +525,15 @@ router.put('/goals', async (c) => {
 
 router.get('/growth', async (c) => {
   try {
-    const profile = await ensureProfileRow();
-    const progress = await ensureProgressRow();
+    const userId = c.var.userId;
+    const profile = await ensureProfileRow(userId);
+    if (!profile) return c.json({ success: false, error: 'Profile not found' }, 404);
+    const progress = await ensureProgressRow(userId);
 
     const history = await db
       .select()
       .from(bodyMeasurements)
+      .where(eq(bodyMeasurements.userId, userId))
       .orderBy(asc(bodyMeasurements.date), asc(bodyMeasurements.createdAt), asc(bodyMeasurements.id))
       .limit(120);
 
@@ -564,7 +579,7 @@ router.get('/growth', async (c) => {
         };
       });
 
-    const photoRows = await db.select().from(progressPhotos).orderBy(asc(progressPhotos.date), asc(progressPhotos.id));
+    const photoRows = await db.select().from(progressPhotos).where(eq(progressPhotos.userId, userId)).orderBy(asc(progressPhotos.date), asc(progressPhotos.id));
     const firstPhoto = photoRows.length > 0 ? photoRows[0] : null;
     const latestPhoto = photoRows.length > 0 ? photoRows[photoRows.length - 1] : null;
 
@@ -576,7 +591,7 @@ router.get('/growth', async (c) => {
       : null;
 
     const achievementsAll = await db.select().from(achievements);
-    const userUnlocks = await db.select().from(userAchievements);
+    const userUnlocks = await db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
     const unlockMap = new Map(userUnlocks.map((u) => [u.achievementId, u.unlockedAt]));
 
     const achievementGallery = achievementsAll.map((a) => ({
@@ -585,7 +600,7 @@ router.get('/growth', async (c) => {
       unlockedAt: unlockMap.get(a.id) ?? null,
     }));
 
-    const milestones = await db.select().from(bodyMilestones).orderBy(desc(bodyMilestones.createdAt)).limit(10);
+    const milestones = await db.select().from(bodyMilestones).where(eq(bodyMilestones.userId, userId)).orderBy(desc(bodyMilestones.createdAt)).limit(10);
 
     return c.json({
       success: true,

@@ -1,27 +1,31 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:buddy/config/env.dart';
 import 'package:buddy/models/pr.dart';
 import 'package:buddy/models/exercise_catalog.dart';
+import 'package:buddy/providers/clerk_auth_provider.dart';
 
 class ApiClient {
-  // Change this to your server's LAN IP if testing on a physical device
-  // e.g., 'http://192.168.1.100:3000'
-  static const String baseUrl = 'http://macmini:3000';
+  static String get baseUrl => EnvInstance.instance.apiBaseUrl;
 
   static final _client = http.Client();
 
-  static Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  static Future<Map<String, String>> _authHeaders() async {
+    final token = await ClerkAuthProvider.instance.getToken();
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   // ─── Profile ─────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> getProfile() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/profile'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -44,7 +48,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/profile'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -55,7 +59,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> listDietPlans() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/diet/plans'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -63,7 +67,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getDietPlan(int id) async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/diet/plans/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -71,7 +75,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> generateDietPlan() async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/diet/generate'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -79,7 +83,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getDietFoods() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/diet/foods'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -90,7 +94,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/diet/meals/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -99,7 +103,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getDietLog(String date) async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/diet/log/$date'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -111,7 +115,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/diet/log/$date'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({'mealId': mealId, 'isCompleted': isCompleted}),
     );
     return _decode(res);
@@ -123,7 +127,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/diet/log/$date/actual'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -135,7 +139,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/diet/days/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -147,7 +151,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/diet/days/$dayId/reorder'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({'mealIds': mealIds}),
     );
     return _decode(res);
@@ -156,7 +160,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> deleteDietPlan(int id) async {
     final res = await _client.delete(
       Uri.parse('$baseUrl/api/diet/plans/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -166,7 +170,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> listWorkoutPlans() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/workout/plans'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -174,7 +178,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getWorkoutPlan(int id) async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/workout/plans/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -182,7 +186,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getWeeklyWorkoutSummary() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/workout/summary/weekly'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -190,7 +194,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> generateWorkoutPlan() async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/workout/generate'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -201,7 +205,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/workout/exercises/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -213,7 +217,7 @@ class ApiClient {
   ) async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/workout/exercises/$id/replace'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -222,7 +226,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> deleteWorkoutExercise(int id) async {
     final res = await _client.delete(
       Uri.parse('$baseUrl/api/workout/exercises/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -234,7 +238,7 @@ class ApiClient {
   }) async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/workout/sessions'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({'planId': planId, 'dayId': dayId, 'date': date}),
     );
     return _decode(res);
@@ -248,14 +252,14 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl/api/workout/sessions/today').replace(
       queryParameters: {'planId': '$planId', 'dayId': '$dayId', 'date': date},
     );
-    final res = await _client.get(uri, headers: _headers);
+    final res = await _client.get(uri, headers: await _authHeaders());
     return _decode(res);
   }
 
   static Future<Map<String, dynamic>> getWorkoutSession(int id) async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/workout/sessions/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -266,7 +270,7 @@ class ApiClient {
     final uri = Uri.parse(
       '$baseUrl/api/workout/sessions/history',
     ).replace(queryParameters: {'range': range});
-    final res = await _client.get(uri, headers: _headers);
+    final res = await _client.get(uri, headers: await _authHeaders());
     return _decode(res);
   }
 
@@ -276,7 +280,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/workout/sessions/$id/log'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -288,7 +292,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/workout/sessions/$id'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({
         'completedAt': DateTime.now().toIso8601String(),
         'totalDurationSeconds': durationSeconds,
@@ -315,7 +319,7 @@ class ApiClient {
   }) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/workout/sessions/$id/complete'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({
         'totalDurationSeconds': durationSeconds,
         'totalExercises': totalExercises,
@@ -340,23 +344,25 @@ class ApiClient {
   static Future<Map<String, PersonalRecord>> getPersonalRecords() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/exercises/prs'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     final decoded = _decode(res);
     final rawMap = (decoded['data'] as Map<String, dynamic>?) ?? {};
-    return rawMap.map((key, value) => MapEntry(
-          key,
-          PersonalRecord.fromJson(value as Map<String, dynamic>),
-        ));
+    return rawMap.map(
+      (key, value) =>
+          MapEntry(key, PersonalRecord.fromJson(value as Map<String, dynamic>)),
+    );
   }
 
   static Future<List<ExerciseCatalogItem>> getExerciseCatalog({
     String? muscleGroup,
   }) async {
     final uri = Uri.parse('$baseUrl/api/exercises').replace(
-      queryParameters: muscleGroup != null ? {'muscleGroup': muscleGroup} : null,
+      queryParameters: muscleGroup != null
+          ? {'muscleGroup': muscleGroup}
+          : null,
     );
-    final res = await _client.get(uri, headers: _headers);
+    final res = await _client.get(uri, headers: await _authHeaders());
     final decoded = _decode(res);
     final list = (decoded['data'] as List?) ?? [];
     return list
@@ -371,7 +377,7 @@ class ApiClient {
   ) async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/workout/days/$dayId/exercises'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({
         'name': exercise.name,
         'muscleGroup': exercise.muscleGroup,
@@ -392,7 +398,7 @@ class ApiClient {
   }) async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/workout/regenerate'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({'planId': planId, 'constraints': constraints ?? ''}),
     );
     return _decode(res);
@@ -403,7 +409,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getProgress() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/progress'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -411,7 +417,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getAchievements() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/progress/achievements'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -421,7 +427,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getDailyLog(String date) async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/logs/$date'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -432,7 +438,7 @@ class ApiClient {
   ) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/logs/$date'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -441,7 +447,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getWeekLogs() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/logs/week'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -449,7 +455,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getHomeSummary(String date) async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/logs/home-summary/$date'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -460,7 +466,7 @@ class ApiClient {
   }) async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/logs/$date/hydration/increment'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({'amountMl': amountMl}),
     );
     return _decode(res);
@@ -473,7 +479,7 @@ class ApiClient {
   ) async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/body/log'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode(data),
     );
     return _decode(res);
@@ -482,7 +488,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getBodyHistory() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/body/history'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -490,7 +496,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getLatestBodyMeasurement() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/body/latest'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -498,7 +504,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getGrowthOverview() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/body/growth'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -506,7 +512,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getGrowthPhotos() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/body/photos'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -519,6 +525,7 @@ class ApiClient {
     int? measurementId,
     String note = '',
   }) async {
+    final token = await ClerkAuthProvider.instance.getToken();
     final req = http.MultipartRequest(
       'POST',
       Uri.parse('$baseUrl/api/body/photos'),
@@ -530,13 +537,10 @@ class ApiClient {
       req.fields['measurementId'] = '$measurementId';
     }
     req.files.add(
-      http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: fileName,
-      ),
+      http.MultipartFile.fromBytes('file', bytes, filename: fileName),
     );
     req.headers['Accept'] = 'application/json';
+    if (token != null) req.headers['Authorization'] = 'Bearer $token';
 
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
@@ -546,7 +550,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getGrowthGoals() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/body/goals'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -557,7 +561,7 @@ class ApiClient {
   }) async {
     final res = await _client.put(
       Uri.parse('$baseUrl/api/body/goals'),
-      headers: _headers,
+      headers: await _authHeaders(),
       body: jsonEncode({
         'weightGoalKg': weightGoalKg,
         'bodyFatGoalPercent': bodyFatGoalPercent,
@@ -571,7 +575,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> triggerGeneration() async {
     final res = await _client.post(
       Uri.parse('$baseUrl/api/generation/trigger'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -579,7 +583,7 @@ class ApiClient {
   static Future<Map<String, dynamic>> getGenerationStatus() async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/generation/status'),
-      headers: _headers,
+      headers: await _authHeaders(),
     );
     return _decode(res);
   }
@@ -591,9 +595,14 @@ class ApiClient {
     String text, {
     String voice = 'aura-2-orion-en',
   }) async {
+    final token = await ClerkAuthProvider.instance.getToken();
     final res = await _client.post(
       Uri.parse('$baseUrl/api/tts'),
-      headers: {'Content-Type': 'application/json', 'Accept': 'audio/mpeg'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
       body: jsonEncode({'text': text, 'voice': voice}),
     );
     if (res.statusCode != 200) {

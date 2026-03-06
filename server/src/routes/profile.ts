@@ -7,10 +7,11 @@ import { userProfile } from '../db/schema';
 
 const router = new Hono();
 
-// GET /api/profile — get (or create default) profile
+// GET /api/profile — get profile for the authenticated user
 router.get('/', async (c) => {
     try {
-        const profiles = await db.select().from(userProfile).limit(1);
+        const userId = c.var.userId;
+        const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
 
         if (profiles.length === 0) {
             return c.json({ success: false, error: 'Profile not found' }, 404);
@@ -48,14 +49,15 @@ const profileSchema = z.object({
     preferSupersets: z.boolean().optional(),
 });
 
-// PUT /api/profile — upsert profile
+// PUT /api/profile — upsert profile for the authenticated user
 router.put('/', zValidator('json', profileSchema), async (c) => {
     try {
+        const userId = c.var.userId;
         const body = c.req.valid('json');
 
-        const profiles = await db.select().from(userProfile).limit(1);
+        const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
 
-        const updateData: typeof userProfile.$inferInsert = {};
+        const updateData: Partial<typeof userProfile.$inferInsert> = { userId };
         if (body.name !== undefined) updateData.name = body.name;
         if (body.height !== undefined) updateData.height = body.height;
         if (body.weight !== undefined) updateData.weight = body.weight;
@@ -79,13 +81,13 @@ router.put('/', zValidator('json', profileSchema), async (c) => {
         if (body.profileCompleted !== undefined) updateData.profileCompleted = body.profileCompleted;
         if (body.preferSupersets !== undefined) updateData.preferSupersets = body.preferSupersets;
 
-        let result;
+        let result: (typeof userProfile.$inferSelect)[];
         if (profiles.length === 0) {
-            result = await db.insert(userProfile).values(updateData).returning();
+            result = await db.insert(userProfile).values(updateData as typeof userProfile.$inferInsert).returning();
         } else {
             result = await db.update(userProfile)
                 .set(updateData)
-                .where(eq(userProfile.id, profiles[0].id))
+                .where(eq(userProfile.userId, userId))
                 .returning();
         }
 

@@ -1,0 +1,14 @@
+services:
+  api:
+    build: .
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    restart: unless-stopped
+    command: ["bun", "run", "src/index.ts", "--target", "bun"]
+
+  worker:
+    build: .
+    command: ["bun", "run", "src/worker.ts", "--target", "bun"]
+    restart: unless-stopped
+    depends_on:
+      - api

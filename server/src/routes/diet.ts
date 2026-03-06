@@ -105,7 +105,8 @@ router.get('/foods', (c) => {
 // ─── GET /api/diet/plans ─────────────────────────────────────────────────────
 router.get('/plans', async (c) => {
     try {
-        const plans = await db.select().from(dietPlans).orderBy(dietPlans.createdAt);
+        const userId = c.var.userId;
+        const plans = await db.select().from(dietPlans).where(eq(dietPlans.userId, userId)).orderBy(dietPlans.createdAt);
         return c.json({ success: true, data: plans });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
@@ -115,8 +116,9 @@ router.get('/plans', async (c) => {
 // ─── GET /api/diet/plans/:id ─────────────────────────────────────────────────
 router.get('/plans/:id', async (c) => {
     try {
+        const userId = c.var.userId;
         const id = parseInt(c.req.param('id'));
-        const [plan] = await db.select().from(dietPlans).where(eq(dietPlans.id, id));
+        const [plan] = await db.select().from(dietPlans).where(and(eq(dietPlans.userId, userId), eq(dietPlans.id, id)));
         if (!plan) return c.json({ success: false, error: 'Plan not found' }, 404);
 
         const days = await db.select().from(dietDays)
@@ -139,7 +141,8 @@ router.get('/plans/:id', async (c) => {
 // ─── POST /api/diet/generate ─────────────────────────────────────────────────
 router.post('/generate', async (c) => {
     try {
-        const profiles = await db.select().from(userProfile).limit(1);
+        const userId = c.var.userId;
+        const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
         if (profiles.length === 0) return c.json({ success: false, error: 'Profile not found. Set up profile first.' }, 400);
         const profile = profiles[0];
 
@@ -308,11 +311,12 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not
             return c.json({ success: false, error: 'AI returned invalid JSON. Please try again.' }, 500);
         }
 
-        // Deactivate all existing plans
-        await db.update(dietPlans).set({ isActive: false });
+        // Deactivate all existing plans for this user
+        await db.update(dietPlans).set({ isActive: false }).where(eq(dietPlans.userId, userId));
 
         // Insert the new plan
         const [insertedPlan] = await db.insert(dietPlans).values({
+            userId,
             title: planData.title ?? '7-Day Diet Plan',
             totalCalories: macros.calories,
             proteinG: macros.proteinG,
@@ -377,9 +381,10 @@ router.put('/plans/:id', zValidator('json', z.object({
     isActive: z.boolean().optional(),
 })), async (c) => {
     try {
+        const userId = c.var.userId;
         const id = parseInt(c.req.param('id'));
         const body = c.req.valid('json');
-        const updated = await db.update(dietPlans).set(body).where(eq(dietPlans.id, id)).returning();
+        const updated = await db.update(dietPlans).set(body).where(and(eq(dietPlans.userId, userId), eq(dietPlans.id, id))).returning();
         return c.json({ success: true, data: updated[0] });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
@@ -389,8 +394,9 @@ router.put('/plans/:id', zValidator('json', z.object({
 // ─── DELETE /api/diet/plans/:id ──────────────────────────────────────────────
 router.delete('/plans/:id', async (c) => {
     try {
+        const userId = c.var.userId;
         const id = parseInt(c.req.param('id'));
-        await db.delete(dietPlans).where(eq(dietPlans.id, id));
+        await db.delete(dietPlans).where(and(eq(dietPlans.userId, userId), eq(dietPlans.id, id)));
         return c.json({ success: true });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
@@ -475,6 +481,7 @@ router.put('/days/:id', zValidator('json', z.object({
 // Returns daily meal completion + actual intake + hydration snapshot
 router.get('/log/:date', async (c) => {
     try {
+        const userId = c.var.userId;
         const date = c.req.param('date'); // YYYY-MM-DD
         const logs = await db.select().from(dietMealLogs).where(eq(dietMealLogs.date, date));
         const completionMap: Record<number, boolean> = {};
@@ -524,7 +531,7 @@ router.get('/log/:date', async (c) => {
             }
         }
 
-        const [daily] = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
+        const [daily] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
         const hydrationMl = daily?.waterMl ?? 0;
 
         return c.json({

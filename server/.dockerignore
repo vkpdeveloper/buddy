@@ -1,0 +1,7 @@
+.env
+node_modules
+drizzle/
+*.db
+*.db-shm
+*.db-wal
+.DS_Store

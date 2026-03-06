@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { exerciseCatalog, personalRecords } from '../db/schema';
 
@@ -29,7 +29,8 @@ router.get('/', async (c) => {
 // ─── GET /api/exercises/prs ───────────────────────────────────────────────────
 router.get('/prs', async (c) => {
     try {
-        const prs = await db.select().from(personalRecords);
+        const userId = c.var.userId;
+        const prs = await db.select().from(personalRecords).where(eq(personalRecords.userId, userId));
         const prMap: Record<string, typeof personalRecords.$inferSelect> = {};
         for (const pr of prs) {
             prMap[pr.exerciseNameNormalized] = pr;
@@ -43,9 +44,10 @@ router.get('/prs', async (c) => {
 // ─── GET /api/exercises/prs/:name ────────────────────────────────────────────
 router.get('/prs/:name', async (c) => {
     try {
+        const userId = c.var.userId;
         const name = decodeURIComponent(c.req.param('name'));
         const [pr] = await db.select().from(personalRecords)
-            .where(eq(personalRecords.exerciseNameNormalized, name))
+            .where(and(eq(personalRecords.userId, userId), eq(personalRecords.exerciseNameNormalized, name)))
             .limit(1);
         if (!pr) return c.json({ success: true, data: null });
         return c.json({ success: true, data: pr });

@@ -13,6 +13,7 @@
         "db:studio": "bunx drizzle-kit studio",
         "db:fix-migrations": "bun run scripts/fix-migrations.ts",
         "db:reset": "bun run scripts/reset-db.ts",
+        "db:nuke": "bun run scripts/nuke-db.ts",
         "worker": "bun run src/worker.ts",
         "worker:dev": "bun run --watch src/worker.ts"
     },

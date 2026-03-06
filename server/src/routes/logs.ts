@@ -39,7 +39,9 @@ const mealTypeLabel: Record<string, string> = {
 // ─── GET /api/logs/week ──────────────────────────────────────────────────────
 router.get('/week', async (c) => {
     try {
+        const userId = c.var.userId;
         const rows = await db.select().from(dailyLogs)
+            .where(eq(dailyLogs.userId, userId))
             .orderBy(desc(dailyLogs.date))
             .limit(7);
         return c.json({ success: true, data: rows });
@@ -51,18 +53,19 @@ router.get('/week', async (c) => {
 // ─── GET /api/logs/home-summary/:date ───────────────────────────────────────
 router.get('/home-summary/:date', async (c) => {
     try {
+        const userId = c.var.userId;
         const date = c.req.param('date');
         const weekday = new Date(`${date}T00:00:00`).getDay(); // 0=Sun...6=Sat
         const dayNumber = weekday === 0 ? 7 : weekday;
 
-        const [logRow] = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
+        const [logRow] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
         const hydrationMl = logRow?.waterMl ?? 0;
         const sleepMinutes = logRow?.sleepMinutes ?? 0;
         const activeEnergy = logRow?.caloriesBurned ?? 0;
         const steps = logRow?.stepsCount ?? 0;
 
         // Next meal from active diet plan, for the selected date.
-        const [activeDietPlan] = await db.select().from(dietPlans).where(eq(dietPlans.isActive, true)).limit(1);
+        const [activeDietPlan] = await db.select().from(dietPlans).where(and(eq(dietPlans.userId, userId), eq(dietPlans.isActive, true))).limit(1);
         let nextMeal: null | { id: number; type: string; label: string; mealName: string; isCompleted: boolean } = null;
         if (activeDietPlan) {
             const [dietDay] = await db.select().from(dietDays)
@@ -92,7 +95,7 @@ router.get('/home-summary/:date', async (c) => {
         }
 
         // Today's workout summary from active workout plan.
-        const [activeWorkoutPlan] = await db.select().from(workoutPlans).where(eq(workoutPlans.isActive, true)).limit(1);
+        const [activeWorkoutPlan] = await db.select().from(workoutPlans).where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.isActive, true))).limit(1);
         let todayWorkoutSummary: null | {
             dayId: number;
             dayLabel: string;
@@ -109,6 +112,7 @@ router.get('/home-summary/:date', async (c) => {
 
             if (workoutDay) {
                 const sessionsToday = await db.select().from(workoutSessions).where(and(
+                    eq(workoutSessions.userId, userId),
                     eq(workoutSessions.planId, activeWorkoutPlan.id),
                     eq(workoutSessions.dayId, workoutDay.id),
                     sql`date(${workoutSessions.startedAt}) = ${date}`,
@@ -152,8 +156,9 @@ router.get('/home-summary/:date', async (c) => {
 // ─── GET /api/logs/:date ─────────────────────────────────────────────────────
 router.get('/:date', async (c) => {
     try {
+        const userId = c.var.userId;
         const date = c.req.param('date');
-        const [row] = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
+        const [row] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
         if (!row) {
             // Return zeroed log if none exists yet
             return c.json({
@@ -181,19 +186,21 @@ const hydrationIncrementSchema = z.object({
 // ─── POST /api/logs/:date/hydration/increment ───────────────────────────────
 router.post('/:date/hydration/increment', zValidator('json', hydrationIncrementSchema), async (c) => {
     try {
+        const userId = c.var.userId;
         const date = c.req.param('date');
         const amountMl = c.req.valid('json').amountMl ?? 250;
 
-        const [existing] = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
+        const [existing] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
         if (existing) {
             const [updated] = await db.update(dailyLogs).set({
                 waterMl: existing.waterMl + amountMl,
                 updatedAt: new Date().toISOString(),
-            }).where(eq(dailyLogs.date, date)).returning();
+            }).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date))).returning();
             return c.json({ success: true, data: updated });
         }
 
         const [inserted] = await db.insert(dailyLogs).values({
+            userId,
             date,
             waterMl: amountMl,
             sleepMinutes: 0,
@@ -209,12 +216,13 @@ router.post('/:date/hydration/increment', zValidator('json', hydrationIncrementS
 // ─── PUT /api/logs/:date ─────────────────────────────────────────────────────
 router.put('/:date', zValidator('json', logSchema), async (c) => {
     try {
+        const userId = c.var.userId;
         const date = c.req.param('date');
         const body = c.req.valid('json');
 
-        const [existing] = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
+        const [existing] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
 
-        let result;
+        let result: (typeof dailyLogs.$inferSelect)[];
         if (existing) {
             const updateData: Partial<typeof dailyLogs.$inferInsert> = {
                 updatedAt: new Date().toISOString(),
@@ -223,9 +231,10 @@ router.put('/:date', zValidator('json', logSchema), async (c) => {
             if (body.sleepMinutes !== undefined) updateData.sleepMinutes = body.sleepMinutes;
             if (body.stepsCount !== undefined) updateData.stepsCount = body.stepsCount;
             if (body.caloriesBurned !== undefined) updateData.caloriesBurned = body.caloriesBurned;
-            result = await db.update(dailyLogs).set(updateData).where(eq(dailyLogs.date, date)).returning();
+            result = await db.update(dailyLogs).set(updateData).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date))).returning();
         } else {
             result = await db.insert(dailyLogs).values({
+                userId,
                 date,
                 waterMl: body.waterMl ?? 0,
                 sleepMinutes: body.sleepMinutes ?? 0,

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { generationJobs } from '../db/schema';
 import { plansQueue } from '../lib/queue';
@@ -10,6 +10,7 @@ const router = new Hono();
 // Enqueues diet + workout generation jobs; returns immediately.
 router.post('/trigger', async (c) => {
     try {
+        const userId = c.var.userId;
         const types: Array<'diet' | 'workout'> = ['diet', 'workout'];
         const enqueuedIds: Record<string, number> = {};
 
@@ -19,7 +20,7 @@ router.post('/trigger', async (c) => {
             const [existing] = await db
                 .select()
                 .from(generationJobs)
-                .where(eq(generationJobs.type, type))
+                .where(and(eq(generationJobs.userId, userId), eq(generationJobs.type, type)))
                 .orderBy(desc(generationJobs.id))
                 .limit(1);
 
@@ -30,7 +31,7 @@ router.post('/trigger', async (c) => {
             } else {
                 const [inserted] = await db
                     .insert(generationJobs)
-                    .values({ type, status: 'pending' })
+                    .values({ userId, type, status: 'pending' })
                     .returning();
                 jobRowId = inserted.id;
             }
@@ -50,6 +51,7 @@ router.post('/trigger', async (c) => {
 // Returns the latest status for diet and workout generation.
 router.get('/status', async (c) => {
     try {
+        const userId = c.var.userId;
         const types: Array<'diet' | 'workout'> = ['diet', 'workout'];
         const result: Record<string, string> = { diet: 'idle', workout: 'idle' };
 
@@ -57,7 +59,7 @@ router.get('/status', async (c) => {
             const [latest] = await db
                 .select()
                 .from(generationJobs)
-                .where(eq(generationJobs.type, type))
+                .where(and(eq(generationJobs.userId, userId), eq(generationJobs.type, type)))
                 .orderBy(desc(generationJobs.id))
                 .limit(1);
 

@@ -1,0 +1,33 @@
+{
+  "name": "buddy",
+  "version": "1.0.0",
+  "description": "Build & dev scripts for the Buddy Flutter app",
+  "private": true,
+  "bun": {
+    "env": ".env.development"
+  },
+  "scripts": {
+    "dev": "flutter run --dart-define=APP_FLAVOR=development",
+    "dev:ios": "flutter run -d iphone --dart-define=APP_FLAVOR=development",
+    "dev:android": "flutter run -d android --dart-define=APP_FLAVOR=development",
+    "build:android": "flutter build aab --release --dart-define=APP_FLAVOR=production",
+    "build:ios": "flutter build ipa --release --dart-define=APP_FLAVOR=production",
+    "build:android:dev": "flutter build aab --debug --dart-define=APP_FLAVOR=development",
+    "build:ios:dev": "flutter build ipa --debug --dart-define=APP_FLAVOR=development",
+    "build:all": "bun run build:android && bun run build:ios",
+    "server": "bun run --cwd server --watch src/index.ts",
+    "server:start": "bun run --cwd server src/index.ts",
+    "worker": "bun run --cwd server src/worker.ts",
+    "worker:dev": "bun run --cwd server --watch src/worker.ts",
+    "db:init": "bun run --cwd server scripts/init-db.ts",
+    "db:generate": "bun run --cwd server db:generate",
+    "db:migrate": "bun run --cwd server db:migrate",
+    "db:studio": "bun run --cwd server db:studio",
+    "db:fix-migrations": "bun run --cwd server scripts/fix-migrations.ts",
+    "db:reset": "bun run --cwd server scripts/reset-db.ts",
+    "clean": "flutter clean",
+    "get": "flutter pub get",
+    "analyze": "flutter analyze",
+    "test": "flutter test"
+  }
+}

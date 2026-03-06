@@ -111,11 +111,11 @@ async function getPlannedWorkoutsByPlanId(planIds: number[]) {
     return plannedByPlan;
 }
 
-async function getSoloLeaderboard() {
+async function getSoloLeaderboard(userId: string) {
     const now = new Date();
     const currentWeek = getWeekRange(now);
     const [activePlan] = await db.select().from(workoutPlans)
-        .where(eq(workoutPlans.isActive, true))
+        .where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.isActive, true)))
         .limit(1);
 
     const completedSessions = await db.select({
@@ -123,6 +123,7 @@ async function getSoloLeaderboard() {
         completedAt: workoutSessions.completedAt,
         xpEarned: workoutSessions.xpEarned,
     }).from(workoutSessions).where(and(
+        eq(workoutSessions.userId, userId),
         isNotNull(workoutSessions.completedAt),
         eq(workoutSessions.completedExercises, workoutSessions.totalExercises),
     ));
@@ -254,24 +255,25 @@ export async function seedAchievements() {
 }
 
 // ─── Ensure user_progress row exists ─────────────────────────────────────────
-export async function ensureUserProgress() {
-    const rows = await db.select().from(userProgress).limit(1);
+export async function ensureUserProgress(userId: string) {
+    const rows = await db.select().from(userProgress).where(eq(userProgress.userId, userId)).limit(1);
     if (rows.length === 0) {
-        await db.insert(userProgress).values({});
-        console.log('[user_progress] initialized');
+        await db.insert(userProgress).values({ userId });
+        console.log('[user_progress] initialized for', userId);
     }
 }
 
 // ─── GET /api/progress ───────────────────────────────────────────────────────
 router.get('/', async (c) => {
     try {
-        await ensureUserProgress();
-        const [prog] = await db.select().from(userProgress).limit(1);
+        const userId = c.var.userId;
+        await ensureUserProgress(userId);
+        const [prog] = await db.select().from(userProgress).where(eq(userProgress.userId, userId)).limit(1);
 
         const level = getLevel(prog.totalXp);
         const levelLabel = getLevelLabel(level);
         const levelProgressFraction = getLevelProgressFraction(prog.totalXp);
-        const soloLeaderboard = await getSoloLeaderboard();
+        const soloLeaderboard = await getSoloLeaderboard(userId);
 
         // Get recent achievements (last 5)
         const recentUnlocks = await db.select({
@@ -279,6 +281,7 @@ router.get('/', async (c) => {
             unlockedAt: userAchievements.unlockedAt,
             achievementId: userAchievements.achievementId,
         }).from(userAchievements)
+            .where(eq(userAchievements.userId, userId))
             .orderBy(userAchievements.unlockedAt)
             .limit(5);
 
@@ -315,8 +318,9 @@ router.get('/', async (c) => {
 // ─── GET /api/progress/achievements ─────────────────────────────────────────
 router.get('/achievements', async (c) => {
     try {
+        const userId = c.var.userId;
         const all = await db.select().from(achievements);
-        const unlocked = await db.select().from(userAchievements);
+        const unlocked = await db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
 
         const unlockedMap = new Map(unlocked.map(u => [u.achievementId, u.unlockedAt]));
 

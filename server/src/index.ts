@@ -4,12 +4,13 @@ import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 
 import { env } from './lib/env';
+import { clerkAuth } from './lib/clerkAuth';
 import profileRouter from './routes/profile';
 import dietRouter from './routes/diet';
 import workoutRouter from './routes/workout';
 import ttsRouter from './routes/tts';
 import logsRouter from './routes/logs';
-import progressRouter, { seedAchievements, ensureUserProgress } from './routes/progress';
+import progressRouter, { seedAchievements } from './routes/progress';
 import bodyRouter from './routes/body';
 import generationRouter from './routes/generation';
 import exercisesRouter from './routes/exercises';
@@ -26,6 +27,9 @@ app.use('*', cors({
     allowHeaders: ['Content-Type', 'Authorization'],
     exposeHeaders: ['Content-Length', 'Content-Type'],
 }));
+
+// ─── Clerk JWT auth on all /api/* routes ─────────────────────────────────────
+app.use('/api/*', clerkAuth(env.CLERK_PUBLISHABLE_KEY));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/', (c) => c.json({
@@ -48,7 +52,6 @@ app.route('/api/exercises', exercisesRouter);
 
 // ─── Startup tasks ────────────────────────────────────────────────────────────
 seedAchievements().catch(console.error);
-ensureUserProgress().catch(console.error);
 seedCatalog().catch(console.error);
 
 // ─── 404 Fallback ─────────────────────────────────────────────────────────────

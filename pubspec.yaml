@@ -50,6 +50,9 @@ dependencies:
   timezone: ^0.10.1
   image_picker: ^1.2.0
   share_plus: ^12.0.1
+  clerk_flutter: ^0.0.14-beta
+  clerk_auth: ^0.0.14-beta
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -73,6 +76,12 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - .env.development
+    - .env.production
+    - assets/icons/
+    - assets/images/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
