@@ -33,7 +33,7 @@ app.use('/api/*', clerkAuth(env.CLERK_PUBLISHABLE_KEY));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/', (c) => c.json({
-    service: 'Ledger Fitness API',
+    service: 'Buddy Fitness API',
     version: '1.0.0',
     status: 'running',
     timestamp: new Date().toISOString(),
@@ -64,7 +64,7 @@ app.onError((err, c) => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const port = parseInt(env.PORT);
-console.log(`\n🏋️  Ledger Fitness API`);
+console.log(`\n🏋️  Buddy Fitness API`);
 console.log(`🚀 Running at: http://localhost:${port}`);
 console.log(`📦 DB: ${env.TURSO_DATABASE_URL}\n`);
 
