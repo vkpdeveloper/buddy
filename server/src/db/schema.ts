@@ -295,6 +295,22 @@ export const progressPhotos = pgTable('progress_photos', {
     createdAt: text('created_at').default(sql`now()`),
 });
 
+// ─── Diet Quick Logs (standalone photo-captured meals, no meal plan FK) ───────
+
+export const dietQuickLogs = pgTable('diet_quick_logs', {
+    id: serial('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    date: text('date').notNull(),                   // 'YYYY-MM-DD'
+    mealName: text('meal_name').notNull(),
+    calories: integer('calories').notNull().default(0),
+    proteinG: real('protein_g').notNull().default(0),
+    carbsG: real('carbs_g').notNull().default(0),
+    fatG: real('fat_g').notNull().default(0),
+    notes: text('notes').notNull().default(''),
+    attachmentId: integer('attachment_id').references(() => mealMediaAttachments.id, { onDelete: 'set null' }),
+    loggedAt: text('logged_at').default(sql`now()`),
+});
+
 // ─── Meal Media Attachments (photo → AI nutrition analysis) ──────────────────
 
 export const mealMediaAttachments = pgTable('meal_media_attachments', {

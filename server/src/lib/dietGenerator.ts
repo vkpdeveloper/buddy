@@ -10,29 +10,29 @@ import { calculateBMR, calculateTDEE, calculateMacros } from './macros';
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
 const DietPlanSchema = z.object({
-    title: z.string(),
+    title: z.string().describe('Title of the 7-day diet plan'),
     days: z.array(z.object({
-        dayNumber: z.number().int(),
-        dayName: z.string(),
-        totalCalories: z.number(),
-        proteinG: z.number(),
-        carbsG: z.number(),
-        fatG: z.number(),
+        dayNumber: z.number().int().describe('Day number from 1 to 7'),
+        dayName: z.string().describe('Day name: MON, TUE, WED, THU, FRI, SAT, or SUN'),
+        totalCalories: z.number().describe('Total calories for the day in kcal'),
+        proteinG: z.number().describe('Total protein for the day in grams'),
+        carbsG: z.number().describe('Total carbohydrates for the day in grams'),
+        fatG: z.number().describe('Total fat for the day in grams'),
         meals: z.array(z.object({
-            mealType: z.string(),
-            mealName: z.string(),
+            mealType: z.string().describe('Meal type identifier matching one of the requested meal types (e.g. breakfast, lunch, dinner, morning_snack, evening_snack, pre_workout, post_workout)'),
+            mealName: z.string().describe('Name of the meal or dish'),
             ingredients: z.array(z.object({
-                name: z.string(),
-                quantity: z.string(),
-            })),
-            calories: z.number(),
-            proteinG: z.number(),
-            carbsG: z.number(),
-            fatG: z.number(),
-            notes: z.string(),
-            recipe: z.string(),
-        })),
-    })),
+                name: z.string().describe('Raw ingredient name without quality adjectives'),
+                quantity: z.string().describe('Exact quantity with unit (e.g. "100g", "2 medium pieces", "1 tbsp", "200ml")'),
+            })).describe('All ingredients used in the meal with exact quantities'),
+            calories: z.number().describe('Total calories of this meal in kcal'),
+            proteinG: z.number().describe('Protein content of this meal in grams'),
+            carbsG: z.number().describe('Carbohydrate content of this meal in grams'),
+            fatG: z.number().describe('Fat content of this meal in grams'),
+            notes: z.string().describe('Preparation tips, soaking instructions, or short serving notes'),
+            recipe: z.string().describe('Full recipe written in markdown: 2-3 intro sentences then a bullet list of cooking steps. Total 350-500 words.'),
+        })).describe('All meals for this day. The number of meals must exactly match the meal types requested in the prompt.'),
+    })).describe('Exactly 7 days of the diet plan (Mon through Sun). You MUST generate all 7 days — do not stop early.'),
 });
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -189,8 +189,8 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
         model: google('gemini-3.1-flash-lite-preview'),
         schema: DietPlanSchema,
         system: systemPrompt,
-        prompt: `Generate the full 7-day diet plan for a ${profile.age}-year-old ${profile.sex} weighing ${profile.weight}kg, height ${profile.height}cm. Goal: ${profile.goal.replace('_', ' ')}. Activity: ${profile.activityLevel.replace('_', ' ')}.`,
-        maxOutputTokens: 8000,
+        prompt: `Generate the complete 7-day diet plan (all 7 days, Monday through Sunday) for a ${profile.age}-year-old ${profile.sex} weighing ${profile.weight}kg, height ${profile.height}cm. Goal: ${profile.goal.replace('_', ' ')}. Activity: ${profile.activityLevel.replace('_', ' ')}. Each day must have exactly ${mealCount} meals: ${preferredMeals.join(', ')}.`,
+        maxOutputTokens: 16000,
     });
 
     await db.update(dietPlans).set({ isActive: false });
@@ -217,20 +217,20 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
         }).returning();
 
         for (const meal of day.meals) {
-                await db.insert(dietMeals).values({
-                    dayId: insertedDay.id,
-                    mealType: meal.mealType as any,
-                    mealName: meal.mealName,
-                    description: '',
-                    ingredients: JSON.stringify(meal.ingredients),
-                    calories: meal.calories,
-                    proteinG: meal.proteinG,
-                    carbsG: meal.carbsG,
-                    fatG: meal.fatG,
-                    notes: meal.notes,
-                    recipe: meal.recipe,
-                });
-            }
+            await db.insert(dietMeals).values({
+                dayId: insertedDay.id,
+                mealType: meal.mealType as any,
+                mealName: meal.mealName,
+                description: '',
+                ingredients: JSON.stringify(meal.ingredients),
+                calories: meal.calories,
+                proteinG: meal.proteinG,
+                carbsG: meal.carbsG,
+                fatG: meal.fatG,
+                notes: meal.notes,
+                recipe: meal.recipe,
+            });
+        }
     }
 
     return { planId: insertedPlan.id };

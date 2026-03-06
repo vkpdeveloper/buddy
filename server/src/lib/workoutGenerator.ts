@@ -9,20 +9,20 @@ import { userProfile, workoutPlans, workoutDays, workoutExercises } from '../db/
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
 const WorkoutPlanSchema = z.object({
-    title: z.string(),
+    title: z.string().describe('Name of the workout program (e.g. "PPL Hypertrophy Program")'),
     days: z.array(z.object({
-        dayLabel: z.string(),
+        dayLabel: z.string().describe('Workout day label matching one of the requested day types (e.g. Push, Pull, Legs, Upper, Lower, Full Body)'),
         exercises: z.array(z.object({
-            orderIndex: z.number().int(),
-            name: z.string(),
-            sets: z.number().int(),
-            repsOrTime: z.string(),
-            restSeconds: z.number().int(),
-            muscleGroup: z.string(),
-            equipment: z.string(),
-            notes: z.string(),
-        })),
-    })),
+            orderIndex: z.number().int().describe('Exercise order within the day, starting from 1'),
+            name: z.string().describe('Full proper exercise name (e.g. "Romanian Deadlift", "Incline Dumbbell Press")'),
+            sets: z.number().int().describe('Number of sets to perform'),
+            repsOrTime: z.string().describe('Rep range or time duration (e.g. "6-8", "8-12", "30s", "2min")'),
+            restSeconds: z.number().int().describe('Rest time in seconds between sets (e.g. 60, 90, 120, 150, 180)'),
+            muscleGroup: z.string().describe('Primary muscle group targeted (e.g. Chest, Back, Quads, Shoulders, Biceps)'),
+            equipment: z.string().describe('Equipment required for this exercise (e.g. Barbell, Dumbbell, Cable, Bodyweight)'),
+            notes: z.string().describe('Coaching cues or form tips for the exercise'),
+        })).describe('5 to 7 exercises for this workout day'),
+    })).describe('Array of workout days. Generate one entry for each distinct day label requested in the prompt.'),
 });
 
 const CYCLE_TEMPLATES: Record<string, { days: { label: string; isRest: boolean }[] }> = {

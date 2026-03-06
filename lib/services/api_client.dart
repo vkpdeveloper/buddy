@@ -601,6 +601,18 @@ class ApiClient {
     return _decode(res);
   }
 
+  static Future<Map<String, dynamic>> logQuickMeal(
+    String date,
+    Map<String, dynamic> data,
+  ) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/diet/log/$date/quick'),
+      headers: await _authHeaders(),
+      body: jsonEncode(data),
+    );
+    return _decode(res);
+  }
+
   static Future<Map<String, dynamic>> getMealAttachment(int attachmentId) async {
     final res = await _client.get(
       Uri.parse('$baseUrl/api/diet/media/$attachmentId'),

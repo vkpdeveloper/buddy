@@ -6,36 +6,36 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { env } from '../lib/env';
 import { db } from '../db';
-import { userProfile, dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs } from '../db/schema';
+import { userProfile, dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs, dietQuickLogs, mealMediaAttachments } from '../db/schema';
 import { calculateBMR, calculateTDEE, calculateMacros } from '../lib/macros';
 
 const router = new Hono();
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
 const DietPlanSchema = z.object({
-    title: z.string(),
+    title: z.string().describe('Title of the 7-day diet plan'),
     days: z.array(z.object({
-        dayNumber: z.number().int(),
-        dayName: z.string(),
-        totalCalories: z.number(),
-        proteinG: z.number(),
-        carbsG: z.number(),
-        fatG: z.number(),
+        dayNumber: z.number().int().describe('Day number from 1 to 7'),
+        dayName: z.string().describe('Day name: MON, TUE, WED, THU, FRI, SAT, or SUN'),
+        totalCalories: z.number().describe('Total calories for the day in kcal'),
+        proteinG: z.number().describe('Total protein for the day in grams'),
+        carbsG: z.number().describe('Total carbohydrates for the day in grams'),
+        fatG: z.number().describe('Total fat for the day in grams'),
         meals: z.array(z.object({
-            mealType: z.string(),
-            mealName: z.string(),
+            mealType: z.string().describe('Meal type identifier matching one of the requested meal types (e.g. breakfast, lunch, dinner, morning_snack, evening_snack, pre_workout, post_workout)'),
+            mealName: z.string().describe('Name of the meal or dish'),
             ingredients: z.array(z.object({
-                name: z.string(),
-                quantity: z.string(),
-            })),
-            calories: z.number(),
-            proteinG: z.number(),
-            carbsG: z.number(),
-            fatG: z.number(),
-            notes: z.string(),
-            recipe: z.string(),
-        })),
-    })),
+                name: z.string().describe('Raw ingredient name without quality adjectives'),
+                quantity: z.string().describe('Exact quantity with unit (e.g. "100g", "2 medium pieces", "1 tbsp", "200ml")'),
+            })).describe('All ingredients used in the meal with exact quantities'),
+            calories: z.number().describe('Total calories of this meal in kcal'),
+            proteinG: z.number().describe('Protein content of this meal in grams'),
+            carbsG: z.number().describe('Carbohydrate content of this meal in grams'),
+            fatG: z.number().describe('Fat content of this meal in grams'),
+            notes: z.string().describe('Preparation tips, soaking instructions, or short serving notes'),
+            recipe: z.string().describe('Full recipe written in markdown: 2-3 intro sentences then a bullet list of cooking steps. Total 350-500 words.'),
+        })).describe('All meals for this day. The number of meals must exactly match the meal types requested in the prompt.'),
+    })).describe('Exactly 7 days of the diet plan (Monday through Sunday). You MUST generate all 7 days — do not stop early.'),
 });
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -290,8 +290,8 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not
             model: google('gemini-3.1-flash-lite-preview'),
             schema: DietPlanSchema,
             system: systemPrompt,
-            prompt: `Generate the full 7-day diet plan for a ${profile.age}-year-old ${profile.sex} weighing ${profile.weight}kg, height ${profile.height}cm. Goal: ${profile.goal.replace('_', ' ')}. Activity: ${profile.activityLevel.replace('_', ' ')}.`,
-            maxOutputTokens: 8000,
+            prompt: `Generate the complete 7-day diet plan (all 7 days, Monday through Sunday) for a ${profile.age}-year-old ${profile.sex} weighing ${profile.weight}kg, height ${profile.height}cm. Goal: ${profile.goal.replace('_', ' ')}. Activity: ${profile.activityLevel.replace('_', ' ')}. Each day must have exactly ${mealCount} meals: ${preferredMeals.join(', ')}.`,
+            maxOutputTokens: 16000,
         });
 
         // Deactivate all existing plans for this user
@@ -321,29 +321,29 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not
             }).returning();
 
             const sortedMeals = [...day.meals].sort((a, b) => {
-                    const left = MEAL_ORDER[a.mealType] ?? 99;
-                    const right = MEAL_ORDER[b.mealType] ?? 99;
-                    return left - right;
+                const left = MEAL_ORDER[a.mealType] ?? 99;
+                const right = MEAL_ORDER[b.mealType] ?? 99;
+                return left - right;
+            });
+            let index = 0;
+            for (const meal of sortedMeals) {
+                index += 1;
+                await db.insert(dietMeals).values({
+                    dayId: insertedDay.id,
+                    orderIndex: index,
+                    mealType: meal.mealType as any,
+                    mealTime: normalizeMealTime(undefined, meal.mealType),
+                    mealName: meal.mealName,
+                    description: '',
+                    ingredients: JSON.stringify(meal.ingredients),
+                    calories: meal.calories,
+                    proteinG: meal.proteinG,
+                    carbsG: meal.carbsG,
+                    fatG: meal.fatG,
+                    notes: meal.notes,
+                    recipe: meal.recipe,
                 });
-                let index = 0;
-                for (const meal of sortedMeals) {
-                    index += 1;
-                    await db.insert(dietMeals).values({
-                        dayId: insertedDay.id,
-                        orderIndex: index,
-                        mealType: meal.mealType as any,
-                        mealTime: normalizeMealTime(undefined, meal.mealType),
-                        mealName: meal.mealName,
-                        description: '',
-                        ingredients: JSON.stringify(meal.ingredients),
-                        calories: meal.calories,
-                        proteinG: meal.proteinG,
-                        carbsG: meal.carbsG,
-                        fatG: meal.fatG,
-                        notes: meal.notes,
-                        recipe: meal.recipe,
-                    });
-                }
+            }
         }
 
         return c.json({ success: true, data: { planId: insertedPlan.id, macros } });
@@ -509,6 +509,45 @@ router.get('/log/:date', async (c) => {
             }
         }
 
+        // Quick logs (standalone photo-captured meals)
+        const quickLogRows = await db
+            .select()
+            .from(dietQuickLogs)
+            .where(and(eq(dietQuickLogs.userId, userId), eq(dietQuickLogs.date, date)));
+
+        // Fetch attachments for quick logs that have photos
+        const attachmentIds = quickLogRows.map(q => q.attachmentId).filter((id): id is number => id != null);
+        const attachmentMap = new Map<number, string>();
+        if (attachmentIds.length > 0) {
+            const { inArray } = await import('drizzle-orm');
+            const { signPrivateObjectUrl } = await import('../lib/r2');
+            const attachments = await db.select().from(mealMediaAttachments).where(inArray(mealMediaAttachments.id, attachmentIds));
+            await Promise.all(attachments.map(async (att) => {
+                const url = await signPrivateObjectUrl(att.objectKey);
+                attachmentMap.set(att.id, url);
+            }));
+        }
+
+        const quickLogs = quickLogRows.map(q => ({
+            id: q.id,
+            mealName: q.mealName,
+            calories: q.calories,
+            proteinG: q.proteinG,
+            carbsG: q.carbsG,
+            fatG: q.fatG,
+            notes: q.notes,
+            attachmentId: q.attachmentId,
+            signedUrl: q.attachmentId != null ? (attachmentMap.get(q.attachmentId) ?? null) : null,
+            loggedAt: q.loggedAt,
+        }));
+
+        for (const q of quickLogRows) {
+            consumedCalories += q.calories;
+            consumedProteinG += q.proteinG;
+            consumedCarbsG += q.carbsG;
+            consumedFatG += q.fatG;
+        }
+
         const [daily] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
         const hydrationMl = daily?.waterMl ?? 0;
 
@@ -517,6 +556,7 @@ router.get('/log/:date', async (c) => {
             data: {
                 completionMap,
                 actualLogs,
+                quickLogs,
                 consumedTotals: {
                     calories: consumedCalories,
                     proteinG: consumedProteinG,
@@ -620,6 +660,55 @@ router.put('/log/:date/actual', zValidator('json', z.object({
 
         return c.json({ success: true });
     } catch (err) {
+        return c.json({ success: false, error: String(err) }, 500);
+    }
+});
+
+// ─── POST /api/diet/log/:date/quick ──────────────────────────────────────────
+// Logs a standalone photo-captured meal not tied to any meal plan entry
+router.post('/log/:date/quick', zValidator('json', z.object({
+    mealName: z.string().min(1),
+    calories: z.number().int().min(0),
+    proteinG: z.number().min(0),
+    carbsG: z.number().min(0),
+    fatG: z.number().min(0),
+    notes: z.string().optional(),
+    attachmentId: z.number().int().positive().optional(),
+})), async (c) => {
+    try {
+        const userId = c.var.userId;
+        const date = c.req.param('date');
+        const { mealName, calories, proteinG, carbsG, fatG, notes, attachmentId } = c.req.valid('json');
+
+        const [inserted] = await db.insert(dietQuickLogs).values({
+            userId,
+            date,
+            mealName,
+            calories,
+            proteinG,
+            carbsG,
+            fatG,
+            notes: notes ?? '',
+            attachmentId: attachmentId ?? null,
+            loggedAt: new Date().toISOString(),
+        }).returning();
+
+        // Fetch signed URL for attachment if present
+        let signedUrl: string | null = null;
+        if (attachmentId) {
+            const [att] = await db.select().from(mealMediaAttachments).where(eq(mealMediaAttachments.id, attachmentId)).limit(1);
+            if (att) {
+                const { signPrivateObjectUrl } = await import('../lib/r2');
+                signedUrl = await signPrivateObjectUrl(att.objectKey);
+            }
+        }
+
+        return c.json({
+            success: true,
+            data: { ...inserted, signedUrl },
+        });
+    } catch (err) {
+        console.error('[diet/log/quick] error:', err);
         return c.json({ success: false, error: String(err) }, 500);
     }
 });

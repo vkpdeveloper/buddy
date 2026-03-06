@@ -15,6 +15,13 @@
       "when": 1772828850080,
       "tag": "0001_cynical_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772831749031,
+      "tag": "0002_watery_master_mold",
+      "breakpoints": true
     }
   ]
 }

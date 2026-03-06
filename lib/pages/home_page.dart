@@ -1781,13 +1781,6 @@ class _MindfulnessCard extends StatelessWidget {
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.oledBlack.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -8,17 +8,17 @@ import { r2Client } from './r2';
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
 const MealAnalysisSchema = z.object({
-    ingredients: z.array(z.object({
-        name: z.string().describe('Specific food name'),
-        quantity: z.string().describe("Weight in grams or volume, e.g. '150g', '1 cup', '2 pieces'"),
-    })),
-    macros: z.object({
-        calories: z.number().describe('Total kcal, integer'),
-        proteinG: z.number().describe('Total protein in grams, one decimal'),
-        carbsG: z.number().describe('Total carbs in grams, one decimal'),
-        fatG: z.number().describe('Total fat in grams, one decimal'),
-    }),
-    confidence: z.number().describe('0.0 to 1.0, where 1.0 = very clear photo with identifiable portions'),
+  ingredients: z.array(z.object({
+    name: z.string().describe('Specific food name'),
+    quantity: z.string().describe("Weight in grams or volume, e.g. '150g', '1 cup', '2 pieces'"),
+  })),
+  macros: z.object({
+    calories: z.number().describe('Total kcal, integer'),
+    proteinG: z.number().describe('Total protein in grams, one decimal'),
+    carbsG: z.number().describe('Total carbs in grams, one decimal'),
+    fatG: z.number().describe('Total fat in grams, one decimal'),
+  }),
+  confidence: z.number().describe('0.0 to 1.0, where 1.0 = very clear photo with identifiable portions'),
 });
 
 const MEAL_ANALYSIS_PROMPT = `You are a professional nutrition analyst with expertise in food recognition and macro estimation, similar to systems used by CalAI or Cronometer.
@@ -58,7 +58,7 @@ export async function analyzeMealImage(
   const imageBytes = await fetchImageFromR2(objectKey);
 
   const { object } = await generateObject({
-    model: google('gemini-1.5-flash'),
+    model: google('gemini-3.1-flash-lite-preview'),
     schema: MealAnalysisSchema,
     messages: [
       {
