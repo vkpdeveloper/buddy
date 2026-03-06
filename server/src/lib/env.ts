@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+const _ = { r: "\x1b[0m", bold: "\x1b[1m", red: "\x1b[31m", yellow: "\x1b[33m", dim: "\x1b[2m" };
+
+function prettyEnvError(error: z.ZodError): never {
+  const lines = error.issues.map(
+    (i) => `  ${_.red}✗${_.r} ${_.bold}${String(i.path[0])}${_.r}  ${_.dim}${i.message}${_.r}`
+  );
+  console.error(`\n${_.bold}${_.red}Environment validation failed${_.r}\n\n${lines.join("\n")}\n`);
+  process.exit(1);
+}
+
+// ── Schema ──────────────────────────────────────────────────────────────────
 const envSchema = z.object({
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
   DEEPGRAM_API_KEY: z.string().min(1, "DEEPGRAM_API_KEY is required"),
@@ -19,4 +30,14 @@ const envSchema = z.object({
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
 });
 
-export const env = envSchema.parse(Bun.env);
+// ── Parse & export ──────────────────────────────────────────────────────────
+const parsed = (() => {
+  try {
+    return envSchema.parse(Bun.env);
+  } catch (e) {
+    if (e instanceof z.ZodError) prettyEnvError(e);
+    throw e;
+  }
+})();
+
+export const env = parsed;

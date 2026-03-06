@@ -3,6 +3,18 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ANSI color helpers (visible in terminal / flutter run; no-op in release)
+// ─────────────────────────────────────────────────────────────────────────────
+
+abstract final class _C {
+  static const r = '\x1b[0m';
+  static const bold = '\x1b[1m';
+  static const dim = '\x1b[2m';
+  static const red = '\x1b[31m';
+  static const green = '\x1b[32m';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AppEnvironment
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -20,12 +32,14 @@ class EnvValidationError extends Error {
 
   @override
   String toString() {
-    final lines = issues.map((e) => '  • $e').join('\n');
-    return '┌─ EnvValidationError ────────────────────────────────────────\n'
-        '$lines\n'
-        '└─────────────────────────────────────────────────────────────\n'
-        'Fix the issues above in your .env.development or .env.production '
-        'file before running the app.';
+    final lines = issues.map((raw) {
+      final colon = raw.indexOf(':');
+      final field = colon > 0 ? raw.substring(0, colon) : raw;
+      final msg = colon > 0 ? raw.substring(colon + 1).trim() : '';
+      return '  ${_C.red}✗${_C.r} ${_C.bold}$field${_C.r}  ${_C.dim}$msg${_C.r}';
+    }).join('\n');
+
+    return '\n${_C.bold}${_C.red}Environment validation failed${_C.r}\n\n$lines\n';
   }
 }
 
@@ -217,17 +231,16 @@ abstract final class EnvLoader {
       ),
     };
 
-    print('[Env] Loading $fileName');
+    print('${_C.dim}[Env] loading $fileName …${_C.r}');
 
     // 3. Load the file (throws if the asset is missing from pubspec.yaml)
     try {
       await dotenv.load(fileName: fileName);
     } catch (e) {
       throw StateError(
-        '[Env] Failed to load "$fileName".\n'
+        '[Env] Failed to load "$fileName". '
         'Make sure the file exists and is listed under flutter › assets '
-        'in pubspec.yaml.\n'
-        'Original error: $e',
+        'in pubspec.yaml.\nOriginal error: $e',
       );
     }
 
@@ -237,7 +250,7 @@ abstract final class EnvLoader {
     // 5. Store singleton
     _envInstance = env;
 
-    print('[Env] Loaded successfully → $env');
+    print('${_C.green}✓${_C.r} ${_C.dim}[Env] $fileName loaded${_C.r}');
     return env;
   }
 }
