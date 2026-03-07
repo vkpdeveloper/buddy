@@ -304,6 +304,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
       );
       if (!mounted) return;
       await _loadPlans();
+      if (!mounted) return;
       ref.invalidate(prMapProvider);
       AppSnackbar.success(context, 'Plan updated!');
     } catch (_) {
@@ -532,38 +533,43 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               final streak =
                   ref.watch(progressProvider).asData?.value.currentStreak ?? 0;
               if (streak < 1) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.xpGold.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppTheme.xpGold.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        LucideIcons.flame,
-                        color: AppTheme.xpGold,
-                        size: 13,
+              return Semantics(
+                label: '$streak day workout streak',
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: ExcludeSemantics(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$streak',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.xpGold,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                      decoration: BoxDecoration(
+                        color: AppTheme.xpGold.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppTheme.xpGold.withValues(alpha: 0.35),
                         ),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            LucideIcons.flame,
+                            color: AppTheme.xpGold,
+                            size: 13,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$streak',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.xpGold,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -614,72 +620,83 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 ),
               ),
               const SizedBox(width: 10),
-              GestureDetector(
-                onTap: _showRegenerateDialog,
-                child: _regenLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.primary,
-                        ),
-                      )
-                    : Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cardDark,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.borderDark),
-                        ),
-                        child: const Icon(
-                          LucideIcons.refresh_cw,
+              Tooltip(
+                message: 'Adjust workout plan',
+                child: Semantics(
+                  label: 'Adjust workout plan',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: _showRegenerateDialog,
+                    child: _regenLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.primary,
+                            ),
+                          )
+                        : Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardDark,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.borderDark),
+                            ),
+                            child: const Icon(
+                              LucideIcons.refresh_cw,
+                              color: AppTheme.textSageMuted,
+                              size: 13,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Semantics(
+                label: 'View workout sessions history',
+                button: true,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkoutSessionsPage(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderDark),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.history,
                           color: AppTheme.textSageMuted,
                           size: 13,
                         ),
-                      ),
-              ),
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const WorkoutSessionsPage(),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.borderDark),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        LucideIcons.history,
-                        color: AppTheme.textSageMuted,
-                        size: 13,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'SESSIONS',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.1,
+                        const SizedBox(width: 6),
+                        Text(
+                          'SESSIONS',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -712,13 +729,17 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 'SUN',
               ];
               final weekday = i < 7 ? weekdays[i] : '';
-              return GestureDetector(
-                onTap: () => _onSelectDay(i),
-                child: Column(
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      margin: const EdgeInsets.only(right: 8),
+              return Semantics(
+                label: '${weekday.isEmpty ? 'Day ${i + 1}' : weekday}, $label${isRest ? ', rest day' : ''}',
+                button: true,
+                selected: isSelected,
+                child: GestureDetector(
+                  onTap: () => _onSelectDay(i),
+                  child: Column(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 8,
@@ -774,6 +795,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                       ),
                     ),
                   ],
+                ),
                 ),
               );
             },
@@ -978,26 +1000,34 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 if (planId != null && dayId != null)
                   Align(
                     alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onTap: sessionState == _TodayWorkoutState.completed
-                          ? null
-                          : () async {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ActiveWorkoutPage(
-                                    dayLabel: dayLabel.toString(),
-                                    exercises: exercises,
-                                    planId: planId,
-                                    dayId: dayId,
+                    child: Semantics(
+                      label: sessionState == _TodayWorkoutState.completed
+                          ? 'Workout completed'
+                          : sessionState == _TodayWorkoutState.inProgress
+                              ? 'Continue today\'s workout'
+                              : 'Start workout',
+                      button: true,
+                      enabled: sessionState != _TodayWorkoutState.completed,
+                      child: GestureDetector(
+                        onTap: sessionState == _TodayWorkoutState.completed
+                            ? null
+                            : () async {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ActiveWorkoutPage(
+                                      dayLabel: dayLabel.toString(),
+                                      exercises: exercises,
+                                      planId: planId,
+                                      dayId: dayId,
+                                    ),
                                   ),
-                                ),
-                              ).then((_) async {
-                                await _refreshTodaySessionStatus();
-                                ref.invalidate(homeDashboardProvider);
-                                ref.invalidate(weeklyWorkoutSummaryProvider);
-                              });
-                            },
+                                ).then((_) async {
+                                  await _refreshTodaySessionStatus();
+                                  ref.invalidate(homeDashboardProvider);
+                                  ref.invalidate(weeklyWorkoutSummaryProvider);
+                                });
+                              },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -1069,6 +1099,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                         ),
                       ),
                     ),
+                    ),
                   ),
               ],
             ),
@@ -1092,44 +1123,48 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-              child: GestureDetector(
-                onTap: () => showExerciseLibrarySheet(
-                  context,
-                  dayId: dayId,
-                  onAdded: () {
-                    _loadPlanDetail(_activePlanId!);
-                    ref.invalidate(prMapProvider);
-                  },
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.primary.withValues(alpha: 0.25),
-                      style: BorderStyle.solid,
-                    ),
+              child: Semantics(
+                label: 'Add exercise from library',
+                button: true,
+                child: GestureDetector(
+                  onTap: () => showExerciseLibrarySheet(
+                    context,
+                    dayId: dayId,
+                    onAdded: () {
+                      _loadPlanDetail(_activePlanId!);
+                      ref.invalidate(prMapProvider);
+                    },
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        LucideIcons.plus,
-                        color: AppTheme.primary,
-                        size: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.25),
+                        style: BorderStyle.solid,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'ADD FROM LIBRARY',
-                        style: GoogleFonts.plusJakartaSans(
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          LucideIcons.plus,
                           color: AppTheme.primary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
+                          size: 16,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Text(
+                          'ADD FROM LIBRARY',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1304,28 +1339,33 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: onTap,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: onTap == null
-                    ? AppTheme.borderDark
-                    : iconColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
+          Semantics(
+            label: cta,
+            button: true,
+            enabled: onTap != null,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
                   color: onTap == null
                       ? AppTheme.borderDark
-                      : iconColor.withValues(alpha: 0.4),
+                      : iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: onTap == null
+                        ? AppTheme.borderDark
+                        : iconColor.withValues(alpha: 0.4),
+                  ),
                 ),
-              ),
-              child: Text(
-                cta,
-                style: GoogleFonts.plusJakartaSans(
-                  color: onTap == null ? AppTheme.textSageMuted : iconColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
+                child: Text(
+                  cta,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: onTap == null ? AppTheme.textSageMuted : iconColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
                 ),
               ),
             ),
@@ -1608,7 +1648,10 @@ class _ExerciseCard extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () => _showEditSheet(context),
-            child: Padding(
+            child: Semantics(
+              label: '$name${muscle.isNotEmpty ? ', $muscle' : ''}, $sets sets, $reps${isTimeBased ? ' duration' : ' reps'}, rest ${_formatRest(restSecs)}${pr != null ? ', PR: ${pr!.weightKg}kg × ${pr!.reps} reps' : ''}. Double tap to edit.',
+              button: true,
+              child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1760,6 +1803,7 @@ class _ExerciseCard extends StatelessWidget {
                 ],
               ),
             ),
+            ),
           ),
         ),
       ),
@@ -1794,7 +1838,11 @@ class _SupersetPairCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final nameA = exerciseA['name'] ?? 'Exercise A';
+    final nameB = exerciseB['name'] ?? 'Exercise B';
+    return Semantics(
+      label: 'Superset: $nameA and $nameB',
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppTheme.cardDark,
@@ -1804,7 +1852,7 @@ class _SupersetPairCard extends StatelessWidget {
       child: Column(
         children: [
           // SUPERSET label
-          Container(
+          ExcludeSemantics(child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               color: AppTheme.primary.withValues(alpha: 0.1),
@@ -1827,7 +1875,7 @@ class _SupersetPairCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
+          )),
           _SupersetExerciseRow(
             exercise: exerciseA,
             index: indexA,
@@ -1837,7 +1885,7 @@ class _SupersetPairCard extends StatelessWidget {
             isLast: false,
           ),
           // Connector line
-          Padding(
+          ExcludeSemantics(child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
@@ -1860,7 +1908,7 @@ class _SupersetPairCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
+          )),
           _SupersetExerciseRow(
             exercise: exerciseB,
             index: indexB,
@@ -1870,6 +1918,7 @@ class _SupersetPairCard extends StatelessWidget {
             isLast: true,
           ),
         ],
+      ),
       ),
     );
   }
@@ -1906,9 +1955,11 @@ class _SupersetExerciseRow extends StatelessWidget {
         : int.tryParse('$restRaw') ?? 60;
     final accentColor = _muscleAccentColor(muscle);
 
-    return Padding(
+    return Semantics(
+      label: '${isLast ? 'Exercise B' : 'Exercise A'}: $name${muscle.isNotEmpty ? ', $muscle' : ''}, $sets sets, $reps${pr != null ? ', PR: ${pr!.weightKg}kg × ${pr!.reps}' : ''}',
+      child: Padding(
       padding: EdgeInsets.fromLTRB(14, 10, 14, isLast ? 14 : 6),
-      child: Row(
+      child: ExcludeSemantics(child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -1978,6 +2029,7 @@ class _SupersetExerciseRow extends StatelessWidget {
             ),
           ),
         ],
+      )),
       ),
     );
   }

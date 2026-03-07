@@ -104,20 +104,24 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppTheme.cardDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderDark),
-              ),
-              child: const Icon(
-                LucideIcons.chevron_left,
-                color: AppTheme.textCream,
-                size: 18,
+          Semantics(
+            button: true,
+            label: 'Go back',
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.borderDark),
+                ),
+                child: const Icon(
+                  LucideIcons.chevron_left,
+                  color: AppTheme.textCream,
+                  size: 18,
+                ),
               ),
             ),
           ),
@@ -351,7 +355,11 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
                       (item['completedExercises'] as num?)?.toInt() ?? 0;
                   final total = (item['totalExercises'] as num?)?.toInt() ?? 0;
                   final xp = (item['xpEarned'] as num?)?.toInt() ?? 0;
-                  return Container(
+                  final label = (item['dayLabel'] ?? 'Workout').toString();
+                  final dateStr = _formatDate((item['date'] ?? '').toString());
+                  return Semantics(
+                    label: '$label, $dateStr. Duration ${_formatDuration(duration)}, $completed of $total exercises, volume $volume, +$xp XP.',
+                    child: Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -359,7 +367,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppTheme.borderDark),
                     ),
-                    child: Column(
+                    child: ExcludeSemantics(child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
@@ -407,6 +415,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
                           ],
                         ),
                       ],
+                    )),
                     ),
                   );
                 }, childCount: sessions.length),
@@ -441,25 +450,30 @@ class _RangeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.primary : AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? AppTheme.primary : AppTheme.borderDark,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label range filter',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primary : AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppTheme.primary : AppTheme.borderDark,
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            color: selected ? AppTheme.backgroundDark : AppTheme.textSageMuted,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1,
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              color: selected ? AppTheme.backgroundDark : AppTheme.textSageMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
           ),
         ),
       ),
@@ -475,7 +489,9 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Semantics(
+      label: '$label: $value',
+      child: ExcludeSemantics(child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: AppTheme.cardDark,
@@ -505,6 +521,7 @@ class _MetricCard extends StatelessWidget {
           ),
         ],
       ),
+    )),
     );
   }
 }
@@ -522,7 +539,9 @@ class _ChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Semantics(
+      label: '$title chart',
+      child: ExcludeSemantics(child: Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: AppTheme.cardDark,
@@ -560,6 +579,7 @@ class _ChartCard extends StatelessWidget {
           ),
         ],
       ),
+    )),
     );
   }
 }

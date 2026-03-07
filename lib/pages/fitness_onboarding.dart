@@ -374,14 +374,19 @@ class _FitnessOnboardingExtensionState
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
-                GestureDetector(
-                  onTap: _previousPage,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 14),
-                    child: Icon(
-                      LucideIcons.chevron_left,
-                      color: AppTheme.textSageMuted,
-                      size: 22,
+                Semantics(
+                  button: true,
+                  label: 'Go back',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: _previousPage,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 14),
+                      child: Icon(
+                        LucideIcons.chevron_left,
+                        color: AppTheme.textSageMuted,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),
@@ -410,52 +415,60 @@ class _FitnessOnboardingExtensionState
   Widget _buildGeneratingScreen() {
     return Scaffold(
       backgroundColor: AppTheme.oledBlack,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(20),
-                child: CircularProgressIndicator(
-                  color: AppTheme.primary,
-                  strokeWidth: 2.5,
+      body: Semantics(
+        liveRegion: true,
+        label: _generatingMessage ?? 'Setting up your plan...',
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ExcludeSemantics(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(
+                      color: AppTheme.primary,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              _generatingMessage ?? 'Setting up your plan...',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            AnimatedOpacity(
-              opacity: _quoteFadeVisible ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 400),
-              child: Text(
-                _quotes[_quoteIndex],
+              const SizedBox(height: 32),
+              Text(
+                _generatingMessage ?? 'Setting up your plan...',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.primary,
-                  fontSize: 12,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w500,
-                  fontStyle: FontStyle.italic,
+                  color: AppTheme.textCream,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              ExcludeSemantics(
+                child: AnimatedOpacity(
+                  opacity: _quoteFadeVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 400),
+                  child: Text(
+                    _quotes[_quoteIndex],
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.primary,
+                      fontSize: 12,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w500,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -558,26 +571,30 @@ class _FitnessOnboardingExtensionState
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-                child: GestureDetector(
-                  onTap: () {
-                    onConfirm(selectedIndex);
-                    Navigator.pop(ctx);
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'CONFIRM',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.backgroundDark,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 2,
+                child: Semantics(
+                  button: true,
+                  label: 'Confirm selection',
+                  child: GestureDetector(
+                    onTap: () {
+                      onConfirm(selectedIndex);
+                      Navigator.pop(ctx);
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'CONFIRM',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.backgroundDark,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
+                        ),
                       ),
                     ),
                   ),
@@ -674,69 +691,76 @@ class _FitnessOnboardingExtensionState
                 const SizedBox(height: 28),
                 ...goals.map((g) {
                   final isSelected = _fitnessGoal == g.$1;
-                  return GestureDetector(
-                    onTap: () => setState(() => _fitnessGoal = g.$1),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : AppTheme.cardDark,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
+                  return Semantics(
+                    button: true,
+                    selected: isSelected,
+                    label: '${g.$2}: ${g.$3}',
+                    child: GestureDetector(
+                      onTap: () => setState(() => _fitnessGoal = g.$1),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(g.$4, style: const TextStyle(fontSize: 24)),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  g.$2,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  isSelected ? g.$5 : g.$3,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ? AppTheme.primary.withValues(alpha: 0.12)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.borderDark,
+                            width: isSelected ? 1.5 : 1,
                           ),
-                          if (isSelected)
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primary,
-                                shape: BoxShape.circle,
+                        ),
+                        child: ExcludeSemantics(
+                          child: Row(
+                            children: [
+                              Text(g.$4, style: const TextStyle(fontSize: 24)),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      g.$2,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: isSelected
+                                            ? AppTheme.textCream
+                                            : AppTheme.textSageMuted,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      isSelected ? g.$5 : g.$3,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textSageMuted.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              child: const Icon(
-                                LucideIcons.check,
-                                color: AppTheme.backgroundDark,
-                                size: 12,
-                              ),
-                            ),
-                        ],
+                              if (isSelected)
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    LucideIcons.check,
+                                    color: AppTheme.backgroundDark,
+                                    size: 12,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -772,7 +796,11 @@ class _FitnessOnboardingExtensionState
                                   () => _targetWeight = weightValues[i],
                                 ),
                               ),
-                              child: Container(
+                              child: Semantics(
+                                button: true,
+                                label:
+                                    'Target weight: ${_targetWeight.toStringAsFixed(1)} kg, tap to change',
+                                child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 20,
                                   vertical: 16,
@@ -828,9 +856,10 @@ class _FitnessOnboardingExtensionState
                                     ),
                                   ],
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
+                               ),
+                               ),
+                             ),
+                             const SizedBox(height: 4),
                             Text(
                               _fitnessGoal == 'lose_fat'
                                   ? 'Set a realistic target — aim for 0.5–1 kg/week.'
@@ -930,69 +959,76 @@ class _FitnessOnboardingExtensionState
                 const SizedBox(height: 28),
                 ...levels.map((l) {
                   final isSelected = _activityLevel == l.$1;
-                  return GestureDetector(
-                    onTap: () => setState(() => _activityLevel = l.$1),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : AppTheme.cardDark,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
+                  return Semantics(
+                    button: true,
+                    selected: isSelected,
+                    label: '${l.$2}: ${l.$3}',
+                    child: GestureDetector(
+                      onTap: () => setState(() => _activityLevel = l.$1),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(l.$4, style: const TextStyle(fontSize: 24)),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l.$2,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  l.$3,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ? AppTheme.primary.withValues(alpha: 0.12)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.borderDark,
+                            width: isSelected ? 1.5 : 1,
                           ),
-                          if (isSelected)
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primary,
-                                shape: BoxShape.circle,
+                        ),
+                        child: ExcludeSemantics(
+                          child: Row(
+                            children: [
+                              Text(l.$4, style: const TextStyle(fontSize: 24)),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l.$2,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: isSelected
+                                            ? AppTheme.textCream
+                                            : AppTheme.textSageMuted,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      l.$3,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textSageMuted.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              child: const Icon(
-                                LucideIcons.check,
-                                color: AppTheme.backgroundDark,
-                                size: 12,
-                              ),
-                            ),
-                        ],
+                              if (isSelected)
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    LucideIcons.check,
+                                    color: AppTheme.backgroundDark,
+                                    size: 12,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -1086,72 +1122,79 @@ class _FitnessOnboardingExtensionState
                 const SizedBox(height: 10),
                 ...dietOptions.map((d) {
                   final isSelected = _dietType == d.$1;
-                  return GestureDetector(
-                    onTap: () => setState(() {
-                      _dietType = d.$1;
-                      _selectedFoods = {};
-                    }),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : AppTheme.cardDark,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
+                  return Semantics(
+                    button: true,
+                    selected: isSelected,
+                    label: '${d.$2}: ${d.$3}',
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _dietType = d.$1;
+                        _selectedFoods = {};
+                      }),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(d.$4, style: const TextStyle(fontSize: 22)),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  d.$2,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  d.$3,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ? AppTheme.primary.withValues(alpha: 0.12)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.borderDark,
+                            width: isSelected ? 1.5 : 1,
                           ),
-                          if (isSelected)
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primary,
-                                shape: BoxShape.circle,
+                        ),
+                        child: ExcludeSemantics(
+                          child: Row(
+                            children: [
+                              Text(d.$4, style: const TextStyle(fontSize: 22)),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      d.$2,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: isSelected
+                                            ? AppTheme.textCream
+                                            : AppTheme.textSageMuted,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      d.$3,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textSageMuted.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              child: const Icon(
-                                LucideIcons.check,
-                                color: AppTheme.backgroundDark,
-                                size: 12,
-                              ),
-                            ),
-                        ],
+                              if (isSelected)
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    LucideIcons.check,
+                                    color: AppTheme.backgroundDark,
+                                    size: 12,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -1195,79 +1238,87 @@ class _FitnessOnboardingExtensionState
                         final emoji = meal.$3;
                         final isRequired = _requiredMeals.contains(id);
                         final isSelected = _selectedMeals.contains(id);
-                        return GestureDetector(
-                          onTap: isRequired
-                              ? null
-                              : () => setState(() {
-                                  if (isSelected) {
-                                    _selectedMeals.remove(id);
-                                  } else {
-                                    _selectedMeals.add(id);
-                                  }
-                                }),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 160),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppTheme.primary.withValues(alpha: 0.12)
-                                  : AppTheme.cardDark,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppTheme.primary
-                                    : AppTheme.borderDark,
-                                width: isSelected ? 1.5 : 1,
+                        return Semantics(
+                          button: !isRequired,
+                          selected: isSelected,
+                          enabled: !isRequired,
+                          label: isRequired ? '$label (required)' : label,
+                          child: GestureDetector(
+                            onTap: isRequired
+                                ? null
+                                : () => setState(() {
+                                    if (isSelected) {
+                                      _selectedMeals.remove(id);
+                                    } else {
+                                      _selectedMeals.add(id);
+                                    }
+                                  }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  emoji,
-                                  style: const TextStyle(fontSize: 14),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppTheme.primary.withValues(alpha: 0.12)
+                                    : AppTheme.cardDark,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppTheme.primary
+                                      : AppTheme.borderDark,
+                                  width: isSelected ? 1.5 : 1,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  label,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
-                                    fontSize: 13,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                  ),
-                                ),
-                                if (isRequired) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 5,
-                                      vertical: 2,
+                              ),
+                              child: ExcludeSemantics(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      emoji,
+                                      style: const TextStyle(fontSize: 14),
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primary.withValues(
-                                        alpha: 0.18,
-                                      ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'required',
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      label,
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.primary,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
+                                        color: isSelected
+                                            ? AppTheme.textCream
+                                            : AppTheme.textSageMuted,
+                                        fontSize: 13,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ],
+                                    if (isRequired) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 5,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primary.withValues(
+                                            alpha: 0.18,
+                                          ),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'required',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: AppTheme.primary,
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         );
@@ -1290,50 +1341,57 @@ class _FitnessOnboardingExtensionState
                   children: prepOptions.map((p) {
                     final isSelected = _mealPrepTime == p.$1;
                     return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _mealPrepTime = p.$1),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          margin: EdgeInsets.only(
-                            right: p.$1 != '1hour' ? 8 : 0,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.12)
-                                : AppTheme.cardDark,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.borderDark,
-                              width: isSelected ? 1.5 : 1,
+                      child: Semantics(
+                        button: true,
+                        selected: isSelected,
+                        label: 'Meal prep time: ${p.$2}, ${p.$3}',
+                        child: GestureDetector(
+                          onTap: () => setState(() => _mealPrepTime = p.$1),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            margin: EdgeInsets.only(
+                              right: p.$1 != '1hour' ? 8 : 0,
                             ),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                p.$2,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: isSelected
-                                      ? AppTheme.textCream
-                                      : AppTheme.textSageMuted,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.primary.withValues(alpha: 0.12)
+                                  : AppTheme.cardDark,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.primary
+                                    : AppTheme.borderDark,
+                                width: isSelected ? 1.5 : 1,
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                p.$3,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textSageMuted.withValues(
-                                    alpha: 0.6,
+                            ),
+                            child: ExcludeSemantics(
+                              child: Column(
+                                children: [
+                                  Text(
+                                    p.$2,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: isSelected
+                                          ? AppTheme.textCream
+                                          : AppTheme.textSageMuted,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
-                                  fontSize: 9,
-                                ),
-                                textAlign: TextAlign.center,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    p.$3,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.textSageMuted.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                      fontSize: 9,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -1357,41 +1415,48 @@ class _FitnessOnboardingExtensionState
                   children: cookOptions.map((c) {
                     final isSelected = _cookingBy == c.$1;
                     return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _cookingBy = c.$1),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          margin: EdgeInsets.only(
-                            right: c.$1 != 'maid' ? 8 : 0,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.12)
-                                : AppTheme.cardDark,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.borderDark,
-                              width: isSelected ? 1.5 : 1,
+                      child: Semantics(
+                        button: true,
+                        selected: isSelected,
+                        label: 'Cooked by: ${c.$2}',
+                        child: GestureDetector(
+                          onTap: () => setState(() => _cookingBy = c.$1),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            margin: EdgeInsets.only(
+                              right: c.$1 != 'maid' ? 8 : 0,
                             ),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(c.$3, style: const TextStyle(fontSize: 20)),
-                              const SizedBox(height: 4),
-                              Text(
-                                c.$2,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: isSelected
-                                      ? AppTheme.textCream
-                                      : AppTheme.textSageMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.primary.withValues(alpha: 0.12)
+                                  : AppTheme.cardDark,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.primary
+                                    : AppTheme.borderDark,
+                                width: isSelected ? 1.5 : 1,
                               ),
-                            ],
+                            ),
+                            child: ExcludeSemantics(
+                              child: Column(
+                                children: [
+                                  Text(c.$3, style: const TextStyle(fontSize: 20)),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    c.$2,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: isSelected
+                                          ? AppTheme.textCream
+                                          : AppTheme.textSageMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -1425,41 +1490,48 @@ class _FitnessOnboardingExtensionState
                     runSpacing: 8,
                     children: foods.map((f) {
                       final isSelected = _selectedFoods.contains(f);
-                      return GestureDetector(
-                        onTap: () => setState(() {
-                          if (isSelected) {
-                            _selectedFoods.remove(f);
-                          } else {
-                            _selectedFoods.add(f);
-                          }
-                        }),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primary
-                                : AppTheme.cardDark,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
+                      return Semantics(
+                        button: true,
+                        selected: isSelected,
+                        label: f,
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            if (isSelected) {
+                              _selectedFoods.remove(f);
+                            } else {
+                              _selectedFoods.add(f);
+                            }
+                          }),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
                               color: isSelected
                                   ? AppTheme.primary
-                                  : AppTheme.borderDark,
+                                  : AppTheme.cardDark,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.primary
+                                    : AppTheme.borderDark,
+                              ),
                             ),
-                          ),
-                          child: Text(
-                            f,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: isSelected
-                                  ? AppTheme.backgroundDark
-                                  : AppTheme.textSageMuted,
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
+                            child: ExcludeSemantics(
+                              child: Text(
+                                f,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: isSelected
+                                      ? AppTheme.backgroundDark
+                                      : AppTheme.textSageMuted,
+                                  fontSize: 12,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -1610,52 +1682,59 @@ class _FitnessOnboardingExtensionState
                   itemBuilder: (context, i) {
                     final opt = _equipmentOptions[i];
                     final isSelected = _selectedEquipment.contains(opt.id);
-                    return GestureDetector(
-                      onTap: () => setState(() {
-                        if (isSelected) {
-                          _selectedEquipment.remove(opt.id);
-                        } else {
-                          _selectedEquipment.add(opt.id);
-                        }
-                      }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.primary.withValues(alpha: 0.15)
-                              : AppTheme.cardDark,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
+                    return Semantics(
+                      button: true,
+                      selected: isSelected,
+                      label: opt.label,
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          if (isSelected) {
+                            _selectedEquipment.remove(opt.id);
+                          } else {
+                            _selectedEquipment.add(opt.id);
+                          }
+                        }),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primary
-                                : AppTheme.borderDark,
-                            width: isSelected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              opt.icon,
+                                ? AppTheme.primary.withValues(alpha: 0.15)
+                                : AppTheme.cardDark,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
                               color: isSelected
                                   ? AppTheme.primary
-                                  : AppTheme.textSageMuted,
-                              size: 22,
+                                  : AppTheme.borderDark,
+                              width: isSelected ? 1.5 : 1,
                             ),
-                            const SizedBox(height: 5),
-                            Text(
-                              opt.label,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: isSelected
-                                    ? AppTheme.textCream
-                                    : AppTheme.textSageMuted,
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
+                          ),
+                          child: ExcludeSemantics(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  opt.icon,
+                                  color: isSelected
+                                      ? AppTheme.primary
+                                      : AppTheme.textSageMuted,
+                                  size: 22,
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  opt.label,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: isSelected
+                                        ? AppTheme.textCream
+                                        : AppTheme.textSageMuted,
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     );
@@ -1676,62 +1755,69 @@ class _FitnessOnboardingExtensionState
                 const SizedBox(height: 12),
                 ...cycles.map((cy) {
                   final isSelected = _workoutCycle == cy.$1;
-                  return GestureDetector(
-                    onTap: () => setState(() => _workoutCycle = cy.$1),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : AppTheme.cardDark,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
-                          width: isSelected ? 1.5 : 1,
+                  return Semantics(
+                    button: true,
+                    selected: isSelected,
+                    label: '${cy.$2}: ${cy.$3}',
+                    child: GestureDetector(
+                      onTap: () => setState(() => _workoutCycle = cy.$1),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  cy.$2,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                Text(
-                                  cy.$3,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primary.withValues(alpha: 0.12)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.borderDark,
+                            width: isSelected ? 1.5 : 1,
                           ),
-                          if (isSelected)
-                            const Icon(
-                              LucideIcons.circle_check,
-                              color: AppTheme.primary,
-                              size: 20,
-                            ),
-                        ],
+                        ),
+                        child: ExcludeSemantics(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      cy.$2,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: isSelected
+                                            ? AppTheme.textCream
+                                            : AppTheme.textSageMuted,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      cy.$3,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textSageMuted.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  LucideIcons.circle_check,
+                                  color: AppTheme.primary,
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -1785,55 +1871,62 @@ class _FitnessOnboardingExtensionState
                 ...options.map((opt) {
                   final (value, label, subtitle) = opt;
                   final isSelected = _preferSupersets == value;
-                  return GestureDetector(
-                    onTap: () => setState(() => _preferSupersets = value),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.1)
-                            : AppTheme.cardDark,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  label,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textCream,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  subtitle,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted,
-                                    fontSize: 12,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
-                            ),
+                  return Semantics(
+                    button: true,
+                    selected: isSelected,
+                    label: '$label: $subtitle',
+                    child: GestureDetector(
+                      onTap: () => setState(() => _preferSupersets = value),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primary.withValues(alpha: 0.1)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+                            width: isSelected ? 1.5 : 1,
                           ),
-                          if (isSelected)
-                            const Icon(
-                              LucideIcons.circle_check,
-                              color: AppTheme.primary,
-                              size: 20,
-                            ),
-                        ],
+                        ),
+                        child: ExcludeSemantics(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      label,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textCream,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      subtitle,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textSageMuted,
+                                        fontSize: 12,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  LucideIcons.circle_check,
+                                  color: AppTheme.primary,
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -1855,68 +1948,80 @@ class _FitnessOnboardingExtensionState
     required VoidCallback onTap,
     IconData icon = LucideIcons.arrow_right,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        decoration: BoxDecoration(
-          color: AppTheme.primary,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.backgroundDark,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-              ),
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(
+            color: AppTheme.primary,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ExcludeSemantics(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.backgroundDark,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(icon, color: AppTheme.backgroundDark, size: 18),
+              ],
             ),
-            const SizedBox(width: 8),
-            Icon(icon, color: AppTheme.backgroundDark, size: 18),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildGenerateButton() {
-    return GestureDetector(
-      onTap: _nextPage,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppTheme.primary, AppTheme.accent],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+    return Semantics(
+      button: true,
+      label: 'Generate my plan',
+      child: GestureDetector(
+        onTap: _nextPage,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppTheme.primary, AppTheme.accent],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
           ),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              LucideIcons.sparkles,
-              color: AppTheme.backgroundDark,
-              size: 20,
+          child: ExcludeSemantics(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  LucideIcons.sparkles,
+                  color: AppTheme.backgroundDark,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'GENERATE MY PLAN',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.backgroundDark,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Text(
-              'GENERATE MY PLAN',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.backgroundDark,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

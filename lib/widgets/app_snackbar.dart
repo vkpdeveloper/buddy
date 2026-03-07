@@ -60,14 +60,16 @@ class AppSnackbar {
         ),
         content: Row(
           children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(8),
+            ExcludeSemantics(
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: iconColor, size: 15),
               ),
-              child: Icon(icon, color: iconColor, size: 15),
             ),
             const SizedBox(width: 12),
             Expanded(

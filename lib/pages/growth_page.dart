@@ -395,11 +395,11 @@ class _GrowthHeader extends StatelessWidget {
               ],
             ),
           ),
-          _IconAction(icon: LucideIcons.share_2, onTap: onShareTap),
+          _IconAction(icon: LucideIcons.share_2, onTap: onShareTap, tooltip: 'Share growth progress'),
           const SizedBox(width: 10),
-          _IconAction(icon: LucideIcons.image_plus, onTap: onPhotoTap),
+          _IconAction(icon: LucideIcons.image_plus, onTap: onPhotoTap, tooltip: 'Add progress photo'),
           const SizedBox(width: 10),
-          _IconAction(icon: LucideIcons.plus, onTap: onLogTap),
+          _IconAction(icon: LucideIcons.plus, onTap: onLogTap, tooltip: 'Log measurements'),
         ],
       ),
     );
@@ -409,21 +409,29 @@ class _GrowthHeader extends StatelessWidget {
 class _IconAction extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final String tooltip;
 
-  const _IconAction({required this.icon, required this.onTap});
+  const _IconAction({required this.icon, required this.onTap, required this.tooltip});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppTheme.primary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        label: tooltip,
+        button: true,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
+            ),
+            child: ExcludeSemantics(child: Icon(icon, color: AppTheme.primary, size: 20)),
+          ),
         ),
-        child: Icon(icon, color: AppTheme.primary, size: 20),
       ),
     );
   }
@@ -479,41 +487,46 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Semantics(
+        label: '$label: $value',
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderDark),
+          ),
+          child: ExcludeSemantics(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: AppTheme.primary, size: 12),
-                const SizedBox(width: 4),
+                Row(
+                  children: [
+                    Icon(icon, color: AppTheme.primary, size: 12),
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primary,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  label,
+                  value,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
-                    fontSize: 8,
+                    color: AppTheme.textCream,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -529,60 +542,65 @@ class _LevelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.levelArc.withValues(alpha: 0.35)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'LEVEL ${overview.currentLevel} • ${overview.levelLabel.toUpperCase()}',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.levelArc,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
+      child: Semantics(
+        label: 'Level ${overview.currentLevel}, ${overview.levelLabel}. ${overview.totalXp} XP. ${overview.currentStreak} day streak. ${(overview.levelProgressFraction * 100).toStringAsFixed(0)}% to next level.',
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.levelArc.withValues(alpha: 0.35)),
+          ),
+          child: ExcludeSemantics(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${overview.totalXp} XP',
+                  'LEVEL ${overview.currentLevel} • ${overview.levelLabel.toUpperCase()}',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.xpGold,
-                    fontSize: 20,
+                    color: AppTheme.levelArc,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '${overview.currentStreak} day streak',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '${overview.totalXp} XP',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.xpGold,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${overview.currentStreak} day streak',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: overview.levelProgressFraction.clamp(0.0, 1.0),
+                    minHeight: 6,
+                    backgroundColor: AppTheme.borderDark,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppTheme.levelArc,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: overview.levelProgressFraction.clamp(0.0, 1.0),
-                minHeight: 6,
-                backgroundColor: AppTheme.borderDark,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppTheme.levelArc,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -635,14 +653,22 @@ class _MetricGrid extends StatelessWidget {
             ),
             itemBuilder: (_, i) {
               final metric = metrics[i];
-              return Container(
+              final metricValueStr = metric.latestValue == null
+                  ? 'no data'
+                  : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}';
+              final deltaStr = metric.deltaSinceLast != null
+                  ? ', ${metric.deltaSinceLast! >= 0 ? '+' : ''}${metric.deltaSinceLast!.toStringAsFixed(1)} vs last'
+                  : '';
+              return Semantics(
+                label: '${metric.label}: $metricValueStr$deltaStr',
+                child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppTheme.cardDark,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppTheme.borderDark),
                 ),
-                child: Column(
+                child: ExcludeSemantics(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -702,8 +728,9 @@ class _MetricGrid extends StatelessWidget {
                         ),
                       ),
                   ],
-                ),
-              );
+                )),
+              ),
+            );
             },
           ),
         ],
@@ -807,7 +834,9 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
-                      return GestureDetector(
+                      return Semantics(
+                        label: 'Photo comparison slider. Drag left or right to compare first and latest progress photos.',
+                        child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTapDown: (details) =>
                             _updateSlider(details.localPosition, width),
@@ -870,6 +899,7 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                               ),
                             ),
                           ],
+                        ),
                         ),
                       );
                     },
@@ -961,7 +991,14 @@ class _AchievementsCard extends StatelessWidget {
               itemBuilder: (_, i) {
                 final item = items[i];
                 final unlocked = item['isUnlocked'] == true;
-                return Container(
+                final achievementName = item['name']?.toString() ?? 'Achievement';
+                final xpReward = item['xpReward'] ?? 0;
+                final unlockedAt = unlocked
+                    ? (item['unlockedAt'] ?? '').toString().replaceAll(' 00:00:00', '')
+                    : '';
+                return Semantics(
+                  label: '$achievementName, ${unlocked ? 'unlocked${unlockedAt.isNotEmpty ? ' $unlockedAt' : ''}' : 'locked'}, +$xpReward XP reward',
+                  child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: unlocked
@@ -1029,6 +1066,7 @@ class _AchievementsCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
                 );
               },
             ),
@@ -1413,7 +1451,9 @@ class _GoalCompactRow extends StatelessWidget {
               : '${_format(current)} $unit now • ${_format(target)} $unit target'
         : 'No target yet';
 
-    return Container(
+    return Semantics(
+      label: '$title: $valueLine. $status.',
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.backgroundDark,
@@ -1455,6 +1495,7 @@ class _GoalCompactRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -171,52 +171,56 @@ class _PermissionBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final permAsync = ref.watch(healthPermissionProvider);
-    return permAsync.when(
+        return permAsync.when(
       data: (granted) {
         if (granted) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          child: GestureDetector(
-            onTap: () async {
-              await requestHealthPermissions(ref);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AppTheme.primary.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.heart_handshake,
-                    color: AppTheme.primary,
-                    size: 20,
+          child: Semantics(
+            button: true,
+            label: 'Connect Health data to see your steps, sleep, and calories. Tap to allow.',
+            child: GestureDetector(
+              onTap: () async {
+                await requestHealthPermissions(ref);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppTheme.primary.withValues(alpha: 0.4),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Connect Health to see your steps, sleep, and calories',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.heart_handshake,
+                      color: AppTheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Connect Health to see your steps, sleep, and calories',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textCream,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
-                  Text(
-                    'Allow →',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
+                    Text(
+                      'Allow →',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -229,6 +233,7 @@ class _PermissionBanner extends ConsumerWidget {
 }
 
 // ─── Quick Actions Row ────────────────────────────────────────────────────────
+
 
 class _QuickActionsRow extends ConsumerWidget {
   final void Function(int) onNavigate;
@@ -442,59 +447,67 @@ class _QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = muted ? AppTheme.textSageMuted : AppTheme.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.cardRaised,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: accent, size: 18),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: accent,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5,
-                    ),
+    return Semantics(
+      button: true,
+      label: '$label: $subtitle',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardRaised,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.borderDark),
+          ),
+          child: Row(
+            children: [
+              ExcludeSemantics(
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
                   ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+                  child: Icon(icon, color: accent, size: 18),
+                ),
               ),
-            ),
-            Icon(
-              LucideIcons.chevron_right,
-              color: AppTheme.textSageMuted,
-              size: 12,
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: accent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textCream,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ExcludeSemantics(
+                child: Icon(
+                  LucideIcons.chevron_right,
+                  color: AppTheme.textSageMuted,
+                  size: 12,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -600,8 +613,7 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
             plannedWorkouts: weekly?.plannedWorkouts ?? 0,
             level: progress?.currentLevel,
             streak: progress?.currentStreak,
-          ),
-        ],
+          ),        ],
       ),
     );
   }
@@ -624,76 +636,84 @@ class _StatsRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 58,
-      height: 58,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Workout completion ring
-          SizedBox(
-            width: 58,
-            height: 58,
-            child: CircularProgressIndicator(
-              value: ringProgress,
-              strokeWidth: 3.5,
-              backgroundColor: AppTheme.borderDark,
-              color: AppTheme.primary,
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-          // Center: level number
-          Column(
-            mainAxisSize: MainAxisSize.min,
+    final levelLabel = level != null ? 'Level $level. ' : '';
+    final workoutLabel = '$workoutsCompleted of $plannedWorkouts workouts completed this week.';
+    final streakLabel = (streak != null && streak! > 0) ? ' $streak day streak.' : '';
+    return Semantics(
+      label: '$levelLabel$workoutLabel$streakLabel',
+      child: ExcludeSemantics(
+        child: SizedBox(
+          width: 58,
+          height: 58,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              if (level != null)
-                Text(
-                  'L$level',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                  ),
-                ),
-              Text(
-                '$workoutsCompleted/$plannedWorkouts',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
+              // Workout completion ring
+              SizedBox(
+                width: 58,
+                height: 58,
+                child: CircularProgressIndicator(
+                  value: ringProgress,
+                  strokeWidth: 3.5,
+                  backgroundColor: AppTheme.borderDark,
+                  color: AppTheme.primary,
+                  strokeCap: StrokeCap.round,
                 ),
               ),
+              // Center: level number
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (level != null)
+                    Text(
+                      'L$level',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textCream,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                      ),
+                    ),
+                  Text(
+                    '$workoutsCompleted/$plannedWorkouts',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+              // Streak badge at bottom-right of ring
+              if (streak != null && streak! > 0)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.oledBlack,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.xpGold.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '$streak🔥',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.xpGold,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
-          // Streak badge at bottom-right of ring
-          if (streak != null && streak! > 0)
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.oledBlack,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppTheme.xpGold.withValues(alpha: 0.5),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  '$streak🔥',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.xpGold,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                  ),
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -1079,94 +1099,102 @@ class _VitalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 144,
-      height: 144,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppTheme.textSageMuted,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                icon,
-                color: AppTheme.primary.withValues(alpha: 0.6),
-                size: 20,
-              ),
-            ],
+    final semanticLabel = unit.isNotEmpty
+        ? '$title: $value $unit, $trend'
+        : '$title: $value, $trend';
+    return Semantics(
+      label: semanticLabel,
+      child: ExcludeSemantics(
+        child: Container(
+          width: 144,
+          height: 144,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
           ),
-          Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(
-                      value,
+                      title,
                       style: const TextStyle(
-                        color: AppTheme.textCream,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.5,
+                        color: AppTheme.textSageMuted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  if (unit.isNotEmpty)
-                    Text(
-                      unit,
-                      style: const TextStyle(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                  Icon(
+                    icon,
+                    color: AppTheme.primary.withValues(alpha: 0.6),
+                    size: 20,
+                  ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(trendIcon, color: AppTheme.primary, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    trend,
-                    style: const TextStyle(
-                      color: AppTheme.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          value,
+                          style: const TextStyle(
+                            color: AppTheme.textCream,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      if (unit.isNotEmpty)
+                        Text(
+                          unit,
+                          style: const TextStyle(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(trendIcon, color: AppTheme.primary, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        trend,
+                        style: const TextStyle(
+                          color: AppTheme.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1562,19 +1590,23 @@ class _HydrationCardState extends ConsumerState<_HydrationCard> {
                   ),
                 ],
               ),
-              GestureDetector(
-                onTap: _loading ? null : _addWater,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withValues(alpha: 0.4),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    LucideIcons.plus,
-                    color: AppTheme.primary,
-                    size: 24,
+              Semantics(
+                button: true,
+                label: 'Add 250 ml of water',
+                child: GestureDetector(
+                  onTap: _loading ? null : _addWater,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent.withValues(alpha: 0.4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      LucideIcons.plus,
+                      color: AppTheme.primary,
+                      size: 24,
+                    ),
                   ),
                 ),
               ),
@@ -2389,24 +2421,29 @@ class _BottomNavigation extends StatelessWidget {
             onTap: () => onTap(1),
           ),
           // Center button
-          GestureDetector(
-            onTap: () => onTap(0),
-            child: Transform.translate(
-              offset: const Offset(0, -20),
-              child: Container(
-                width: 66,
-                height: 66,
-                decoration: BoxDecoration(
-                  color: AppTheme.cardRaised,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: AppTheme.borderDark.withValues(alpha: 0.9),
+          Semantics(
+            button: true,
+            label: 'Home',
+            selected: currentIndex == 0,
+            child: GestureDetector(
+              onTap: () => onTap(0),
+              child: Transform.translate(
+                offset: const Offset(0, -20),
+                child: Container(
+                  width: 66,
+                  height: 66,
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardRaised,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: AppTheme.borderDark.withValues(alpha: 0.9),
+                    ),
                   ),
-                ),
-                child: const Icon(
-                  LucideIcons.brain,
-                  color: AppTheme.textCream,
-                  size: 30,
+                  child: const Icon(
+                    LucideIcons.brain,
+                    color: AppTheme.textCream,
+                    size: 30,
+                  ),
                 ),
               ),
             ),
@@ -2445,50 +2482,57 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive ? AppTheme.primary : AppTheme.textSageMuted;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 66,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 3,
-                child: Center(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 160),
-                    curve: Curves.easeOut,
-                    opacity: isActive ? 1 : 0,
-                    child: Container(
-                      width: 14,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(2),
+    return Semantics(
+      button: true,
+      selected: isActive,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: ExcludeSemantics(
+          child: SizedBox(
+            width: 66,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(icon, color: color, size: 24),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 3,
+                    child: Center(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 160),
+                        curve: Curves.easeOut,
+                        opacity: isActive ? 1 : 0,
+                        child: Container(
+                          width: 14,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

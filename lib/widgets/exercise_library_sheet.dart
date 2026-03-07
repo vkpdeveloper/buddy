@@ -132,9 +132,13 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                     ),
                   ),
                   const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(LucideIcons.x, color: AppTheme.textSageMuted, size: 20),
+                  Semantics(
+                    button: true,
+                    label: 'Close',
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(LucideIcons.x, color: AppTheme.textSageMuted, size: 20),
+                    ),
                   ),
                 ],
               ),
@@ -149,29 +153,34 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                 itemBuilder: (_, i) {
                   final group = _muscleGroups[i];
                   final isSelected = _selectedGroup == group;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() => _selectedGroup = group);
-                      _loadExercises();
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.primary : AppTheme.backgroundDark,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+                  return Semantics(
+                    button: true,
+                    selected: isSelected,
+                    label: '$group muscle group filter',
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedGroup = group);
+                        _loadExercises();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primary : AppTheme.backgroundDark,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        group,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: isSelected ? AppTheme.backgroundDark : AppTheme.textSageMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        child: Text(
+                          group,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: isSelected ? AppTheme.backgroundDark : AppTheme.textSageMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -196,7 +205,9 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                       itemCount: _exercises.length,
                       itemBuilder: (_, i) {
                         final item = _exercises[i];
-                        return Container(
+                        return Semantics(
+                          label: '${item.name}, ${item.muscleGroup}, ${item.equipment}. Double tap to add.',
+                          child: Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(
                             color: AppTheme.backgroundDark,
@@ -245,54 +256,74 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (item.videoLink != null) ...[
-                                  GestureDetector(
-                                    onTap: () async {
-                                      await Clipboard.setData(
-                                        ClipboardData(text: item.videoLink!),
-                                      );
-                                      if (context.mounted) {
-                                        AppSnackbar.success(
-                                          context,
-                                          'Video link copied',
-                                        );
-                                      }
-                                    },
-                                    child: Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.accent.withValues(alpha: 0.12),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: AppTheme.accent.withValues(alpha: 0.35),
+                                  Tooltip(
+                                    message: 'Copy video link for ${item.name}',
+                                    child: Semantics(
+                                      button: true,
+                                      label: 'Copy video link for ${item.name}',
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          await Clipboard.setData(
+                                            ClipboardData(text: item.videoLink!),
+                                          );
+                                          if (context.mounted) {
+                                            AppSnackbar.success(
+                                              context,
+                                              'Video link copied',
+                                            );
+                                          }
+                                        },
+                                        child: Container(
+                                          width: 32,
+                                          height: 32,
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.accent.withValues(alpha: 0.12),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: AppTheme.accent.withValues(alpha: 0.35),
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            LucideIcons.youtube,
+                                            color: AppTheme.accent,
+                                            size: 14,
+                                          ),
                                         ),
-                                      ),
-                                      child: const Icon(
-                                        LucideIcons.youtube,
-                                        color: AppTheme.accent,
-                                        size: 14,
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                 ],
-                                GestureDetector(
-                                  onTap: _isAdding ? null : () => _selectExercise(item),
-                                  child: Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primary.withValues(alpha: 0.15),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: AppTheme.primary.withValues(alpha: 0.4),
+                                Tooltip(
+                                  message: widget.replaceExerciseId != null
+                                      ? 'Swap with ${item.name}'
+                                      : 'Add ${item.name}',
+                                  child: Semantics(
+                                    button: true,
+                                    enabled: !_isAdding,
+                                    label: widget.replaceExerciseId != null
+                                        ? 'Swap with ${item.name}'
+                                        : 'Add ${item.name}',
+                                    child: GestureDetector(
+                                      onTap: _isAdding ? null : () => _selectExercise(item),
+                                      child: Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primary.withValues(alpha: 0.15),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: AppTheme.primary.withValues(alpha: 0.4),
+                                          ),
+                                        ),
+                                        child: const Icon(LucideIcons.plus, color: AppTheme.primary, size: 16),
                                       ),
                                     ),
-                                    child: const Icon(LucideIcons.plus, color: AppTheme.primary, size: 16),
                                   ),
                                 ),
                               ],
                             ),
+                          ),
                           ),
                         );
                       },

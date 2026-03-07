@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:buddy/providers/clerk_auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clerk_flutter/clerk_flutter.dart' as clerk;
@@ -131,7 +130,10 @@ class _SplashScreenState extends State<SplashScreen>
 
               // Centre content
               Center(
-                child: Column(
+                child: Semantics(
+                  label: 'Buddy — Your personal fitness companion',
+                  child: ExcludeSemantics(
+                    child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Icon
@@ -175,6 +177,8 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ],
                 ),
+                  ),
+                ),
               ),
 
               // Bottom loading indicator
@@ -182,6 +186,7 @@ class _SplashScreenState extends State<SplashScreen>
                 bottom: 0,
                 left: 0,
                 right: 0,
+                child: ExcludeSemantics(
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 36),
@@ -212,6 +217,7 @@ class _SplashScreenState extends State<SplashScreen>
                       ],
                     ),
                   ),
+                ),
                 ),
               ),
             ],

@@ -179,17 +179,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
-                GestureDetector(
-                  onTap: _currentPage > 0 ? _previousPage : null,
-                  child: AnimatedOpacity(
-                    opacity: _currentPage > 0 ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 14),
-                      child: Icon(
-                        LucideIcons.chevron_left,
-                        color: AppTheme.textSageMuted,
-                        size: 22,
+                Semantics(
+                  button: true,
+                  enabled: _currentPage > 0,
+                  label: 'Go back',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: _currentPage > 0 ? _previousPage : null,
+                    child: AnimatedOpacity(
+                      opacity: _currentPage > 0 ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 14),
+                        child: Icon(
+                          LucideIcons.chevron_left,
+                          color: AppTheme.textSageMuted,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ),
@@ -272,12 +278,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       label: 'CONNECTED',
                       onTap: _nextPage,
                       icon: LucideIcons.circle_check,
+                      semanticLabel: 'Health data connected. Continue.',
                     )
                   : _isConnecting
                   ? _buildLoadingButton()
                   : _buildPrimaryButton(
                       label: 'CONNECT HEALTH DATA',
                       onTap: _connectHealthData,
+                      semanticLabel: 'Connect Health data',
                     ),
             ],
           ),
@@ -287,35 +295,40 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildLoadingButton() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      decoration: BoxDecoration(
-        color: AppTheme.primary.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppTheme.backgroundDark,
+    return Semantics(
+      label: 'Syncing health data, please wait',
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          color: AppTheme.primary.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ExcludeSemantics(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.backgroundDark,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'SYNCING...',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.backgroundDark,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
+            const SizedBox(width: 12),
+            Text(
+              'SYNCING...',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.backgroundDark,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -564,7 +577,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
         Padding(
           padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
-          child: _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
+          child: _buildPrimaryButton(
+            label: 'CONTINUE',
+            onTap: _nextPage,
+            semanticLabel: 'Continue to daily goals',
+          ),
         ),
       ],
     );
@@ -616,106 +633,122 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     bool synced = false,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
+    final semanticLabel = unit.isNotEmpty
+        ? '$label: $value $unit, tap to edit'
+        : '$label: $value, tap to edit';
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.borderDark),
+          ),
+          child: ExcludeSemantics(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        value,
+                        label,
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSageMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
                         ),
                       ),
-                      if (unit.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          unit,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                      const SizedBox(height: 6),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            value,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
+                          if (unit.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              unit,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textSageMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                if (icon != null)
+                  Icon(icon, color: AppTheme.textSageMuted, size: 20)
+                else
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: synced
+                          ? AppTheme.primary
+                          : AppTheme.primary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.check,
+                      color: synced ? AppTheme.backgroundDark : AppTheme.primary,
+                      size: 14,
+                    ),
+                  ),
+              ],
             ),
-            if (icon != null)
-              Icon(icon, color: AppTheme.textSageMuted, size: 20)
-            else
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: synced
-                      ? AppTheme.primary
-                      : AppTheme.primary.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  LucideIcons.check,
-                  color: synced ? AppTheme.backgroundDark : AppTheme.primary,
-                  size: 14,
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildSexButton(String label, bool isSelected) {
-    return GestureDetector(
-      onTap: () => setState(() => _sex = label),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primary.withValues(alpha: 0.1)
-              : AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-            width: isSelected ? 1.5 : 1,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: GestureDetector(
+        onTap: () => setState(() => _sex = label),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.primary.withValues(alpha: 0.1)
+                : AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+              width: isSelected ? 1.5 : 1,
+            ),
           ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            color: isSelected ? AppTheme.textCream : AppTheme.textSageMuted,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+          alignment: Alignment.center,
+          child: ExcludeSemantics(
+            child: Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(
+                color: isSelected ? AppTheme.textCream : AppTheme.textSageMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
       ),
@@ -854,6 +887,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           child: _buildPrimaryButton(
             label: 'LOOKS GOOD, LET\'S GO',
             onTap: _finalizeSetup,
+            semanticLabel: "Looks good, let's go. Finish setup.",
           ),
         ),
       ],
@@ -867,95 +901,101 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     required String unit,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+    return Semantics(
+      button: true,
+      label: '$label: $displayValue $unit, tap to change',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppTheme.borderDark),
+          ),
+          child: ExcludeSemantics(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        label,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          badge,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1,
+                      Row(
+                        children: [
+                          Text(
+                            label,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 2,
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              badge,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.primary,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            displayValue,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            unit,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        displayValue,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
-                          fontSize: 36,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        unit,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                ),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ],
-              ),
+                  child: const Icon(
+                    LucideIcons.chevrons_up_down,
+                    color: AppTheme.primary,
+                    size: 18,
+                  ),
+                ),
+              ],
             ),
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                LucideIcons.chevrons_up_down,
-                color: AppTheme.primary,
-                size: 18,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1043,31 +1083,38 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     required String label,
     required VoidCallback onTap,
     IconData icon = LucideIcons.arrow_right,
+    String? semanticLabel,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        decoration: BoxDecoration(
-          color: AppTheme.primary,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.backgroundDark,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-              ),
+    return Semantics(
+      button: true,
+      label: semanticLabel ?? label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(
+            color: AppTheme.primary,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ExcludeSemantics(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.backgroundDark,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(icon, color: AppTheme.backgroundDark, size: 18),
+              ],
             ),
-            const SizedBox(width: 8),
-            Icon(icon, color: AppTheme.backgroundDark, size: 18),
-          ],
+          ),
         ),
       ),
     );
@@ -1261,32 +1308,36 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-                    child: GestureDetector(
-                      onTap: () {
-                        final clamped = selDay.clamp(
-                          1,
-                          daysInMonth(selMonth, selYear),
-                        );
-                        setState(() {
-                          _birthDate = DateTime(selYear, selMonth, clamped);
-                        });
-                        Navigator.pop(ctx);
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'CONFIRM',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.backgroundDark,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2,
+                    child: Semantics(
+                      button: true,
+                      label: 'Confirm date of birth',
+                      child: GestureDetector(
+                        onTap: () {
+                          final clamped = selDay.clamp(
+                            1,
+                            daysInMonth(selMonth, selYear),
+                          );
+                          setState(() {
+                            _birthDate = DateTime(selYear, selMonth, clamped);
+                          });
+                          Navigator.pop(ctx);
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            'CONFIRM',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.backgroundDark,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 2,
+                            ),
                           ),
                         ),
                       ),
@@ -1397,26 +1448,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-                child: GestureDetector(
-                  onTap: () {
-                    onConfirm(selectedIndex);
-                    Navigator.pop(ctx);
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'CONFIRM',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.backgroundDark,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 2,
+                child: Semantics(
+                  button: true,
+                  label: 'Confirm selection',
+                  child: GestureDetector(
+                    onTap: () {
+                      onConfirm(selectedIndex);
+                      Navigator.pop(ctx);
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'CONFIRM',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.backgroundDark,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
+                        ),
                       ),
                     ),
                   ),

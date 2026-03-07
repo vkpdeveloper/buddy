@@ -385,7 +385,10 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
             ],
 
             // Log button
-            GestureDetector(
+            Semantics(
+              label: 'Log this meal',
+              button: true,
+              child: GestureDetector(
               onTap: () async {
                 Navigator.of(context).pop();
                 try {
@@ -422,6 +425,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 ),
               ),
             ),
+              ),
           ],
         ),
       ),
@@ -653,7 +657,13 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
             Positioned(
               right: 20,
               bottom: fabBottom,
-              child: GestureDetector(
+              child: Tooltip(
+                message: _isPhotoLogging ? 'Logging meal photo…' : 'Log meal with photo',
+                child: Semantics(
+                  label: _isPhotoLogging ? 'Logging meal photo, please wait' : 'Log meal with photo',
+                  button: true,
+                  enabled: !_isPhotoLogging,
+                  child: GestureDetector(
                 onTap: _isPhotoLogging ? null : _quickPhotoLog,
                 child: Container(
                   width: 56,
@@ -662,22 +672,26 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     color: AppTheme.primary,
                     shape: BoxShape.circle,
                   ),
-                  child: _isPhotoLogging
-                      ? const Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: AppTheme.backgroundDark,
+                  child: ExcludeSemantics(
+                    child: _isPhotoLogging
+                        ? const Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppTheme.backgroundDark,
+                              ),
                             ),
+                          )
+                        : const Icon(
+                            LucideIcons.camera,
+                            color: AppTheme.backgroundDark,
+                            size: 22,
                           ),
-                        )
-                      : const Icon(
-                          LucideIcons.camera,
-                          color: AppTheme.backgroundDark,
-                          size: 22,
-                        ),
+                  ),
+                ),
+                  ),
                 ),
               ),
             ),
@@ -735,7 +749,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
       padding: EdgeInsets.fromLTRB(
         24,
         MediaQuery.paddingOf(context).top + 16,
-        24,
+        16,
         16,
       ),
       child: Row(
@@ -762,6 +776,21 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   ),
                 ),
               ],
+            ),
+          ),
+          Tooltip(
+            message: 'Reminder settings',
+            child: IconButton(
+              onPressed: _openReminderSettingsSheet,
+              icon: Icon(
+                _reminderEnabled
+                    ? LucideIcons.bell_ring
+                    : LucideIcons.bell,
+                color: _reminderEnabled
+                    ? AppTheme.primary
+                    : AppTheme.textSageMuted,
+                size: 22,
+              ),
             ),
           ),
         ],
@@ -829,7 +858,11 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
               final dayName =
                   (d['dayName'] ?? d['day_name'] ?? 'Day ${i + 1}') as String;
               final isSelected = _selectedDayIndex == i;
-              return GestureDetector(
+              return Semantics(
+                label: dayName,
+                button: true,
+                selected: isSelected,
+                child: GestureDetector(
                 onTap: () => setState(() => _selectedDayIndex = i),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -860,13 +893,12 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     ),
                   ),
                 ),
+              ),
               );
             },
           ),
         ),
         const SizedBox(height: 12),
-        _buildTopControls(),
-        const SizedBox(height: 10),
         Expanded(
           child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(24, 0, 24, MediaQuery.paddingOf(context).bottom + 92),
@@ -913,19 +945,6 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildTopControls() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: _SettingRow(
-        title: 'Reminder settings',
-        value:
-            '${_reminderEnabled ? 'On' : 'Off'} • ${_workoutTime.format(context)} • ${_reminderLeadMinutes}m lead',
-        icon: LucideIcons.settings_2,
-        onTap: _openReminderSettingsSheet,
-      ),
     );
   }
 
@@ -1141,7 +1160,10 @@ class _SettingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    return Semantics(
+      label: '$title: $value',
+      button: true,
+      child: Material(
       color: AppTheme.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -1153,7 +1175,7 @@ class _SettingRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppTheme.borderDark),
           ),
-          child: Row(
+          child: ExcludeSemantics(child: Row(
             children: [
               Icon(icon, color: AppTheme.primary, size: 16),
               const SizedBox(width: 8),
@@ -1186,8 +1208,9 @@ class _SettingRow extends StatelessWidget {
                 size: 16,
               ),
             ],
-          ),
+          )),
         ),
+      ),
       ),
     );
   }
@@ -1582,7 +1605,10 @@ class _MealCardState extends State<_MealCard> {
                 const SizedBox(height: 8),
                 _EditField(controller: notesCtrl, label: 'Notes', maxLines: 2),
                 const SizedBox(height: 14),
-                GestureDetector(
+                Semantics(
+                  label: 'Save actual meal log',
+                  button: true,
+                  child: GestureDetector(
                   onTap: () async {
                     await widget.onLogActual({
                       'mealName': mealNameCtrl.text.trim().isEmpty
@@ -1623,6 +1649,7 @@ class _MealCardState extends State<_MealCard> {
                     ),
                   ),
                 ),
+                  ),
               ],
             ),
           );
@@ -1760,7 +1787,10 @@ class _MealCardState extends State<_MealCard> {
                     : AppTheme.borderDark),
         ),
       ),
-      child: Material(
+      child: Semantics(
+        label: '$name, $mealType, $mealTime, $calories kcal. ${_isCompleted ? 'Completed' : 'Not completed'}. Double tap to view details.',
+        button: true,
+        child: Material(
         color: AppTheme.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
@@ -1771,7 +1801,11 @@ class _MealCardState extends State<_MealCard> {
               children: [
                 Row(
                   children: [
-                    GestureDetector(
+                    Semantics(
+                      label: _isCompleted ? 'Mark meal as not done' : 'Mark meal as done',
+                      button: true,
+                      checked: _isCompleted,
+                      child: GestureDetector(
                       onTap: _toggleDone,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
@@ -1789,12 +1823,15 @@ class _MealCardState extends State<_MealCard> {
                           ),
                         ),
                         child: _isCompleted
-                            ? const Icon(
-                                LucideIcons.check,
-                                color: AppTheme.backgroundDark,
-                                size: 16,
+                            ? const ExcludeSemantics(
+                                child: Icon(
+                                  LucideIcons.check,
+                                  color: AppTheme.backgroundDark,
+                                  size: 16,
+                                ),
                               )
                             : null,
+                      ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1873,12 +1910,20 @@ class _MealCardState extends State<_MealCard> {
                         ],
                       ),
                     ),
-                    ReorderableDragStartListener(
-                      index: widget.index,
-                      child: const Icon(
-                        LucideIcons.grip_vertical,
-                        color: AppTheme.textSageMuted,
-                        size: 16,
+                    Tooltip(
+                      message: 'Drag to reorder',
+                      child: Semantics(
+                        label: 'Drag to reorder meal',
+                        child: ReorderableDragStartListener(
+                        index: widget.index,
+                        child: const ExcludeSemantics(
+                          child: Icon(
+                            LucideIcons.grip_vertical,
+                            color: AppTheme.textSageMuted,
+                            size: 16,
+                          ),
+                        ),
+                        ),
                       ),
                     ),
                   ],
@@ -1922,6 +1967,7 @@ class _MealCardState extends State<_MealCard> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

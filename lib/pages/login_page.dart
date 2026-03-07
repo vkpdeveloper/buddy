@@ -90,14 +90,16 @@ class _LoginPageState extends State<LoginPage>
         fit: StackFit.expand,
         children: [
           // Full-bleed background image
-          Image.asset(
-            'assets/images/login_background.png',
-            fit: BoxFit.cover,
+          ExcludeSemantics(
+            child: Image.asset(
+              'assets/images/login_background.png',
+              fit: BoxFit.cover,
+            ),
           ),
 
           // Multi-stop gradient overlay — preserves image at top,
           // creates a solid readable base for the CTA at the bottom
-          const DecoratedBox(
+          const ExcludeSemantics(child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -112,7 +114,7 @@ class _LoginPageState extends State<LoginPage>
                 stops: [0.0, 0.3, 0.55, 0.75, 1.0],
               ),
             ),
-          ),
+          ),),
 
           // Content
           SafeArea(
@@ -210,44 +212,49 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Widget _buildGoogleButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: _loading ? null : _signInWithGoogle,
+    return Semantics(
+      button: true,
+      enabled: !_loading,
+      label: _loading ? 'Signing in, please wait' : 'Continue with Google',
+      child: SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: Material(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          splashColor: Colors.black.withValues(alpha: 0.06),
-          highlightColor: Colors.black.withValues(alpha: 0.03),
-          child: Center(
-            child: _loading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(Color(0xFF444444)),
-                    ),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _GoogleLogo(),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Continue with Google',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: const Color(0xFF1A1A1A),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.1,
-                        ),
+          child: InkWell(
+            onTap: _loading ? null : _signInWithGoogle,
+            borderRadius: BorderRadius.circular(14),
+            splashColor: Colors.black.withValues(alpha: 0.06),
+            highlightColor: Colors.black.withValues(alpha: 0.03),
+            child: Center(
+              child: _loading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFF444444)),
                       ),
-                    ],
-                  ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ExcludeSemantics(child: _GoogleLogo()),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Continue with Google',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: const Color(0xFF1A1A1A),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),

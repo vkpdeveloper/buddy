@@ -1742,7 +1742,11 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
             child: ListView.separated(
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => InkWell(
+              itemBuilder: (_, i) => Semantics(
+                label: items[i],
+                checked: checks[i],
+                button: true,
+                child: InkWell(
                 onTap: () {
                   setState(() => checks[i] = !checks[i]);
                   _syncSessionLog(force: true);
@@ -1759,7 +1763,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       color: checks[i] ? AppTheme.primary : AppTheme.borderDark,
                     ),
                   ),
-                  child: Row(
+                  child: ExcludeSemantics(
+                    child: Row(
                     children: [
                       Icon(
                         checks[i] ? LucideIcons.check : LucideIcons.circle,
@@ -1780,6 +1785,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       ),
                     ],
                   ),
+                  ),
+                ),
                 ),
               ),
             ),
@@ -1916,7 +1923,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       ),
                       child: Row(
                         children: [
-                          GestureDetector(
+                          Tooltip(
+                            message: 'Exit workout',
+                            child: Semantics(
+                              label: 'Exit workout',
+                              button: true,
+                              child: GestureDetector(
                             onTap: () => Navigator.pop(context),
                             child: Container(
                               width: 38,
@@ -1926,11 +1938,15 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 shape: BoxShape.circle,
                                 border: Border.all(color: AppTheme.borderDark),
                               ),
-                              child: const Icon(
-                                LucideIcons.x,
-                                color: AppTheme.textSageMuted,
-                                size: 18,
+                              child: const ExcludeSemantics(
+                                child: Icon(
+                                  LucideIcons.x,
+                                  color: AppTheme.textSageMuted,
+                                  size: 18,
+                                ),
                               ),
+                            ),
+                          ),
                             ),
                           ),
                           const Spacer(),
@@ -1977,48 +1993,54 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                               ),
                             ),
                           const Spacer(),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() => _isMuted = !_isMuted);
-                              if (_isMuted) TtsService.instance.stop();
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cardDark,
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(
-                                  color: _isMuted
-                                      ? AppTheme.borderDark
-                                      : AppTheme.primary,
+                          Semantics(
+                            label: _isMuted ? 'Voice muted, tap to unmute' : 'Voice on, tap to mute',
+                            button: true,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() => _isMuted = !_isMuted);
+                                if (_isMuted) TtsService.instance.stop();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
                                 ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _isMuted
-                                        ? LucideIcons.volume_x
-                                        : LucideIcons.volume_2,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardDark,
+                                  borderRadius: BorderRadius.circular(30),
+                                  border: Border.all(
                                     color: _isMuted
-                                        ? AppTheme.textSageMuted
+                                        ? AppTheme.borderDark
                                         : AppTheme.primary,
-                                    size: 16,
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _isMuted ? 'Muted' : 'Voice On',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: _isMuted
-                                          ? AppTheme.textSageMuted
-                                          : AppTheme.primary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                ),
+                                child: ExcludeSemantics(
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _isMuted
+                                            ? LucideIcons.volume_x
+                                            : LucideIcons.volume_2,
+                                        color: _isMuted
+                                            ? AppTheme.textSageMuted
+                                            : AppTheme.primary,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _isMuted ? 'Muted' : 'Voice On',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          color: _isMuted
+                                              ? AppTheme.textSageMuted
+                                              : AppTheme.primary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
@@ -2031,8 +2053,52 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       child: Row(
                         children: [
                           Expanded(
-                            child: GestureDetector(
-                              onTap: _pauseSession,
+                            child: Semantics(
+                              label: 'Pause workout',
+                              button: true,
+                              child: GestureDetector(
+                                onTap: _pauseSession,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardDark,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppTheme.borderDark,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.pause,
+                                        color: AppTheme.textCream,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Pause',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          color: AppTheme.textCream,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Semantics(
+                              label: _heartRateBpm == null
+                                  ? 'Heart rate unavailable'
+                                  : 'Heart rate: $_heartRateBpm bpm, $_heartRateZone zone',
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
@@ -2041,105 +2107,80 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 decoration: BoxDecoration(
                                   color: AppTheme.cardDark,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppTheme.borderDark,
-                                  ),
+                                  border: Border.all(color: AppTheme.borderDark),
                                 ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.pause,
-                                      color: AppTheme.textCream,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Pause',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textCream,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
+                                child: ExcludeSemantics(
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        hrTrendIcon,
+                                        color: AppTheme.accent,
+                                        size: 16,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          _heartRateBpm == null
+                                              ? 'HR unavailable'
+                                              : '$_heartRateBpm bpm • $_heartRateZone',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: AppTheme.textCream,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cardDark,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.borderDark),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    hrTrendIcon,
-                                    color: AppTheme.accent,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      _heartRateBpm == null
-                                          ? 'HR unavailable'
-                                          : '$_heartRateBpm bpm • $_heartRateZone',
-                                      style: GoogleFonts.plusJakartaSans(
+                          Semantics(
+                            label: _sessionNotes.isEmpty
+                                ? 'Add workout notes'
+                                : 'Workout notes, ${_sessionNotes.length} note${_sessionNotes.length == 1 ? '' : 's'}',
+                            button: true,
+                            child: GestureDetector(
+                              onTap: _openNotesSheet,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.cardDark,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppTheme.borderDark),
+                                ),
+                                child: ExcludeSemantics(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        LucideIcons.notebook_pen,
                                         color: AppTheme.textCream,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
+                                        size: 16,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                    ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _sessionNotes.isEmpty
+                                            ? 'Notes'
+                                            : 'Notes ${_sessionNotes.length}',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          color: AppTheme.textCream,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: _openNotesSheet,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.cardDark,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppTheme.borderDark),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    LucideIcons.notebook_pen,
-                                    color: AppTheme.textCream,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _sessionNotes.isEmpty
-                                        ? 'Notes'
-                                        : 'Notes ${_sessionNotes.length}',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textCream,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
@@ -2223,10 +2264,15 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       ),
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
+                    Semantics(
+                      label: isRest
+                          ? 'Rest timer: $_timerSeconds seconds remaining'
+                          : 'Exercise timer: $_timerSeconds seconds',
+                      child: SizedBox(
                       width: 200,
                       height: 200,
-                      child: Stack(
+                      child: ExcludeSemantics(
+                        child: Stack(
                         alignment: Alignment.center,
                         children: [
                           AnimatedBuilder(
@@ -2274,9 +2320,16 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                           ),
                         ],
                       ),
+                      ),
+                    ),
                     ),
                     const SizedBox(height: 28),
                     if (!isRest) ...[
+                      Semantics(
+                        label: '$name, $reps reps${muscle.isNotEmpty ? ', $muscle' : ''}. Set ${_setIndex + 1} of $sets.',
+                        child: ExcludeSemantics(
+                          child: Column(
+                            children: [
                       Text(
                         name,
                         maxLines: 1,
@@ -2320,6 +2373,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                           ),
                         ),
                       ],
+                            ],
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       _buildSetProgressDots(sets),
                       const SizedBox(height: 10),
@@ -2479,25 +2536,29 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 children: [
                                   if (!isRest) ...[
                                     Expanded(
-                                      child: GestureDetector(
-                                        onTap: _doneExercise,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.backgroundDark,
-                                            borderRadius: BorderRadius.circular(
-                                              12,
+                                      child: Semantics(
+                                        label: 'Mark set as done',
+                                        button: true,
+                                        child: GestureDetector(
+                                          onTap: _doneExercise,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.backgroundDark,
+                                              borderRadius: BorderRadius.circular(
+                                                12,
+                                              ),
+                                              border: Border.all(
+                                                color: AppTheme.borderDark,
+                                              ),
                                             ),
-                                            border: Border.all(
-                                              color: AppTheme.borderDark,
-                                            ),
-                                          ),
-                                          alignment: Alignment.center,
-                                          child: Text(
-                                            'DONE ✓',
-                                            style: GoogleFonts.plusJakartaSans(
-                                              color: AppTheme.textCream,
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 1.2,
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              'DONE ✓',
+                                              style: GoogleFonts.plusJakartaSans(
+                                                color: AppTheme.textCream,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 1.2,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -2506,45 +2567,49 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     const SizedBox(width: 10),
                                   ],
                                   Expanded(
-                                    child: GestureDetector(
-                                      onTap: () async {
-                                        final confirmed = await _confirmAction(
-                                          title: isRest
-                                              ? 'Skip rest?'
-                                              : 'Skip this set?',
-                                          body: isRest
-                                              ? 'Jump immediately to the next set.'
-                                              : 'This set will be logged as skipped.',
-                                          actionLabel: isRest
-                                              ? 'Skip Rest'
-                                              : 'Skip Set',
-                                        );
-                                        if (!confirmed) return;
-                                        isRest
-                                            ? _skipRest()
-                                            : _skipExerciseToRest();
-                                      },
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primary.withValues(
-                                            alpha: 0.2,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          border: Border.all(
+                                    child: Semantics(
+                                      label: isRest ? 'Skip rest period' : 'Skip this set',
+                                      button: true,
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          final confirmed = await _confirmAction(
+                                            title: isRest
+                                                ? 'Skip rest?'
+                                                : 'Skip this set?',
+                                            body: isRest
+                                                ? 'Jump immediately to the next set.'
+                                                : 'This set will be logged as skipped.',
+                                            actionLabel: isRest
+                                                ? 'Skip Rest'
+                                                : 'Skip Set',
+                                          );
+                                          if (!confirmed) return;
+                                          isRest
+                                              ? _skipRest()
+                                              : _skipExerciseToRest();
+                                        },
+                                        child: Container(
+                                          decoration: BoxDecoration(
                                             color: AppTheme.primary.withValues(
-                                              alpha: 0.45,
+                                              alpha: 0.2,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            border: Border.all(
+                                              color: AppTheme.primary.withValues(
+                                                alpha: 0.45,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          isRest ? 'SKIP REST →' : 'SKIP SET →',
-                                          style: GoogleFonts.plusJakartaSans(
-                                            color: AppTheme.textCream,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 1.2,
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            isRest ? 'SKIP REST →' : 'SKIP SET →',
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: AppTheme.textCream,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 1.2,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -2595,7 +2660,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
   }
 
   Widget _buildSetProgressDots(int sets) {
-    return Wrap(
+    return Semantics(
+      label: 'Set progress: set ${_setIndex + 1} of $sets',
+      child: ExcludeSemantics(
+        child: Wrap(
       spacing: 8,
       alignment: WrapAlignment.center,
       children: List.generate(sets, (i) {
@@ -2630,6 +2698,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           child: Icon(icon, color: color, size: 14),
         );
       }),
+        ),
+      ),
     );
   }
 
@@ -2968,34 +3038,40 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
 
             FadeTransition(
               opacity: _doneButtonCtrl,
-              child: GestureDetector(
-                onTap: _openWorkoutSharePreview,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.borderDark),
-                  ),
-                  alignment: Alignment.center,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        LucideIcons.share_2,
-                        size: 16,
-                        color: AppTheme.textCream,
+              child: Semantics(
+                label: 'Share progress',
+                button: true,
+                child: GestureDetector(
+                  onTap: _openWorkoutSharePreview,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.borderDark),
+                    ),
+                    alignment: Alignment.center,
+                    child: ExcludeSemantics(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            LucideIcons.share_2,
+                            size: 16,
+                            color: AppTheme.textCream,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'SHARE PROGRESS',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'SHARE PROGRESS',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -3006,21 +3082,27 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
             // DONE button
             FadeTransition(
               opacity: _doneButtonCtrl,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'DONE',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.backgroundDark,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
+              child: Semantics(
+                label: 'Done, close workout summary',
+                button: true,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.center,
+                    child: ExcludeSemantics(
+                      child: Text(
+                        'DONE',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.backgroundDark,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2,
+                        ),
+                      ),
                     ),
                   ),
                 ),
