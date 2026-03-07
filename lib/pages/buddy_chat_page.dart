@@ -148,10 +148,12 @@ class _BuddyChatPageState extends State<BuddyChatPage>
   List<Map<String, dynamic>> _apiHistory() {
     return _messages
         .where((m) => m.role != _Role.error)
-        .map((m) => {
-              'role': m.role == _Role.user ? 'user' : 'assistant',
-              'content': m.content,
-            })
+        .map(
+          (m) => {
+            'role': m.role == _Role.user ? 'user' : 'assistant',
+            'content': m.content,
+          },
+        )
         .toList();
   }
 
@@ -183,10 +185,12 @@ class _BuddyChatPageState extends State<BuddyChatPage>
         );
       } else {
         // Model called a tool but produced no text — or stream was empty
-        _messages.add(const _ChatMessage(
-          role: _Role.error,
-          content: "Hmm, I didn't get a response back. Want to try again?",
-        ));
+        _messages.add(
+          const _ChatMessage(
+            role: _Role.error,
+            content: "Hmm, I didn't get a response back. Want to try again?",
+          ),
+        );
       }
       _isStreaming = false;
       _streamingContent = '';
@@ -198,10 +202,12 @@ class _BuddyChatPageState extends State<BuddyChatPage>
     if (!mounted) return;
     debugPrint('[BuddyChat] stream error: $err');
     setState(() {
-      _messages.add(const _ChatMessage(
-        role: _Role.error,
-        content: "Something went wrong. Check your connection and retry.",
-      ));
+      _messages.add(
+        const _ChatMessage(
+          role: _Role.error,
+          content: "Something went wrong. Check your connection and retry.",
+        ),
+      );
       _isStreaming = false;
       _streamingContent = '';
     });
@@ -253,16 +259,17 @@ class _BuddyChatPageState extends State<BuddyChatPage>
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Text(
-                _isStreaming ? 'Thinking…' : 'Your fitness AI',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  color: _isStreaming
-                      ? AppTheme.textSageMuted
-                      : AppTheme.textSageMuted,
-                  fontWeight: FontWeight.w400,
+              if (_isStreaming)
+                Text(
+                  'Thinking…',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: _isStreaming
+                        ? AppTheme.textSageMuted
+                        : AppTheme.textSageMuted,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
             ],
           ),
         ],
@@ -357,10 +364,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
             alignment: WrapAlignment.center,
             children: _kSuggestions
                 .map(
-                  (s) => _SuggestionChip(
-                    text: s,
-                    onTap: () => _sendMessage(s),
-                  ),
+                  (s) => _SuggestionChip(text: s, onTap: () => _sendMessage(s)),
                 )
                 .toList(),
           ),
@@ -446,9 +450,9 @@ class _MessageTile extends StatelessWidget {
     return switch (message.role) {
       _Role.user => _UserBubble(content: message.content),
       _Role.error => _ErrorBubble(
-          content: message.content,
-          onRetry: onRetry ?? () {},
-        ),
+        content: message.content,
+        onRetry: onRetry ?? () {},
+      ),
       _Role.assistant => _AssistantBubble(content: message.content),
     };
   }
@@ -503,24 +507,11 @@ class _AssistantBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 22, right: 16),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _BuddyAvatar(),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                _MarkdownContent(content: content),
-                if (isStreaming) ...[
-                  const SizedBox(height: 6),
-                  _BlinkingCursor(),
-                ],
-              ],
-            ),
-          ),
+          _MarkdownContent(content: content),
+          if (isStreaming) ...[const SizedBox(height: 6), _BlinkingCursor()],
         ],
       ),
     );
@@ -541,8 +532,6 @@ class _ErrorBubble extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _BuddyAvatar(dimmed: true),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,11 +707,7 @@ class _ThinkingBubble extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 22),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const _BuddyAvatar(),
-          const SizedBox(width: 12),
-          _AnimatedDots(controller: animation),
-        ],
+        children: [_AnimatedDots(controller: animation)],
       ),
     );
   }
@@ -730,7 +715,7 @@ class _ThinkingBubble extends StatelessWidget {
 
 class _AnimatedDots extends AnimatedWidget {
   const _AnimatedDots({required AnimationController controller})
-      : super(listenable: controller);
+    : super(listenable: controller);
 
   @override
   Widget build(BuildContext context) {
@@ -738,8 +723,10 @@ class _AnimatedDots extends AnimatedWidget {
     return Row(
       children: List.generate(3, (i) {
         final phase = (t - i * 0.18) % 1.0;
-        final opacity =
-            (math.sin(phase * 2 * math.pi) * 0.5 + 0.5).clamp(0.25, 1.0);
+        final opacity = (math.sin(phase * 2 * math.pi) * 0.5 + 0.5).clamp(
+          0.25,
+          1.0,
+        );
         return Container(
           margin: const EdgeInsets.only(right: 5),
           width: 7,
@@ -846,9 +833,7 @@ class _SendButton extends StatelessWidget {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: isStreaming
-              ? AppTheme.cardRaised
-              : AppTheme.textCream,
+          color: isStreaming ? AppTheme.cardRaised : AppTheme.textCream,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isStreaming ? AppTheme.borderDark : Colors.transparent,

@@ -111,7 +111,6 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     } catch (_) {}
   }
 
-
   Future<void> _persistSelectedDayIndex(int index) async {
     final planId = _activePlanId;
     if (planId == null) return;
@@ -247,7 +246,8 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 fontSize: 13,
               ),
               decoration: InputDecoration(
-                hintText: 'e.g. bad knee, no overhead pressing, keep it short...',
+                hintText:
+                    'e.g. bad knee, no overhead pressing, keep it short...',
                 hintStyle: GoogleFonts.plusJakartaSans(
                   color: AppTheme.textSageMuted,
                   fontSize: 12,
@@ -301,7 +301,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
       AppSnackbar.success(context, 'Plan updated!');
     } catch (_) {
       if (!mounted) return;
-      AppSnackbar.error(context, 'Couldn\'t update your plan. Give it another try.');
+      AppSnackbar.error(
+        context,
+        'Couldn\'t update your plan. Give it another try.',
+      );
     } finally {
       if (mounted) setState(() => _regenLoading = false);
     }
@@ -722,7 +725,8 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               ];
               final weekday = i < 7 ? weekdays[i] : '';
               return Semantics(
-                label: '${weekday.isEmpty ? 'Day ${i + 1}' : weekday}, $label${isRest ? ', rest day' : ''}',
+                label:
+                    '${weekday.isEmpty ? 'Day ${i + 1}' : weekday}, $label${isRest ? ', rest day' : ''}',
                 button: true,
                 selected: isSelected,
                 child: GestureDetector(
@@ -732,62 +736,62 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
                         margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? (isRest
-                                  ? AppTheme.textSageMuted.withValues(
-                                      alpha: 0.2,
-                                    )
-                                  : AppTheme.primary)
-                            : AppTheme.cardDark,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
                           color: isSelected
                               ? (isRest
-                                    ? AppTheme.textSageMuted
+                                    ? AppTheme.textSageMuted.withValues(
+                                        alpha: 0.2,
+                                      )
                                     : AppTheme.primary)
-                              : AppTheme.borderDark,
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? (isRest
+                                      ? AppTheme.textSageMuted
+                                      : AppTheme.primary)
+                                : AppTheme.borderDark,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              weekday,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: isSelected
+                                    ? (isRest
+                                          ? AppTheme.textSageMuted
+                                          : AppTheme.backgroundDark)
+                                    : AppTheme.textSageMuted,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              label.toString().toUpperCase(),
+                              style: GoogleFonts.plusJakartaSans(
+                                color: isSelected
+                                    ? (isRest
+                                          ? AppTheme.textSageMuted
+                                          : AppTheme.backgroundDark)
+                                    : AppTheme.textSageMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            weekday,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: isSelected
-                                  ? (isRest
-                                        ? AppTheme.textSageMuted
-                                        : AppTheme.backgroundDark)
-                                  : AppTheme.textSageMuted,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            label.toString().toUpperCase(),
-                            style: GoogleFonts.plusJakartaSans(
-                              color: isSelected
-                                  ? (isRest
-                                        ? AppTheme.textSageMuted
-                                        : AppTheme.backgroundDark)
-                                  : AppTheme.textSageMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -996,8 +1000,8 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                       label: sessionState == _TodayWorkoutState.completed
                           ? 'Workout completed'
                           : sessionState == _TodayWorkoutState.inProgress
-                              ? 'Continue today\'s workout'
-                              : 'Start workout',
+                          ? 'Continue today\'s workout'
+                          : 'Start workout',
                       button: true,
                       enabled: sessionState != _TodayWorkoutState.completed,
                       child: GestureDetector(
@@ -1020,77 +1024,77 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                   ref.invalidate(weeklyWorkoutSummaryProvider);
                                 });
                               },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient:
-                              isTodayPlanDay &&
-                                  sessionState == _TodayWorkoutState.completed
-                              ? null
-                              : LinearGradient(
-                                  colors: [AppTheme.primary, AppTheme.accent],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                ),
-                          color:
-                              isTodayPlanDay &&
-                                  sessionState == _TodayWorkoutState.completed
-                              ? AppTheme.cardDark
-                              : null,
-                          borderRadius: BorderRadius.circular(12),
-                          border:
-                              isTodayPlanDay &&
-                                  sessionState == _TodayWorkoutState.completed
-                              ? Border.all(color: AppTheme.borderDark)
-                              : null,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isTodayPlanDay &&
-                                      sessionState ==
-                                          _TodayWorkoutState.completed
-                                  ? LucideIcons.check
-                                  : LucideIcons.play,
-                              color:
-                                  isTodayPlanDay &&
-                                      sessionState ==
-                                          _TodayWorkoutState.completed
-                                  ? AppTheme.primary
-                                  : AppTheme.backgroundDark,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              isTodayPlanDay &&
-                                      sessionState ==
-                                          _TodayWorkoutState.completed
-                                  ? 'COMPLETED'
-                                  : isTodayPlanDay &&
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient:
+                                isTodayPlanDay &&
+                                    sessionState == _TodayWorkoutState.completed
+                                ? null
+                                : LinearGradient(
+                                    colors: [AppTheme.primary, AppTheme.accent],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ),
+                            color:
+                                isTodayPlanDay &&
+                                    sessionState == _TodayWorkoutState.completed
+                                ? AppTheme.cardDark
+                                : null,
+                            borderRadius: BorderRadius.circular(12),
+                            border:
+                                isTodayPlanDay &&
+                                    sessionState == _TodayWorkoutState.completed
+                                ? Border.all(color: AppTheme.borderDark)
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isTodayPlanDay &&
                                         sessionState ==
-                                            _TodayWorkoutState.inProgress
-                                  ? 'CONTINUE'
-                                  : 'START',
-                              style: GoogleFonts.plusJakartaSans(
+                                            _TodayWorkoutState.completed
+                                    ? LucideIcons.check
+                                    : LucideIcons.play,
                                 color:
                                     isTodayPlanDay &&
                                         sessionState ==
                                             _TodayWorkoutState.completed
                                     ? AppTheme.primary
                                     : AppTheme.backgroundDark,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1,
+                                size: 16,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 5),
+                              Text(
+                                isTodayPlanDay &&
+                                        sessionState ==
+                                            _TodayWorkoutState.completed
+                                    ? 'COMPLETED'
+                                    : isTodayPlanDay &&
+                                          sessionState ==
+                                              _TodayWorkoutState.inProgress
+                                    ? 'CONTINUE'
+                                    : 'START',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color:
+                                      isTodayPlanDay &&
+                                          sessionState ==
+                                              _TodayWorkoutState.completed
+                                      ? AppTheme.primary
+                                      : AppTheme.backgroundDark,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
                     ),
                   ),
               ],
@@ -1338,7 +1342,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             child: GestureDetector(
               onTap: onTap,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: onTap == null
                       ? AppTheme.borderDark
@@ -1641,160 +1648,163 @@ class _ExerciseCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             onTap: () => _showEditSheet(context),
             child: Semantics(
-              label: '$name${muscle.isNotEmpty ? ', $muscle' : ''}, $sets sets, $reps${isTimeBased ? ' duration' : ' reps'}, rest ${_formatRest(restSecs)}${pr != null ? ', PR: ${pr!.weightKg}kg × ${pr!.reps} reps' : ''}. Double tap to edit.',
+              label:
+                  '$name${muscle.isNotEmpty ? ', $muscle' : ''}, $sets sets, $reps${isTimeBased ? ' duration' : ' reps'}, rest ${_formatRest(restSecs)}${pr != null ? ', PR: ${pr!.weightKg}kg × ${pr!.reps} reps' : ''}. Double tap to edit.',
               button: true,
               child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top row: index + name + edit icon
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 22,
-                        height: 22,
-                        margin: const EdgeInsets.only(top: 1, right: 10),
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${index + 1}',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: accentColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top row: index + name + edit icon
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 22,
+                          height: 22,
+                          margin: const EdgeInsets.only(top: 1, right: 10),
+                          decoration: BoxDecoration(
+                            color: accentColor.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
                           ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textCream,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                height: 1.2,
-                              ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${index + 1}',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: accentColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
                             ),
-                            if (muscle.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 5,
-                                    height: 5,
-                                    decoration: BoxDecoration(
-                                      color: accentColor,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    muscle.toUpperCase(),
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: accentColor.withValues(
-                                        alpha: 0.75,
-                                      ),
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textCream,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                ),
                               ),
+                              if (muscle.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 5,
+                                      height: 5,
+                                      decoration: BoxDecoration(
+                                        color: accentColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      muscle.toUpperCase(),
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: accentColor.withValues(
+                                          alpha: 0.75,
+                                        ),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Icon(
-                          LucideIcons.pencil,
-                          color: AppTheme.textSageMuted.withValues(alpha: 0.45),
-                          size: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Stats row
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 9,
-                      horizontal: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundDark.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Row(
-                      children: [
-                        _StatBlock(
-                          value: '$sets',
-                          label: 'SETS',
-                          color: accentColor,
-                        ),
-                        Container(
-                          width: 1,
-                          height: 26,
-                          color: AppTheme.borderDark,
-                        ),
-                        _StatBlock(
-                          value: reps,
-                          label: isTimeBased ? 'DURATION' : 'REPS',
-                          color: AppTheme.textCream,
-                        ),
-                        Container(
-                          width: 1,
-                          height: 26,
-                          color: AppTheme.borderDark,
-                        ),
-                        _StatBlock(
-                          value: _formatRest(restSecs),
-                          label: 'REST',
-                          color: AppTheme.textSageMuted,
-                        ),
-                      ],
-                    ),
-                  ),
-                  // PR badge
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.trophy,
-                          color: AppTheme.xpGold,
-                          size: 11,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          pr != null
-                              ? 'PR: ${pr!.weightKg}kg × ${pr!.reps} reps'
-                              : 'No PR yet',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: pr != null
-                                ? AppTheme.xpGold.withValues(alpha: 0.85)
-                                : AppTheme.textSageMuted.withValues(
-                                    alpha: 0.45,
-                                  ),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Icon(
+                            LucideIcons.pencil,
+                            color: AppTheme.textSageMuted.withValues(
+                              alpha: 0.45,
+                            ),
+                            size: 13,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    // Stats row
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 9,
+                        horizontal: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Row(
+                        children: [
+                          _StatBlock(
+                            value: '$sets',
+                            label: 'SETS',
+                            color: accentColor,
+                          ),
+                          Container(
+                            width: 1,
+                            height: 26,
+                            color: AppTheme.borderDark,
+                          ),
+                          _StatBlock(
+                            value: reps,
+                            label: isTimeBased ? 'DURATION' : 'REPS',
+                            color: AppTheme.textCream,
+                          ),
+                          Container(
+                            width: 1,
+                            height: 26,
+                            color: AppTheme.borderDark,
+                          ),
+                          _StatBlock(
+                            value: _formatRest(restSecs),
+                            label: 'REST',
+                            color: AppTheme.textSageMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                    // PR badge
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.trophy,
+                            color: AppTheme.xpGold,
+                            size: 11,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            pr != null
+                                ? 'PR: ${pr!.weightKg}kg × ${pr!.reps} reps'
+                                : 'No PR yet',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: pr != null
+                                  ? AppTheme.xpGold.withValues(alpha: 0.85)
+                                  : AppTheme.textSageMuted.withValues(
+                                      alpha: 0.45,
+                                    ),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         ),
@@ -1835,82 +1845,93 @@ class _SupersetPairCard extends StatelessWidget {
     return Semantics(
       label: 'Superset: $nameA and $nameB',
       child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        children: [
-          // SUPERSET label
-          ExcludeSemantics(child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(19),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          children: [
+            // SUPERSET label
+            ExcludeSemantics(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(19),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.zap,
+                      color: AppTheme.primary,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      'SUPERSET',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                const Icon(LucideIcons.zap, color: AppTheme.primary, size: 12),
-                const SizedBox(width: 5),
-                Text(
-                  'SUPERSET',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-              ],
+            _SupersetExerciseRow(
+              exercise: exerciseA,
+              index: indexA,
+              pr: prA,
+              onUpdate: onUpdate,
+              onReplace: onReplaceA,
+              isLast: false,
             ),
-          )),
-          _SupersetExerciseRow(
-            exercise: exerciseA,
-            index: indexA,
-            pr: prA,
-            onUpdate: onUpdate,
-            onReplace: onReplaceA,
-            isLast: false,
-          ),
-          // Connector line
-          ExcludeSemantics(child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    LucideIcons.arrow_down,
-                    color: AppTheme.primary,
-                    size: 12,
-                  ),
+            // Connector line
+            ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        LucideIcons.arrow_down,
+                        color: AppTheme.primary,
+                        size: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(height: 1, color: AppTheme.borderDark),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Container(height: 1, color: AppTheme.borderDark),
-                ),
-              ],
+              ),
             ),
-          )),
-          _SupersetExerciseRow(
-            exercise: exerciseB,
-            index: indexB,
-            pr: prB,
-            onUpdate: onUpdate,
-            onReplace: onReplaceB,
-            isLast: true,
-          ),
-        ],
-      ),
+            _SupersetExerciseRow(
+              exercise: exerciseB,
+              index: indexB,
+              pr: prB,
+              onUpdate: onUpdate,
+              onReplace: onReplaceB,
+              isLast: true,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1948,80 +1969,83 @@ class _SupersetExerciseRow extends StatelessWidget {
     final accentColor = _muscleAccentColor(muscle);
 
     return Semantics(
-      label: '${isLast ? 'Exercise B' : 'Exercise A'}: $name${muscle.isNotEmpty ? ', $muscle' : ''}, $sets sets, $reps${pr != null ? ', PR: ${pr!.weightKg}kg × ${pr!.reps}' : ''}',
+      label:
+          '${isLast ? 'Exercise B' : 'Exercise A'}: $name${muscle.isNotEmpty ? ', $muscle' : ''}, $sets sets, $reps${pr != null ? ', PR: ${pr!.weightKg}kg × ${pr!.reps}' : ''}',
       child: Padding(
-      padding: EdgeInsets.fromLTRB(14, 10, 14, isLast ? 14 : 6),
-      child: ExcludeSemantics(child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            margin: const EdgeInsets.only(top: 1, right: 10),
-            decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              isLast ? 'B' : 'A',
-              style: GoogleFonts.plusJakartaSans(
-                color: accentColor,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
+        padding: EdgeInsets.fromLTRB(14, 10, 14, isLast ? 14 : 6),
+        child: ExcludeSemantics(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                margin: const EdgeInsets.only(top: 1, right: 10),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  isLast ? 'B' : 'A',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    color: accentColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$sets × $reps  ·  rest ${_formatRest(restSecs)}',
+                      name,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 11,
+                        color: AppTheme.textCream,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
-                ),
-                if (pr != null) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        LucideIcons.trophy,
-                        color: AppTheme.xpGold,
-                        size: 10,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'PR: ${pr!.weightKg}kg × ${pr!.reps}',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.xpGold.withValues(alpha: 0.8),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          '$sets × $reps  ·  rest ${_formatRest(restSecs)}',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 11,
+                          ),
                         ),
+                      ],
+                    ),
+                    if (pr != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.trophy,
+                            color: AppTheme.xpGold,
+                            size: 10,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'PR: ${pr!.weightKg}kg × ${pr!.reps}',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.xpGold.withValues(alpha: 0.8),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                ],
-              ],
-            ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      )),
+        ),
       ),
     );
   }
