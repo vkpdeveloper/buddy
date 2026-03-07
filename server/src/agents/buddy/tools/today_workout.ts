@@ -10,8 +10,7 @@ export function getTodayWorkoutTool(userId: string): Tool {
             "Get today's recommended workout — which training day is up next in the user's cycle (Push/Pull/Legs/Upper/Lower/etc.) and all the exercises with sets, reps, and rest times. Call this when the user asks what workout to do today, today's training, today's exercises, or what's next in their program.",
         inputSchema: z.object({}),
         execute: async () => {
-
-            const todayDayNumber = new Date().getDay() + 1;
+            const todayDayNumber = new Date().getDay();
 
             const [activePlan] = await db
                 .select({
