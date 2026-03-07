@@ -3,8 +3,9 @@ builder = "DOCKERFILE"
 dockerfilePath = "server/Dockerfile"
 
 [deploy]
-startCommand = "bunx drizzle-kit migrate && bun run src/index.ts"
+preDeployCommand = "bunx drizzle-kit migrate"
+startCommand = "bun run src/index.ts"
 healthcheckPath = "/"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
