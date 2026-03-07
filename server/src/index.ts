@@ -15,6 +15,8 @@ import bodyRouter from "./routes/body";
 import generationRouter from "./routes/generation";
 import exercisesRouter from "./routes/exercises";
 import mediaRouter from "./routes/media";
+import buddyRouter from "./routes/buddy";
+import webhookRouter from "./routes/webhook";
 import { seedCatalog } from "./lib/seedCatalog";
 
 const app = new Hono();
@@ -31,6 +33,9 @@ app.use(
     exposeHeaders: ["Content-Length", "Content-Type"],
   }),
 );
+
+// ─── Webhooks (no auth — verified by svix signature) ─────────────────────────
+app.route("/webhooks", webhookRouter);
 
 // ─── Clerk JWT auth on all /api/* routes ─────────────────────────────────────
 app.use("/api/*", clerkAuth(env.CLERK_PUBLISHABLE_KEY));
@@ -56,6 +61,7 @@ app.route("/api/body", bodyRouter);
 app.route("/api/generation", generationRouter);
 app.route("/api/exercises", exercisesRouter);
 app.route("/api/diet/media", mediaRouter);
+app.route("/api/buddy", buddyRouter);
 
 // ─── Startup tasks ────────────────────────────────────────────────────────────
 seedAchievements().catch(console.error);

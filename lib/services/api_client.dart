@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -619,6 +620,84 @@ class ApiClient {
       headers: await _authHeaders(),
     );
     return _decode(res);
+  }
+
+  // ─── Buddy AI Chat ────────────────────────────────────────────────────
+
+  /// Streams chat tokens from Buddy AI via SSE.
+  /// Properly parses SSE by accumulating bytes and splitting on the \n\n
+  /// event boundary — prevents half-event reads from dropping tokens.
+  static Stream<String> buddyChat(
+    List<Map<String, dynamic>> messages,
+  ) async* {
+    final token = await ClerkAuthProvider.instance.getToken();
+    final request = http.Request(
+      'POST',
+      Uri.parse('$baseUrl/api/buddy/chat'),
+    );
+    request.headers.addAll({
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      if (token != null) 'Authorization': 'Bearer $token',
+    });
+    request.body = jsonEncode({'messages': messages});
+
+    final http.StreamedResponse response;
+    try {
+      response = await _client.send(request);
+    } catch (e) {
+      throw Exception('Connection failed: $e');
+    }
+
+    if (response.statusCode >= 400) {
+      final body = await response.stream.bytesToString();
+      throw Exception('Buddy chat ${response.statusCode}: $body');
+    }
+
+    // Buffer accumulates raw bytes until we have a complete SSE event (\n\n).
+    final buffer = StringBuffer();
+
+    await for (final chunk in response.stream.transform(utf8.decoder)) {
+      buffer.write(chunk);
+      var content = buffer.toString();
+
+      // SSE events are separated by a blank line (\n\n).
+      // Process every complete event before the last incomplete one.
+      while (content.contains('\n\n')) {
+        final boundary = content.indexOf('\n\n');
+        final event = content.substring(0, boundary);
+        content = content.substring(boundary + 2); // skip past \n\n
+
+        for (final line in event.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          final data = line.substring(6); // do NOT trim — JSON strings preserve whitespace
+          if (data == '[DONE]' || data == '[ERROR]' || data.isEmpty) continue;
+          try {
+            final text = jsonDecode(data) as String;
+            if (text.isNotEmpty) yield text;
+          } catch (_) {
+            // Malformed JSON chunk — skip silently
+          }
+        }
+      }
+
+      // Stash the incomplete trailing event back into the buffer
+      buffer.clear();
+      buffer.write(content);
+    }
+
+    // Drain any final bytes that arrived without a trailing \n\n
+    final remaining = buffer.toString().trim();
+    if (remaining.startsWith('data: ')) {
+      final data = remaining.substring(6);
+      if (data != '[DONE]' && data != '[ERROR]' && data.isNotEmpty) {
+        try {
+          final text = jsonDecode(data) as String;
+          if (text.isNotEmpty) yield text;
+        } catch (_) {}
+      }
+    }
   }
 
   // ─── Generation ──────────────────────────────────────────────────────

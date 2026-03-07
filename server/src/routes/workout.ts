@@ -284,7 +284,12 @@ router.get('/plans/:id', async (c) => {
             };
         }));
 
-        return c.json({ success: true, data: { ...plan, days: daysWithExercises } });
+        const jsDay = new Date().getDay(); // 0=Sun...6=Sat
+        const todayDayNumber = jsDay === 0 ? 7 : jsDay; // 1=Mon...7=Sun
+        const activeDay = days.find(d => d.dayNumber === todayDayNumber);
+        const activeWorkoutDayId = activeDay?.id ?? null;
+
+        return c.json({ success: true, data: { ...plan, days: daysWithExercises, activeWorkoutDayId } });
     } catch (err) {
         return c.json({ success: false, error: String(err) }, 500);
     }

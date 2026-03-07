@@ -80,26 +80,29 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   Future<void> _loadPlanDetail(int id) async {
     try {
       final res = await ApiClient.getWorkoutPlan(id);
-      final days =
-          ((res['data'] as Map<String, dynamic>?)?['days'] as List?) ??
-          const [];
-      final nowDayIndex = DateTime.now().weekday - 1;
-      final fallbackIndex = days.isEmpty
-          ? 0
-          : nowDayIndex.clamp(0, days.length - 1);
+      final data = res['data'] as Map<String, dynamic>? ?? {};
+      final days = (data['days'] as List?) ?? const [];
+      // Use backend-computed activeWorkoutDayId to find today's index reliably.
+      final activeWorkoutDayId = (data['activeWorkoutDayId'] as num?)?.toInt();
+      int fallbackIndex = 0;
+      if (activeWorkoutDayId != null && days.isNotEmpty) {
+        final idx = days.indexWhere(
+          (d) => (d['id'] as num?)?.toInt() == activeWorkoutDayId,
+        );
+        if (idx != -1) fallbackIndex = idx;
+      } else if (days.isNotEmpty) {
+        final nowDayIndex = DateTime.now().weekday - 1;
+        fallbackIndex = nowDayIndex.clamp(0, days.length - 1);
+      }
       final shouldRestoreFromPrefs =
           !_hasRestoredDaySelection || _activePlanId != id;
       final restoredIndex = !shouldRestoreFromPrefs
           ? _selectedDayIndex
                 .clamp(0, (days.isEmpty ? 0 : days.length - 1))
                 .toInt()
-          : await _loadSavedDayIndex(
-              planId: id,
-              maxLength: days.length,
-              fallbackIndex: fallbackIndex,
-            );
+          : fallbackIndex;
       setState(() {
-        _planData = res['data'];
+        _planData = data;
         _activePlanId = id;
         _selectedDayIndex = restoredIndex;
         _hasRestoredDaySelection = true;
@@ -108,17 +111,6 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     } catch (_) {}
   }
 
-  Future<int> _loadSavedDayIndex({
-    required int planId,
-    required int maxLength,
-    required int fallbackIndex,
-  }) async {
-    if (maxLength <= 0) return 0;
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getInt('workout_selected_day_$planId');
-    if (stored == null) return fallbackIndex;
-    return stored.clamp(0, maxLength - 1).toInt();
-  }
 
   Future<void> _persistSelectedDayIndex(int index) async {
     final planId = _activePlanId;

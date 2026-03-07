@@ -11,6 +11,17 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
+// ─── Users (synced from Clerk via webhook) ───────────────────────────────────
+
+export const users = pgTable('users', {
+    id: serial('id').primaryKey(),
+    clerkId: text('clerk_id').notNull().unique(),           // Clerk user ID (e.g. user_abc123)
+    email: text('email').notNull(),
+    name: text('name').notNull().default(''),
+    registeredAt: timestamp('registered_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // ─── User Profile (one row per Clerk user) ───────────────────────────────────
 
 export const userProfile = pgTable('user_profile', {

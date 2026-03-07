@@ -28,6 +28,7 @@ const envSchema = z.object({
   // Clerk
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is required"),
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
+  CLERK_WEBHOOK_SECRET: z.string().min(1, "CLERK_WEBHOOK_SECRET is required"),
 });
 
 // ── Parse & export ──────────────────────────────────────────────────────────

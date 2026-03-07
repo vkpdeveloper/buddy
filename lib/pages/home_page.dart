@@ -13,6 +13,7 @@ import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/pages/diet_plan_page.dart';
 import 'package:buddy/pages/workout_page.dart';
 import 'package:buddy/pages/growth_page.dart';
+import 'package:buddy/pages/buddy_chat_page.dart';
 import 'package:buddy/services/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -2420,13 +2421,16 @@ class _BottomNavigation extends StatelessWidget {
             isActive: currentIndex == 1,
             onTap: () => onTap(1),
           ),
-          // Center button
+          // Center Buddy AI button
           Semantics(
             button: true,
-            label: 'Home',
-            selected: currentIndex == 0,
+            label: 'Open Buddy AI Chat',
             child: GestureDetector(
-              onTap: () => onTap(0),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const BuddyChatPage(),
+                ),
+              ),
               child: Transform.translate(
                 offset: const Offset(0, -20),
                 child: Container(
