@@ -6,7 +6,7 @@ import 'package:buddy/models/growth.dart';
 import 'package:buddy/providers/body_provider.dart';
 import 'package:buddy/providers/growth_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/body_service.dart';
 import 'package:buddy/services/progress_share_service.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
@@ -73,7 +73,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
         return;
       }
       final today = DateTime.now().toIso8601String().split('T').first;
-      await ApiClient.uploadGrowthPhoto(
+      await BodyService.uploadGrowthPhoto(
         bytes: bytes,
         fileName: file.name,
         mimeType: mimeType,
@@ -1542,7 +1542,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      await ApiClient.updateGrowthGoals(
+      await BodyService.updateGrowthGoals(
         weightGoalKg: double.tryParse(_weightCtrl.text.trim()),
         bodyFatGoalPercent: double.tryParse(_bodyFatCtrl.text.trim()),
       );
@@ -1890,14 +1890,14 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
         if (value != null) payload[key] = value;
       });
 
-      final res = await ApiClient.logBodyMeasurement(payload);
+      final res = await BodyService.logBodyMeasurement(payload);
       final result = BodyLogResult.fromJson(
         res['data'] as Map<String, dynamic>,
       );
       if (_selectedPhoto != null && result.measurementId > 0) {
         final mimeType = _mimeFromName(_selectedPhoto!.name);
         if (mimeType != 'image/gif') {
-          await ApiClient.uploadGrowthPhoto(
+          await BodyService.uploadGrowthPhoto(
             bytes: await _selectedPhoto!.readAsBytes(),
             fileName: _selectedPhoto!.name,
             mimeType: mimeType,

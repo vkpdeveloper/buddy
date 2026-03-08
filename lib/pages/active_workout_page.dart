@@ -13,7 +13,7 @@ import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/providers/pr_provider.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/workout_service.dart';
 import 'package:buddy/services/tts_service.dart';
 import 'package:buddy/services/tts_cache.dart';
 import 'package:buddy/services/beep_service.dart';
@@ -258,7 +258,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
 
   Future<void> _startSession() async {
     try {
-      final res = await ApiClient.startSession(
+      final res = await WorkoutService.startSession(
         widget.planId,
         widget.dayId,
         date: _todayDate,
@@ -378,7 +378,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
 
   Future<void> _loadPrMap() async {
     try {
-      final map = await ApiClient.getPersonalRecords();
+      final map = await WorkoutService.getPersonalRecords();
       if (mounted) setState(() => _prMap = map);
     } catch (_) {}
   }
@@ -642,7 +642,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     }
     _lastSessionSyncAt = now;
     try {
-      await ApiClient.logWorkoutSession(_sessionId!, {
+      await WorkoutService.logWorkoutSession(_sessionId!, {
         'pausedDurationSeconds': _pausedDurationSeconds,
         'warmupData': _warmupPayload(),
         'cooldownData': _cooldownPayload(),
@@ -782,7 +782,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       final totalExercises = widget.exercises.length;
       final completedExercises = totalExercises - _skippedExercises;
 
-      final res = await ApiClient.completeSessionWithGamification(
+      final res = await WorkoutService.completeSessionWithGamification(
         _sessionId!,
         durationSeconds: duration,
         totalExercises: totalExercises,

@@ -6,7 +6,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { stepCountIs, streamText } from 'ai';
 import { eq } from 'drizzle-orm';
 import { db } from '../../db';
-import { userProfile } from '../../db/schema';
+import { userProfile, users } from '../../db/schema';
 import { env } from '../../lib/env';
 import { buildBuddySystemPrompt } from './system_prompt';
 import { createBuddyTools } from './tools/index';
@@ -31,14 +31,24 @@ router.post('/chat', zValidator('json', chatSchema), async (c) => {
         const userId = c.var.userId;
         const { messages } = c.req.valid('json');
 
-        const [profile] = await db.select({ name: userProfile.name }).from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
-        const firstName = profile?.name?.split(' ')[0] ?? null;
+        const [profile] = await db.select({ name: users.name }).from(users).where(eq(users.firebaseUid, userId)).limit(1);
+        const firstName = profile.name;
 
         const systemPrompt = buildBuddySystemPrompt(firstName);
         const tools = createBuddyTools(userId);
 
         return streamSSE(c, async (stream) => {
             try {
+                const toolLabels: Record<string, string> = {
+                    getUserProfile: 'Pulling up your profile...',
+                    getTodayWorkout: 'Checking today\'s training...',
+                    getTodayDiet: 'Looking at what\'s on your plate today...',
+                    getFullWorkoutPlan: 'Going through your workout program...',
+                    getFullDietPlan: 'Looking through your nutrition plan...',
+                    getRecentSessions: 'Checking your recent training sessions...',
+                    getUserProgress: 'Looking at how you\'ve been tracking...',
+                };
+
                 const result = streamText({
                     model: google('gemini-3.1-flash-lite-preview'),
                     system: systemPrompt,
@@ -55,9 +65,12 @@ router.post('/chat', zValidator('json', chatSchema), async (c) => {
                     ],
                 });
 
-                for await (const chunk of result.textStream) {
-                    if (chunk) {
-                        await stream.writeSSE({ data: JSON.stringify(chunk) });
+                for await (const event of result.fullStream) {
+                    if (event.type === 'text-delta' && event.text) {
+                        await stream.writeSSE({ event: 'text', data: JSON.stringify(event.text) });
+                    } else if (event.type === 'tool-call') {
+                        const label = toolLabels[event.toolName] ?? 'On it...';
+                        await stream.writeSSE({ event: 'tool', data: JSON.stringify(label) });
                     }
                 }
 

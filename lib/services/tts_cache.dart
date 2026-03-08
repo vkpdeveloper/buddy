@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_soloud/flutter_soloud.dart';
 
-import 'api_client.dart';
+import 'tts_api_service.dart';
 import '../utils/app_logger.dart';
 
 /// Pre-fetches and caches TTS audio clips keyed by text.
@@ -89,7 +89,7 @@ class TtsCache {
   Future<AudioSource?> _fetchAndLoad(String text) async {
     try {
       AppLogger.info('[TTSCache] fetch start (len=${text.length})');
-      final bytes = await ApiClient.ttsBytes(text);
+      final bytes = await TtsApiService.ttsBytes(text);
       if (bytes.isEmpty) {
         AppLogger.warn('[TTSCache] empty bytes for text (len=${text.length})');
         return null;

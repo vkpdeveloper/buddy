@@ -9,6 +9,8 @@ import { db } from '../db';
 import { userProfile, workoutPlans, workoutDays, workoutExercises, workoutSessions, userProgress, achievements, userAchievements, personalRecords } from '../db/schema';
 import { calculateXp, calculateNewStreak, checkAchievements, getLevel, getLevelLabel } from '../lib/xp';
 import { ensureUserProgress } from './progress';
+import { ok, fail } from '../lib/response';
+import { notFound, badRequest } from '../lib/errors';
 
 const router = new Hono();
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
@@ -251,112 +253,93 @@ const CYCLE_TEMPLATES: Record<string, { days: { label: string; isRest: boolean }
 
 // ─── GET /api/workout/plans ──────────────────────────────────────────────────
 router.get('/plans', async (c) => {
-    try {
-        const userId = c.var.userId;
-        const plans = await db.select().from(workoutPlans).where(eq(workoutPlans.userId, userId)).orderBy(workoutPlans.createdAt);
-        return c.json({ success: true, data: plans });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    const userId = c.var.userId;
+    const plans = await db.select().from(workoutPlans).where(eq(workoutPlans.userId, userId)).orderBy(workoutPlans.createdAt);
+    return ok(c, plans);
 });
 
 // ─── GET /api/workout/plans/:id ──────────────────────────────────────────────
 router.get('/plans/:id', async (c) => {
-    try {
-        const userId = c.var.userId;
-        const id = parseInt(c.req.param('id'));
-        const [plan] = await db.select().from(workoutPlans).where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.id, id)));
-        if (!plan) return c.json({ success: false, error: 'Plan not found' }, 404);
+    const userId = c.var.userId;
+    const id = parseInt(c.req.param('id'));
+    const [plan] = await db.select().from(workoutPlans).where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.id, id)));
+    if (!plan) throw notFound('Plan not found');
 
-        const days = await db.select().from(workoutDays)
-            .where(eq(workoutDays.planId, id))
-            .orderBy(workoutDays.dayNumber);
+    const days = await db.select().from(workoutDays)
+        .where(eq(workoutDays.planId, id))
+        .orderBy(workoutDays.dayNumber);
 
-        const daysWithExercises = await Promise.all(days.map(async (day) => {
-            if (day.isRestDay) return { ...day, exercises: [], estimatedDurationSeconds: 0 };
-            const exercises = await db.select().from(workoutExercises)
-                .where(eq(workoutExercises.dayId, day.id))
-                .orderBy(workoutExercises.orderIndex);
-            return {
-                ...day,
-                exercises,
-                estimatedDurationSeconds: estimateDayDurationSeconds(exercises),
-            };
-        }));
+    const daysWithExercises = await Promise.all(days.map(async (day) => {
+        if (day.isRestDay) return { ...day, exercises: [], estimatedDurationSeconds: 0 };
+        const exercises = await db.select().from(workoutExercises)
+            .where(eq(workoutExercises.dayId, day.id))
+            .orderBy(workoutExercises.orderIndex);
+        return {
+            ...day,
+            exercises,
+            estimatedDurationSeconds: estimateDayDurationSeconds(exercises),
+        };
+    }));
 
-        const jsDay = new Date().getDay(); // 0=Sun...6=Sat
-        const todayDayNumber = jsDay === 0 ? 7 : jsDay; // 1=Mon...7=Sun
-        const activeDay = days.find(d => d.dayNumber === todayDayNumber);
-        const activeWorkoutDayId = activeDay?.id ?? null;
+    const jsDay = new Date().getDay(); // 0=Sun...6=Sat
+    const todayDayNumber = jsDay === 0 ? 7 : jsDay; // 1=Mon...7=Sun
+    const activeDay = days.find(d => d.dayNumber === todayDayNumber);
+    const activeWorkoutDayId = activeDay?.id ?? null;
 
-        return c.json({ success: true, data: { ...plan, days: daysWithExercises, activeWorkoutDayId } });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    return ok(c, { ...plan, days: daysWithExercises, activeWorkoutDayId });
 });
 
 // ─── GET /api/workout/summary/weekly ────────────────────────────────────────
 router.get('/summary/weekly', async (c) => {
-    try {
-        const userId = c.var.userId;
-        const now = new Date();
-        const day = now.getDay(); // 0..6 (Sun..Sat)
-        const diffToMonday = day === 0 ? -6 : 1 - day;
-        const start = new Date(now);
-        start.setDate(now.getDate() + diffToMonday);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(start);
-        end.setDate(start.getDate() + 7);
+    const userId = c.var.userId;
+    const now = new Date();
+    const day = now.getDay(); // 0..6 (Sun..Sat)
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const start = new Date(now);
+    start.setDate(now.getDate() + diffToMonday);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
 
-        const [activePlan] = await db.select().from(workoutPlans).where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.isActive, true))).limit(1);
-        if (!activePlan) {
-            return c.json({
-                success: true,
-                data: {
-                    weekStart: start.toISOString().slice(0, 10),
-                    weekEndExclusive: end.toISOString().slice(0, 10),
-                    workoutsCompleted: 0,
-                    plannedWorkouts: 0,
-                    completionFraction: 0,
-                },
-            });
-        }
-
-        const planDays = await db.select().from(workoutDays).where(eq(workoutDays.planId, activePlan.id));
-        const plannedWorkouts = planDays.filter((d) => !d.isRestDay).length || activePlan.daysPerWeek;
-
-        const completed = await db.select().from(workoutSessions).where(and(
-            eq(workoutSessions.userId, userId),
-            eq(workoutSessions.planId, activePlan.id),
-            gte(workoutSessions.completedAt, start.toISOString()),
-            lt(workoutSessions.completedAt, end.toISOString()),
-        ));
-        const workoutsCompleted = completed.length;
-        const completionFraction = plannedWorkouts > 0
-            ? Math.min(workoutsCompleted / plannedWorkouts, 1)
-            : 0;
-
-        return c.json({
-            success: true,
-            data: {
-                weekStart: start.toISOString().slice(0, 10),
-                weekEndExclusive: end.toISOString().slice(0, 10),
-                workoutsCompleted,
-                plannedWorkouts,
-                completionFraction,
-            },
+    const [activePlan] = await db.select().from(workoutPlans).where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.isActive, true))).limit(1);
+    if (!activePlan) {
+        return ok(c, {
+            weekStart: start.toISOString().slice(0, 10),
+            weekEndExclusive: end.toISOString().slice(0, 10),
+            workoutsCompleted: 0,
+            plannedWorkouts: 0,
+            completionFraction: 0,
         });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
     }
+
+    const planDays = await db.select().from(workoutDays).where(eq(workoutDays.planId, activePlan.id));
+    const plannedWorkouts = planDays.filter((d) => !d.isRestDay).length || activePlan.daysPerWeek;
+
+    const completed = await db.select().from(workoutSessions).where(and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.planId, activePlan.id),
+        gte(workoutSessions.completedAt, start.toISOString()),
+        lt(workoutSessions.completedAt, end.toISOString()),
+    ));
+    const workoutsCompleted = completed.length;
+    const completionFraction = plannedWorkouts > 0
+        ? Math.min(workoutsCompleted / plannedWorkouts, 1)
+        : 0;
+
+    return ok(c, {
+        weekStart: start.toISOString().slice(0, 10),
+        weekEndExclusive: end.toISOString().slice(0, 10),
+        workoutsCompleted,
+        plannedWorkouts,
+        completionFraction,
+    });
 });
 
 // ─── POST /api/workout/generate ─────────────────────────────────────────────
 router.post('/generate', async (c) => {
-    try {
-        const userId = c.var.userId;
-        const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
-        if (profiles.length === 0) return c.json({ success: false, error: 'Profile not found' }, 400);
+    const userId = c.var.userId;
+    const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
+    if (profiles.length === 0) throw badRequest('Profile not found');
         const profile = profiles[0];
 
         const equipment: string[] = profile.equipment;
@@ -446,11 +429,7 @@ STRICT RULES:
             }
         }
 
-        return c.json({ success: true, data: { planId: insertedPlan.id } });
-    } catch (err) {
-        console.error('[workout/generate]', err);
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+        return ok(c, { planId: insertedPlan.id });
 });
 
 // ─── PUT /api/workout/plans/:id ──────────────────────────────────────────────
@@ -458,15 +437,11 @@ router.put('/plans/:id', zValidator('json', z.object({
     title: z.string().optional(),
     isActive: z.boolean().optional(),
 })), async (c) => {
-    try {
-        const userId = c.var.userId;
-        const id = parseInt(c.req.param('id'));
-        const body = c.req.valid('json');
-        const updated = await db.update(workoutPlans).set(body).where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.id, id))).returning();
-        return c.json({ success: true, data: updated[0] });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    const userId = c.var.userId;
+    const id = parseInt(c.req.param('id'));
+    const body = c.req.valid('json');
+    const updated = await db.update(workoutPlans).set(body).where(and(eq(workoutPlans.userId, userId), eq(workoutPlans.id, id))).returning();
+    return ok(c, updated[0]);
 });
 
 // ─── PUT /api/workout/exercises/:id ─────────────────────────────────────────
@@ -478,15 +453,11 @@ router.put('/exercises/:id', zValidator('json', z.object({
     muscleGroup: z.string().optional(),
     notes: z.string().optional(),
 })), async (c) => {
-    try {
-        const id = parseInt(c.req.param('id'));
-        const body = c.req.valid('json');
-        const updated = await db.update(workoutExercises).set(body).where(eq(workoutExercises.id, id)).returning();
-        if (updated.length === 0) return c.json({ success: false, error: 'Exercise not found' }, 404);
-        return c.json({ success: true, data: updated[0] });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    const id = parseInt(c.req.param('id'));
+    const body = c.req.valid('json');
+    const updated = await db.update(workoutExercises).set(body).where(eq(workoutExercises.id, id)).returning();
+    if (updated.length === 0) throw notFound('Exercise not found');
+    return ok(c, updated[0]);
 });
 
 const replaceExerciseSchema = z.object({
@@ -500,15 +471,14 @@ const replaceExerciseSchema = z.object({
 
 // ─── POST /api/workout/exercises/:id/replace ───────────────────────────────
 router.post('/exercises/:id/replace', zValidator('json', replaceExerciseSchema), async (c) => {
-    try {
-        const userId = c.var.userId;
-        const exerciseId = parseInt(c.req.param('id'));
-        const body = c.req.valid('json');
-        const [target] = await db.select().from(workoutExercises).where(eq(workoutExercises.id, exerciseId)).limit(1);
-        if (!target) return c.json({ success: false, error: 'Exercise not found' }, 404);
-        if (target.dayId !== body.dayId) {
-            return c.json({ success: false, error: 'Exercise does not belong to selected day' }, 400);
-        }
+    const userId = c.var.userId;
+    const exerciseId = parseInt(c.req.param('id'));
+    const body = c.req.valid('json');
+    const [target] = await db.select().from(workoutExercises).where(eq(workoutExercises.id, exerciseId)).limit(1);
+    if (!target) throw notFound('Exercise not found');
+    if (target.dayId !== body.dayId) {
+        return fail(c, 'Exercise does not belong to selected day', 400);
+    }
 
         const [profile] = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
         const equipmentList = profile ? profile.equipment.map((item) => String(item)) : [];
@@ -571,10 +541,7 @@ Rules:
             const fallbackGroup = fallbackExercisePool[normalizedMuscle] ?? fallbackExercisePool.core;
             const fallback = fallbackGroup.find((item) => !existingNames.has(normalizeExerciseName(item.name)));
             if (!fallback) {
-                return c.json({
-                    success: false,
-                    error: 'No unique replacement available. Try again with different constraints.',
-                }, 409);
+                return fail(c, 'No unique replacement available. Try again with different constraints.', 409);
             }
             candidate = {
                 name: fallback.name,
@@ -597,38 +564,27 @@ Rules:
             notes: candidate.notes,
         }).where(eq(workoutExercises.id, exerciseId)).returning();
 
-        return c.json({
-            success: true,
-            data: {
-                ...updated,
-                replacementContext: {
-                    dayId: body.dayId,
-                    dayLabel: body.dayLabel,
-                    requestedMuscleGroup: body.muscleGroup ?? target.muscleGroup ?? '',
-                },
+        return ok(c, {
+            ...updated,
+            replacementContext: {
+                dayId: body.dayId,
+                dayLabel: body.dayLabel,
+                requestedMuscleGroup: body.muscleGroup ?? target.muscleGroup ?? '',
             },
         });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
 });
 
 // ─── DELETE /api/workout/exercises/:id ──────────────────────────────────────
 router.delete('/exercises/:id', async (c) => {
-    try {
-        const id = parseInt(c.req.param('id'));
-        const deleted = await db.delete(workoutExercises).where(eq(workoutExercises.id, id)).returning();
-        if (deleted.length === 0) return c.json({ success: false, error: 'Exercise not found' }, 404);
-        return c.json({ success: true, data: deleted[0] });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    const id = parseInt(c.req.param('id'));
+    const deleted = await db.delete(workoutExercises).where(eq(workoutExercises.id, id)).returning();
+    if (deleted.length === 0) throw notFound('Exercise not found');
+    return ok(c, deleted[0]);
 });
 
 // ─── GET /api/workout/sessions/history ──────────────────────────────────────
 router.get('/sessions/history', async (c) => {
-    try {
-        const userId = c.var.userId;
+    const userId = c.var.userId;
         const range = (c.req.query('range') ?? '30d').toLowerCase();
         const now = new Date();
         const rangeDays = range === '90d' ? 90 : range === 'all' ? 3650 : 30;
@@ -708,28 +664,22 @@ router.get('/sessions/history', async (c) => {
         const avgDurationSeconds = totalSessions > 0 ? Math.round(totalDurationSeconds / totalSessions) : 0;
         const consistencyScore = rangeDays > 0 ? Math.min(totalSessions / rangeDays, 1) : 0;
 
-        return c.json({
-            success: true,
-            data: {
-                range,
-                sessions: sessionItems,
-                summary: {
-                    totalSessions,
-                    totalDurationSeconds,
-                    avgDurationSeconds,
-                    totalVolume,
-                    consistencyScore,
-                },
-                series: {
-                    volume: volumeSeries,
-                    duration: durationSeries,
-                    consistency: consistencySeries,
-                },
+        return ok(c, {
+            range,
+            sessions: sessionItems,
+            summary: {
+                totalSessions,
+                totalDurationSeconds,
+                avgDurationSeconds,
+                totalVolume,
+                consistencyScore,
+            },
+            series: {
+                volume: volumeSeries,
+                duration: durationSeries,
+                consistency: consistencySeries,
             },
         });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
 });
 
 // ─── POST /api/workout/sessions ──────────────────────────────────────────────
@@ -738,103 +688,76 @@ router.post('/sessions', zValidator('json', z.object({
     dayId: z.number().int(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })), async (c) => {
-    try {
-        const userId = c.var.userId;
-        const { planId, dayId, date } = c.req.valid('json');
-        const targetDate = date ?? new Date().toISOString().slice(0, 10);
+    const userId = c.var.userId;
+    const { planId, dayId, date } = c.req.valid('json');
+    const targetDate = date ?? new Date().toISOString().slice(0, 10);
 
-        const [existing] = await db.select().from(workoutSessions)
-            .where(and(
-                eq(workoutSessions.userId, userId),
-                eq(workoutSessions.planId, planId),
-                eq(workoutSessions.dayId, dayId),
-                sql`date(${workoutSessions.startedAt}) = ${targetDate}`,
-            ))
-            .orderBy(desc(workoutSessions.id))
-            .limit(1);
+    const [existing] = await db.select().from(workoutSessions)
+        .where(and(
+            eq(workoutSessions.userId, userId),
+            eq(workoutSessions.planId, planId),
+            eq(workoutSessions.dayId, dayId),
+            sql`date(${workoutSessions.startedAt}) = ${targetDate}`,
+        ))
+        .orderBy(desc(workoutSessions.id))
+        .limit(1);
 
-        if (existing) {
-            return c.json({
-                success: true,
-                data: {
-                    ...sessionWithParsedPayload(existing),
-                    status: existing.completedAt ? 'completed' : 'in_progress',
-                },
-            });
-        }
-
-        const [session] = await db.insert(workoutSessions).values({ userId, planId, dayId }).returning();
-        return c.json({
-            success: true,
-            data: {
-                ...sessionWithParsedPayload(session),
-                status: 'new',
-            },
+    if (existing) {
+        return ok(c, {
+            ...sessionWithParsedPayload(existing),
+            status: existing.completedAt ? 'completed' : 'in_progress',
         });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
     }
+
+    const [session] = await db.insert(workoutSessions).values({ userId, planId, dayId }).returning();
+    return ok(c, {
+        ...sessionWithParsedPayload(session),
+        status: 'new',
+    });
 });
 
 // ─── GET /api/workout/sessions/today ────────────────────────────────────────
 router.get('/sessions/today', async (c) => {
-    try {
-        const userId = c.var.userId;
-        const planId = Number(c.req.query('planId'));
-        const dayId = Number(c.req.query('dayId'));
-        const date = c.req.query('date') ?? new Date().toISOString().slice(0, 10);
+    const userId = c.var.userId;
+    const planId = Number(c.req.query('planId'));
+    const dayId = Number(c.req.query('dayId'));
+    const date = c.req.query('date') ?? new Date().toISOString().slice(0, 10);
 
-        if (!Number.isInteger(planId) || !Number.isInteger(dayId)) {
-            return c.json({ success: false, error: 'planId and dayId are required integers' }, 400);
-        }
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-            return c.json({ success: false, error: 'date must be YYYY-MM-DD' }, 400);
-        }
-
-        const [session] = await db.select().from(workoutSessions)
-            .where(and(
-                eq(workoutSessions.userId, userId),
-                eq(workoutSessions.planId, planId),
-                eq(workoutSessions.dayId, dayId),
-                sql`date(${workoutSessions.startedAt}) = ${date}`,
-            ))
-            .orderBy(desc(workoutSessions.id))
-            .limit(1);
-
-        if (!session) {
-            return c.json({
-                success: true,
-                data: {
-                    status: 'none',
-                    session: null,
-                },
-            });
-        }
-
-        return c.json({
-            success: true,
-            data: {
-                status: session.completedAt ? 'completed' : 'in_progress',
-                session: sessionWithParsedPayload(session),
-            },
-        });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
+    if (!Number.isInteger(planId) || !Number.isInteger(dayId)) {
+        return fail(c, 'planId and dayId are required integers', 400);
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return fail(c, 'date must be YYYY-MM-DD', 400);
+    }
+
+    const [session] = await db.select().from(workoutSessions)
+        .where(and(
+            eq(workoutSessions.userId, userId),
+            eq(workoutSessions.planId, planId),
+            eq(workoutSessions.dayId, dayId),
+            sql`date(${workoutSessions.startedAt}) = ${date}`,
+        ))
+        .orderBy(desc(workoutSessions.id))
+        .limit(1);
+
+    if (!session) {
+        return ok(c, { status: 'none', session: null });
+    }
+
+    return ok(c, {
+        status: session.completedAt ? 'completed' : 'in_progress',
+        session: sessionWithParsedPayload(session),
+    });
 });
 
 // ─── GET /api/workout/sessions/:id ───────────────────────────────────────────
 router.get('/sessions/:id', async (c) => {
-    try {
-        const userId = c.var.userId;
-        const id = parseInt(c.req.param('id'));
-        const [session] = await db.select().from(workoutSessions).where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.id, id))).limit(1);
-        if (!session) return c.json({ success: false, error: 'Session not found' }, 404);
+    const userId = c.var.userId;
+    const id = parseInt(c.req.param('id'));
+    const [session] = await db.select().from(workoutSessions).where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.id, id))).limit(1);
+    if (!session) throw notFound('Session not found');
 
-        return c.json({ success: true, data: sessionWithParsedPayload(session) });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    return ok(c, sessionWithParsedPayload(session));
 });
 
 // ─── PUT /api/workout/sessions/:id ──────────────────────────────────────────
@@ -842,15 +765,11 @@ router.put('/sessions/:id', zValidator('json', z.object({
     completedAt: z.string().optional(),
     totalDurationSeconds: z.number().int().optional(),
 })), async (c) => {
-    try {
-        const userId = c.var.userId;
-        const id = parseInt(c.req.param('id'));
-        const body = c.req.valid('json');
-        const updated = await db.update(workoutSessions).set(body).where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.id, id))).returning();
-        return c.json({ success: true, data: updated[0] });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    const userId = c.var.userId;
+    const id = parseInt(c.req.param('id'));
+    const body = c.req.valid('json');
+    const updated = await db.update(workoutSessions).set(body).where(and(eq(workoutSessions.userId, userId), eq(workoutSessions.id, id))).returning();
+    return ok(c, updated[0]);
 });
 
 // ─── PUT /api/workout/sessions/:id/log ───────────────────────────────────────
@@ -862,31 +781,27 @@ router.put('/sessions/:id/log', zValidator('json', z.object({
     sessionNotes: z.array(z.record(z.string(), z.any())).optional(),
     hrSnapshots: z.array(z.record(z.string(), z.any())).optional(),
 })), async (c) => {
-    try {
-        const userId = c.var.userId;
-        const id = parseInt(c.req.param('id'));
-        const body = c.req.valid('json');
-        const [existing] = await db.select().from(workoutSessions).where(and(
-            eq(workoutSessions.userId, userId),
-            eq(workoutSessions.id, id),
-            isNull(workoutSessions.completedAt),
-        )).limit(1);
-        if (!existing) return c.json({ success: false, error: 'Session not found' }, 404);
+    const userId = c.var.userId;
+    const id = parseInt(c.req.param('id'));
+    const body = c.req.valid('json');
+    const [existing] = await db.select().from(workoutSessions).where(and(
+        eq(workoutSessions.userId, userId),
+        eq(workoutSessions.id, id),
+        isNull(workoutSessions.completedAt),
+    )).limit(1);
+    if (!existing) throw notFound('Session not found');
 
-        const updatePayload: Record<string, unknown> = {};
-        if (body.pausedDurationSeconds !== undefined) updatePayload.pausedDurationSeconds = body.pausedDurationSeconds;
-        if (body.warmupData !== undefined) updatePayload.warmupData = JSON.stringify(body.warmupData);
-        if (body.cooldownData !== undefined) updatePayload.cooldownData = JSON.stringify(body.cooldownData);
-        if (body.setLogs !== undefined) updatePayload.setLogs = JSON.stringify(body.setLogs);
-        if (body.sessionNotes !== undefined) updatePayload.sessionNotes = JSON.stringify(body.sessionNotes);
-        if (body.hrSnapshots !== undefined) updatePayload.hrSnapshots = JSON.stringify(body.hrSnapshots);
+    const updatePayload: Record<string, unknown> = {};
+    if (body.pausedDurationSeconds !== undefined) updatePayload.pausedDurationSeconds = body.pausedDurationSeconds;
+    if (body.warmupData !== undefined) updatePayload.warmupData = JSON.stringify(body.warmupData);
+    if (body.cooldownData !== undefined) updatePayload.cooldownData = JSON.stringify(body.cooldownData);
+    if (body.setLogs !== undefined) updatePayload.setLogs = JSON.stringify(body.setLogs);
+    if (body.sessionNotes !== undefined) updatePayload.sessionNotes = JSON.stringify(body.sessionNotes);
+    if (body.hrSnapshots !== undefined) updatePayload.hrSnapshots = JSON.stringify(body.hrSnapshots);
 
-        const [updated] = await db.update(workoutSessions).set(updatePayload).where(eq(workoutSessions.id, id)).returning();
+    const [updated] = await db.update(workoutSessions).set(updatePayload).where(eq(workoutSessions.id, id)).returning();
 
-        return c.json({ success: true, data: sessionWithParsedPayload(updated) });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    return ok(c, sessionWithParsedPayload(updated));
 });
 
 // ─── PUT /api/workout/sessions/:id/complete ──────────────────────────────────
@@ -905,13 +820,12 @@ router.put('/sessions/:id/complete', zValidator('json', z.object({
     hrSnapshots: z.array(z.record(z.string(), z.any())).optional(),
     dayLabel: z.string().optional(),
 })), async (c) => {
-    try {
-        const userId = c.var.userId;
-        const sessionId = parseInt(c.req.param('id'));
-        const body = c.req.valid('json');
+    const userId = c.var.userId;
+    const sessionId = parseInt(c.req.param('id'));
+    const body = c.req.valid('json');
 
-        // Ensure user_progress row exists
-        await ensureUserProgress(userId);
+    // Ensure user_progress row exists
+    await ensureUserProgress(userId);
         const [prog] = await db.select().from(userProgress).where(eq(userProgress.userId, userId)).limit(1);
 
         const today = new Date().toISOString().slice(0, 10);
@@ -1071,71 +985,59 @@ router.put('/sessions/:id/complete', zValidator('json', z.object({
             console.error('[sessions/complete] PR tracking error:', prErr);
         }
 
-        return c.json({
-            success: true,
-            data: {
-                xpEarned: breakdown.total,
-                xpBreakdown: breakdown,
-                achievementXp,
-                previousLevel,
-                newLevel: finalLevel,
-                didLevelUp: finalLevel > previousLevel,
-                levelLabel: getLevelLabel(finalLevel),
-                currentStreak: newStreak,
-                newAchievements: earnedAchievementRows,
-                newPrs,
-            },
+        return ok(c, {
+            xpEarned: breakdown.total,
+            xpBreakdown: breakdown,
+            achievementXp,
+            previousLevel,
+            newLevel: finalLevel,
+            didLevelUp: finalLevel > previousLevel,
+            levelLabel: getLevelLabel(finalLevel),
+            currentStreak: newStreak,
+            newAchievements: earnedAchievementRows,
+            newPrs,
         });
-    } catch (err) {
-        console.error('[sessions/complete]', err);
-        return c.json({ success: false, error: String(err) }, 500);
-    }
 });
 
 // ─── POST /api/workout/days/:dayId/exercises ─────────────────────────────────
 router.post('/days/:dayId/exercises', async (c) => {
-    try {
-        const dayId = parseInt(c.req.param('dayId'));
-        const body = await c.req.json();
-        const name = String(body.name ?? '').trim();
-        if (!name) return c.json({ success: false, error: 'name is required' }, 400);
+    const dayId = parseInt(c.req.param('dayId'));
+    const body = await c.req.json();
+    const name = String(body.name ?? '').trim();
+    if (!name) return fail(c, 'name is required', 400);
 
-        const existing = await db.select().from(workoutExercises)
-            .where(eq(workoutExercises.dayId, dayId))
-            .orderBy(desc(workoutExercises.orderIndex))
-            .limit(1);
-        const nextOrder = existing.length > 0 ? (existing[0].orderIndex + 1) : 1;
+    const existing = await db.select().from(workoutExercises)
+        .where(eq(workoutExercises.dayId, dayId))
+        .orderBy(desc(workoutExercises.orderIndex))
+        .limit(1);
+    const nextOrder = existing.length > 0 ? (existing[0].orderIndex + 1) : 1;
 
-        const [inserted] = await db.insert(workoutExercises).values({
-            dayId,
-            orderIndex: nextOrder,
-            name,
-            sets: Number(body.sets) || 3,
-            repsOrTime: String(body.repsOrTime ?? '10-12'),
-            restSeconds: Number(body.restSeconds) || 60,
-            muscleGroup: String(body.muscleGroup ?? ''),
-            equipment: String(body.equipment ?? ''),
-            notes: String(body.notes ?? ''),
-        }).returning();
+    const [inserted] = await db.insert(workoutExercises).values({
+        dayId,
+        orderIndex: nextOrder,
+        name,
+        sets: Number(body.sets) || 3,
+        repsOrTime: String(body.repsOrTime ?? '10-12'),
+        restSeconds: Number(body.restSeconds) || 60,
+        muscleGroup: String(body.muscleGroup ?? ''),
+        equipment: String(body.equipment ?? ''),
+        notes: String(body.notes ?? ''),
+    }).returning();
 
-        return c.json({ success: true, data: inserted });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+    return ok(c, inserted);
 });
 
 // ─── POST /api/workout/regenerate ────────────────────────────────────────────
 router.post('/regenerate', async (c) => {
-    try {
-        const userId = c.var.userId;
-        const body = await c.req.json();
-        const planId = Number(body.planId);
-        const constraints = String(body.constraints ?? '').trim();
+    const userId = c.var.userId;
+    const body = await c.req.json();
+    const planId = Number(body.planId);
+    const constraints = String(body.constraints ?? '').trim();
 
-        if (!planId) return c.json({ success: false, error: 'planId is required' }, 400);
+    if (!planId) throw badRequest('planId is required');
 
-        const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
-        if (profiles.length === 0) return c.json({ success: false, error: 'Profile not found' }, 400);
+    const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
+    if (profiles.length === 0) throw badRequest('Profile not found');
         const profile = profiles[0];
 
         const equipment: string[] = profile.equipment;
@@ -1214,11 +1116,7 @@ STRICT RULES:
             }
         }
 
-        return c.json({ success: true, data: { planId: insertedPlan.id } });
-    } catch (err) {
-        console.error('[workout/regenerate]', err);
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+        return ok(c, { planId: insertedPlan.id });
 });
 
 export default router;

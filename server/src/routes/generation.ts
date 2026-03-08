@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { generationJobs } from '../db/schema';
 import { plansQueue } from '../lib/queue';
+import { ok } from '../lib/response';
 
 const router = new Hono();
 
@@ -40,10 +41,10 @@ router.post('/trigger', async (c) => {
             enqueuedIds[type] = jobRowId;
         }
 
-        return c.json({ success: true, data: enqueuedIds });
+        return ok(c, enqueuedIds);
     } catch (err) {
         console.error('[generation/trigger]', err);
-        return c.json({ success: false, error: String(err) }, 500);
+        throw err;
     }
 });
 
@@ -66,9 +67,9 @@ router.get('/status', async (c) => {
             if (latest) result[type] = latest.status;
         }
 
-        return c.json({ success: true, data: result });
+        return ok(c, result);
     } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
+        throw err;
     }
 });
 

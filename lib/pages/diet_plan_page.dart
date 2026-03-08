@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/generation_provider.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/diet_service.dart';
+import 'package:buddy/services/media_service.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
@@ -56,7 +57,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     await _loadSettings();
 
     try {
-      final res = await ApiClient.listDietPlans();
+      final res = await DietService.listDietPlans();
       final plans = (res['data'] as List?) ?? [];
       final active = plans
           .where((p) => p['isActive'] == true || p['is_active'] == 1)
@@ -102,8 +103,8 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   Future<void> _loadPlanDetail(int id) async {
     try {
       final results = await Future.wait([
-        ApiClient.getDietPlan(id),
-        ApiClient.getDietLog(_todayDate),
+        DietService.getDietPlan(id),
+        DietService.getDietLog(_todayDate),
       ]);
 
       final planRes = results[0]['data'] as Map<String, dynamic>;
@@ -189,13 +190,13 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   Future<void> _toggleMealCompletion(int mealId, bool isCompleted) async {
-    await ApiClient.logMealCompletion(_todayDate, mealId, isCompleted);
+    await DietService.logMealCompletion(_todayDate, mealId, isCompleted);
     if (!mounted) return;
     setState(() => _todayLog[mealId] = isCompleted);
   }
 
   Future<void> _logActualMeal(int mealId, Map<String, dynamic> payload) async {
-    await ApiClient.logActualMeal(_todayDate, {'mealId': mealId, ...payload});
+    await DietService.logActualMeal(_todayDate, {'mealId': mealId, ...payload});
     await _loadPlanDetail(_activePlanId!);
   }
 
@@ -220,11 +221,11 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
               : 'image/jpeg';
 
       // Upload
-      final uploadRes = await ApiClient.uploadMealPhoto(file, mime);
+      final uploadRes = await MediaService.uploadMealPhoto(file, mime);
       final attachmentId = (uploadRes['data'] as Map<String, dynamic>)['id'] as int;
 
       // Analyze
-      final analyzeRes = await ApiClient.analyzeMealPhoto(attachmentId);
+      final analyzeRes = await MediaService.analyzeMealPhoto(attachmentId);
       final result = (analyzeRes['data'] as Map<String, dynamic>)['analysisResult']
           as Map<String, dynamic>;
 
@@ -392,7 +393,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
               onTap: () async {
                 Navigator.of(context).pop();
                 try {
-                  await ApiClient.logQuickMeal(_todayDate, {
+                  await MediaService.logQuickMeal(_todayDate, {
                     'mealName': (result['ingredients'] as List?)
                             ?.map((e) => (e as Map)['name'])
                             .take(2)
@@ -502,7 +503,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     setState(() => _planData = {...?_planData, 'days': days});
 
     try {
-      await ApiClient.reorderDietMeals(dayId, mealIds);
+      await DietService.reorderDietMeals(dayId, mealIds);
     } catch (_) {
       if (_activePlanId != null) await _loadPlanDetail(_activePlanId!);
     }
@@ -1357,7 +1358,7 @@ class _MealCardState extends State<_MealCard> {
             });
 
             try {
-              final res = await ApiClient.uploadMealPhoto(file, mime);
+              final res = await MediaService.uploadMealPhoto(file, mime);
               final data = res['data'] as Map<String, dynamic>;
               setSheetState(() {
                 attachmentId = data['id'] as int;
@@ -1375,7 +1376,7 @@ class _MealCardState extends State<_MealCard> {
             if (attachmentId == null) return;
             setSheetState(() => isAnalyzing = true);
             try {
-              final res = await ApiClient.analyzeMealPhoto(attachmentId!);
+              final res = await MediaService.analyzeMealPhoto(attachmentId!);
               final result = (res['data'] as Map<String, dynamic>)['analysisResult']
                   as Map<String, dynamic>;
               final macros = result['macros'] as Map<String, dynamic>;

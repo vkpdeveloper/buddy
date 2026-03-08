@@ -5,6 +5,7 @@ import {
     real,
     boolean,
     serial,
+    index,
     uniqueIndex,
     jsonb,
     timestamp,
@@ -28,7 +29,7 @@ export const users = pgTable('users', {
 
 export const userProfile = pgTable('user_profile', {
     id: serial('id').primaryKey(),
-    userId: text('user_id').notNull(),                      // Clerk user ID (e.g. user_abc123)
+    userId: text('user_id').notNull(),                      // Firebase UID
     height: real('height').notNull().default(175),          // cm
     weight: real('weight').notNull().default(70),           // kg
     age: integer('age').notNull().default(25),
@@ -66,13 +67,15 @@ export const userProfile = pgTable('user_profile', {
     profileCompleted: boolean('profile_completed').notNull().default(false),
     preferSupersets: boolean('prefer_supersets').default(false),
     updatedAt: text('updated_at').default(sql`now()`),
-});
+}, (t) => [
+    index('user_profile_user_id_idx').on(t.userId),
+]);
 
 // ─── Diet Plans ─────────────────────────────────────────────────────────────
 
 export const dietPlans = pgTable('diet_plans', {
     id: serial('id').primaryKey(),
-    userId: text('user_id').notNull(),                      // Clerk user ID
+    userId: text('user_id').notNull(),
     title: text('title').notNull(),
     totalCalories: integer('total_calories').notNull(),
     proteinG: real('protein_g').notNull(),
@@ -80,7 +83,9 @@ export const dietPlans = pgTable('diet_plans', {
     fatG: real('fat_g').notNull(),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: text('created_at').default(sql`now()`),
-});
+}, (t) => [
+    index('diet_plans_user_id_idx').on(t.userId),
+]);
 
 export const dietDays = pgTable('diet_days', {
     id: serial('id').primaryKey(),
@@ -118,7 +123,7 @@ export const dietMeals = pgTable('diet_meals', {
 
 export const workoutPlans = pgTable('workout_plans', {
     id: serial('id').primaryKey(),
-    userId: text('user_id').notNull(),                      // Clerk user ID
+    userId: text('user_id').notNull(),
     title: text('title').notNull(),
     cycleType: text('cycle_type', {
         enum: ['ppl', 'upper_lower', 'ppl_upper', 'full_body'],
@@ -127,7 +132,9 @@ export const workoutPlans = pgTable('workout_plans', {
     equipment: jsonb('equipment').$type<string[]>().notNull().default(['dumbbells']),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: text('created_at').default(sql`now()`),
-});
+}, (t) => [
+    index('workout_plans_user_id_idx').on(t.userId),
+]);
 
 export const workoutDays = pgTable('workout_days', {
     id: serial('id').primaryKey(),
@@ -181,9 +188,10 @@ export const dailyLogs = pgTable('daily_logs', {
     stepsCount: integer('steps_count').notNull().default(0),
     caloriesBurned: integer('calories_burned').notNull().default(0),
     updatedAt: text('updated_at').default(sql`now()`),
-}, (t) => ({
-    userDateUnique: uniqueIndex('daily_logs_user_date_unique').on(t.userId, t.date),
-}));
+}, (t) => [
+    uniqueIndex('daily_logs_user_date_unique').on(t.userId, t.date),
+    index('daily_logs_user_id_idx').on(t.userId),
+]);
 
 export const workoutSessions = pgTable('workout_sessions', {
     id: serial('id').primaryKey(),
@@ -204,13 +212,15 @@ export const workoutSessions = pgTable('workout_sessions', {
     sessionNotes: text('session_notes').notNull().default('[]'),
     hrSnapshots: text('hr_snapshots').notNull().default('[]'),
     xpEarned: integer('xp_earned').notNull().default(0),
-});
+}, (t) => [
+    index('workout_sessions_user_id_idx').on(t.userId),
+]);
 
 // ─── Gamification ─────────────────────────────────────────────────────────────
 
 export const userProgress = pgTable('user_progress', {
     id: serial('id').primaryKey(),
-    userId: text('user_id').notNull(),                      // Clerk user ID
+    userId: text('user_id').notNull(),
     totalXp: integer('total_xp').notNull().default(0),
     currentLevel: integer('current_level').notNull().default(1),
     currentStreak: integer('current_streak').notNull().default(0),
@@ -218,7 +228,9 @@ export const userProgress = pgTable('user_progress', {
     lastWorkoutDate: text('last_workout_date'),          // 'YYYY-MM-DD'
     totalWorkoutsCompleted: integer('total_workouts_completed').notNull().default(0),
     updatedAt: text('updated_at').default(sql`now()`),
-});
+}, (t) => [
+    uniqueIndex('user_progress_user_id_unique').on(t.userId),
+]);
 
 export const achievements = pgTable('achievements', {
     id: serial('id').primaryKey(),
@@ -231,23 +243,27 @@ export const achievements = pgTable('achievements', {
 
 export const userAchievements = pgTable('user_achievements', {
     id: serial('id').primaryKey(),
-    userId: text('user_id').notNull(),                      // Clerk user ID
+    userId: text('user_id').notNull(),
     achievementId: integer('achievement_id').notNull().references(() => achievements.id),
     unlockedAt: text('unlocked_at').default(sql`now()`),
     sessionId: integer('session_id').references(() => workoutSessions.id),
-});
+}, (t) => [
+    index('user_achievements_user_id_idx').on(t.userId),
+]);
 
 // ─── Generation Jobs (async plan generation tracking) ────────────────────────
 
 export const generationJobs = pgTable('generation_jobs', {
     id: serial('id').primaryKey(),
-    userId: text('user_id').notNull(),                      // Clerk user ID
+    userId: text('user_id').notNull(),
     type: text('type', { enum: ['diet', 'workout'] }).notNull(),
     status: text('status', { enum: ['pending', 'generating', 'done', 'failed'] }).notNull().default('pending'),
     error: text('error'),
     createdAt: text('created_at').default(sql`now()`),
     updatedAt: text('updated_at').default(sql`now()`),
-});
+}, (t) => [
+    index('generation_jobs_user_id_idx').on(t.userId),
+]);
 
 // ─── Exercise Catalog (shared, no userId) ─────────────────────────────────────
 
@@ -274,15 +290,16 @@ export const personalRecords = pgTable('personal_records', {
     reps: integer('reps').notNull(),
     achievedAt: text('achieved_at').notNull(),   // ISO timestamp
     sessionId: integer('session_id').references(() => workoutSessions.id, { onDelete: 'set null' }),
-}, (t) => ({
-    userExerciseUnique: uniqueIndex('personal_records_user_exercise_unique').on(t.userId, t.exerciseNameNormalized),
-}));
+}, (t) => [
+    uniqueIndex('personal_records_user_exercise_unique').on(t.userId, t.exerciseNameNormalized),
+    index('personal_records_user_id_idx').on(t.userId),
+]);
 
 // ─── Body Measurements (Growth tracking) ─────────────────────────────────────
 
 export const bodyMeasurements = pgTable('body_measurements', {
     id: serial('id').primaryKey(),
-    userId: text('user_id').notNull(),                      // Clerk user ID
+    userId: text('user_id').notNull(),
     date: text('date').notNull(),                       // 'YYYY-MM-DD'
     weightKg: real('weight_kg'),                        // body weight in kg
     bodyFatPercent: real('body_fat_percent'),           // body fat percentage
@@ -294,11 +311,13 @@ export const bodyMeasurements = pgTable('body_measurements', {
     notes: text('notes').notNull().default(''),
     xpEarned: integer('xp_earned').notNull().default(0),
     createdAt: text('created_at').default(sql`now()`),
-});
+}, (t) => [
+    index('body_measurements_user_id_idx').on(t.userId),
+]);
 
 export const progressPhotos = pgTable('progress_photos', {
     id: serial('id').primaryKey(),
-    userId: text('user_id').notNull(),                      // Clerk user ID
+    userId: text('user_id').notNull(),
     date: text('date').notNull(),                       // 'YYYY-MM-DD'
     measurementId: integer('measurement_id').references(() => bodyMeasurements.id, { onDelete: 'set null' }),
     objectKey: text('object_key').notNull().unique(),
@@ -306,7 +325,9 @@ export const progressPhotos = pgTable('progress_photos', {
     sizeBytes: integer('size_bytes').notNull().default(0),
     note: text('note').notNull().default(''),
     createdAt: text('created_at').default(sql`now()`),
-});
+}, (t) => [
+    index('progress_photos_user_id_idx').on(t.userId),
+]);
 
 // ─── Diet Quick Logs (standalone photo-captured meals, no meal plan FK) ───────
 
@@ -322,7 +343,9 @@ export const dietQuickLogs = pgTable('diet_quick_logs', {
     notes: text('notes').notNull().default(''),
     attachmentId: integer('attachment_id').references(() => mealMediaAttachments.id, { onDelete: 'set null' }),
     loggedAt: text('logged_at').default(sql`now()`),
-});
+}, (t) => [
+    index('diet_quick_logs_user_id_idx').on(t.userId),
+]);
 
 // ─── Meal Media Attachments (photo → AI nutrition analysis) ──────────────────
 
@@ -335,7 +358,9 @@ export const mealMediaAttachments = pgTable('meal_media_attachments', {
     aiAnalysisStatus: text('ai_analysis_status').notNull().default('pending'), // pending | analyzing | completed | failed
     aiAnalysisResult: jsonb('ai_analysis_result'),  // { ingredients, macros, confidence }
     createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (t) => [
+    index('meal_media_attachments_user_id_idx').on(t.userId),
+]);
 
 export const bodyMilestones = pgTable('body_milestones', {
     id: serial('id').primaryKey(),
@@ -344,6 +369,7 @@ export const bodyMilestones = pgTable('body_milestones', {
     measurementId: integer('measurement_id').notNull().references(() => bodyMeasurements.id, { onDelete: 'cascade' }),
     xpReward: integer('xp_reward').notNull().default(0),
     createdAt: text('created_at').default(sql`now()`),
-}, (t) => ({
-    userMilestoneUnique: uniqueIndex('body_milestones_user_milestone_unique').on(t.userId, t.milestoneKey),
-}));
+}, (t) => [
+    uniqueIndex('body_milestones_user_milestone_unique').on(t.userId, t.milestoneKey),
+    index('body_milestones_user_id_idx').on(t.userId),
+]);

@@ -7,7 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/auth_service.dart';
+import 'package:buddy/services/profile_service.dart';
+import 'package:buddy/services/generation_service.dart';
+import 'package:buddy/services/diet_service.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/providers/generation_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
@@ -156,7 +159,7 @@ class _FitnessOnboardingExtensionState
 
   Future<void> _fetchDietFoods() async {
     try {
-      final res = await ApiClient.getDietFoods();
+      final res = await DietService.getDietFoods();
       if (res['success'] == true && res['data'] != null) {
         final raw = res['data'] as Map<String, dynamic>;
         if (mounted) {
@@ -296,7 +299,7 @@ class _FitnessOnboardingExtensionState
         'maintain': 'maintain',
       };
 
-      await ApiClient.updateProfile({
+      await ProfileService.updateProfile({
         'weight': weight,
         'height': height,
         'age': age,
@@ -324,11 +327,11 @@ class _FitnessOnboardingExtensionState
       }
 
       // Trigger async generation — must succeed before marking onboarding complete
-      await ApiClient.triggerGeneration();
+      await GenerationService.triggerGeneration();
       ref.read(generationStatusProvider.notifier).startPolling();
 
       // Mark user as fully onboarded — only after profile + generation trigger both succeed
-      await ApiClient.completeOnboarding();
+      await AuthService.completeOnboarding();
 
       if (mounted) {
         setState(() => _generatingMessage = 'All set! Let\'s go!');

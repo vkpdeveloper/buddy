@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/models/exercise_catalog.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/workout_service.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 
 const _muscleGroups = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'];
@@ -60,7 +60,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
   Future<void> _loadExercises() async {
     setState(() => _isLoading = true);
     try {
-      final items = await ApiClient.getExerciseCatalog(
+      final items = await WorkoutService.getExerciseCatalog(
         muscleGroup: _selectedGroup == 'All' ? null : _selectedGroup,
       );
       if (mounted) setState(() => _exercises = items);
@@ -73,13 +73,13 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
     setState(() => _isAdding = true);
     try {
       if (widget.replaceExerciseId != null) {
-        await ApiClient.updateExercise(widget.replaceExerciseId!, {
+        await WorkoutService.updateExercise(widget.replaceExerciseId!, {
           'name': item.name,
           'muscleGroup': item.muscleGroup,
           'notes': item.notes ?? '',
         });
       } else {
-        await ApiClient.addExerciseToDay(widget.dayId, item);
+        await WorkoutService.addExerciseToDay(widget.dayId, item);
       }
       widget.onAdded();
       if (mounted) Navigator.pop(context);

@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/pages/onboarding_screen.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -24,7 +24,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _resolveDestination() async {
     bool isOnboarded = false;
     try {
-      final res = await ApiClient.getMe();
+      final res = await AuthService.getMe();
       final data = res['data'] as Map<String, dynamic>?;
       isOnboarded = data?['onboarded'] == true;
     } catch (_) {

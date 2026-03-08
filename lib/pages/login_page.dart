@@ -5,7 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/pages/onboarding_screen.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -67,7 +67,7 @@ class _LoginPageState extends State<LoginPage>
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCredential.user!;
 
-      await ApiClient.register(
+      await AuthService.register(
         email: user.email ?? '',
         name: user.displayName ?? '',
         photoUrl: user.photoURL,
@@ -77,7 +77,7 @@ class _LoginPageState extends State<LoginPage>
 
       bool isOnboarded = false;
       try {
-        final res = await ApiClient.getMe();
+        final res = await AuthService.getMe();
         final data = res['data'] as Map<String, dynamic>?;
         isOnboarded = data?['onboarded'] == true;
       } catch (_) {

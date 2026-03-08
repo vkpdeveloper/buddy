@@ -4,6 +4,8 @@ import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 
 import { env } from "./lib/env";
+import { AppError } from "./lib/errors";
+import { fail } from "./lib/response";
 import { firebaseAuth } from "./lib/firebaseAuth";
 import authRouter from "./routes/auth";
 import profileRouter from "./routes/profile";
@@ -69,8 +71,11 @@ seedCatalog().catch(console.error);
 app.notFound((c) => c.json({ success: false, error: "Route not found" }, 404));
 
 app.onError((err, c) => {
+  if (err instanceof AppError) {
+    return fail(c, err.message, err.statusCode as 400, err.code);
+  }
   console.error("Unhandled error:", err);
-  return c.json({ success: false, error: err.message }, 500);
+  return fail(c, "Internal server error", 500);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

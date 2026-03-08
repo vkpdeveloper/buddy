@@ -5,7 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/models/pr.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/workout_service.dart';
+import 'package:buddy/services/logs_service.dart';
 import 'package:buddy/pages/active_workout_page.dart';
 import 'package:buddy/pages/workout_sessions_page.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
@@ -62,7 +63,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   Future<void> _loadPlans() async {
     setState(() => _isLoading = true);
     try {
-      final res = await ApiClient.listWorkoutPlans();
+      final res = await WorkoutService.listWorkoutPlans();
       final plans = (res['data'] as List?) ?? [];
       final active = plans
           .where((p) => p['isActive'] == true || p['is_active'] == 1)
@@ -79,7 +80,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
 
   Future<void> _loadPlanDetail(int id) async {
     try {
-      final res = await ApiClient.getWorkoutPlan(id);
+      final res = await WorkoutService.getWorkoutPlan(id);
       final data = res['data'] as Map<String, dynamic>? ?? {};
       final days = (data['days'] as List?) ?? const [];
       // Use backend-computed activeWorkoutDayId to find today's index reliably.
@@ -139,7 +140,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     if (dayId == null) return;
 
     try {
-      final res = await ApiClient.getTodayWorkoutSessionStatus(
+      final res = await WorkoutService.getTodayWorkoutSessionStatus(
         planId,
         dayId,
         date: _todayDate,
@@ -161,7 +162,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
 
   Future<void> _loadTodayHydration() async {
     try {
-      final res = await ApiClient.getDailyLog(_todayDate);
+      final res = await LogsService.getDailyLog(_todayDate);
       final data = res['data'] as Map<String, dynamic>? ?? {};
       if (!mounted) return;
       setState(() {
@@ -174,7 +175,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     if (_isHydrationLogging) return;
     setState(() => _isHydrationLogging = true);
     try {
-      final res = await ApiClient.incrementHydration(_todayDate, amountMl: 250);
+      final res = await LogsService.incrementHydration(_todayDate, amountMl: 250);
       final data = res['data'] as Map<String, dynamic>? ?? {};
       if (!mounted) return;
       final updated =
@@ -290,7 +291,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     if (confirmed != true || !mounted) return;
     setState(() => _regenLoading = true);
     try {
-      await ApiClient.regenerateWorkoutPlan(
+      await WorkoutService.regenerateWorkoutPlan(
         planId: planId,
         constraints: ctrl.text.trim(),
       );
@@ -354,7 +355,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await ApiClient.deleteWorkoutExercise(
+      await WorkoutService.deleteWorkoutExercise(
         (exercise['id'] as num?)?.toInt() ?? 0,
       );
       if (!mounted) return;
@@ -1518,7 +1519,7 @@ class _ExerciseCard extends StatelessWidget {
             const SizedBox(height: 20),
             GestureDetector(
               onTap: () async {
-                await ApiClient.updateExercise(exercise['id'], {
+                await WorkoutService.updateExercise(exercise['id'], {
                   'sets': int.tryParse(setsCtrl.text) ?? exercise['sets'],
                   'repsOrTime': repsCtrl.text,
                   'restSeconds':

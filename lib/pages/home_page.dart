@@ -14,7 +14,7 @@ import 'package:buddy/pages/diet_plan_page.dart';
 import 'package:buddy/pages/workout_page.dart';
 import 'package:buddy/pages/growth_page.dart';
 import 'package:buddy/pages/buddy_chat_page.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/logs_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
@@ -1529,7 +1529,7 @@ class _HydrationCardState extends ConsumerState<_HydrationCard> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final target = prefs.getInt('water_target_ml') ?? 2500;
-      final res = await ApiClient.getHomeSummary(_todayDate);
+      final res = await LogsService.getHomeSummary(_todayDate);
       if (mounted) {
         setState(() {
           _targetMl = target;
@@ -1548,7 +1548,7 @@ class _HydrationCardState extends ConsumerState<_HydrationCard> {
     final newValue = _waterMl + 250;
     setState(() => _waterMl = newValue);
     try {
-      await ApiClient.incrementHydration(_todayDate, amountMl: 250);
+      await LogsService.incrementHydration(_todayDate, amountMl: 250);
       ref.invalidate(homeDashboardProvider);
     } catch (_) {
       if (mounted) setState(() => _waterMl = previous);

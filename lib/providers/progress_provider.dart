@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/progress_service.dart';
 import 'package:buddy/models/gamification.dart';
 
 /// FutureProvider that fetches /api/progress — used by home page and workout page.
 final progressProvider = FutureProvider<ProgressData>((ref) async {
-  final json = await ApiClient.getProgress();
+  final json = await ProgressService.getProgress();
   return ProgressData.fromJson(json['data'] as Map<String, dynamic>);
 });
 

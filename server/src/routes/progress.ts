@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { ok } from '../lib/response';
 import { db } from '../db';
 import {
     userProgress,
@@ -265,8 +266,7 @@ export async function ensureUserProgress(userId: string) {
 
 // ─── GET /api/progress ───────────────────────────────────────────────────────
 router.get('/', async (c) => {
-    try {
-        const userId = c.var.userId;
+    const userId = c.var.userId;
         await ensureUserProgress(userId);
         const [prog] = await db.select().from(userProgress).where(eq(userProgress.userId, userId)).limit(1);
 
@@ -295,30 +295,23 @@ router.get('/', async (c) => {
             return a ? { ...a, unlockedAt: u.unlockedAt } : null;
         }).filter(Boolean);
 
-        return c.json({
-            success: true,
-            data: {
-                totalXp: prog.totalXp,
-                currentLevel: level,
-                levelLabel,
-                levelProgressFraction,
-                currentStreak: prog.currentStreak,
-                longestStreak: prog.longestStreak,
-                totalWorkoutsCompleted: prog.totalWorkoutsCompleted,
-                lastWorkoutDate: prog.lastWorkoutDate,
-                recentAchievements,
-                soloLeaderboard,
-            },
+        return ok(c, {
+            totalXp: prog.totalXp,
+            currentLevel: level,
+            levelLabel,
+            levelProgressFraction,
+            currentStreak: prog.currentStreak,
+            longestStreak: prog.longestStreak,
+            totalWorkoutsCompleted: prog.totalWorkoutsCompleted,
+            lastWorkoutDate: prog.lastWorkoutDate,
+            recentAchievements,
+            soloLeaderboard,
         });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
 });
 
 // ─── GET /api/progress/achievements ─────────────────────────────────────────
 router.get('/achievements', async (c) => {
-    try {
-        const userId = c.var.userId;
+    const userId = c.var.userId;
         const all = await db.select().from(achievements);
         const unlocked = await db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
 
@@ -330,10 +323,7 @@ router.get('/achievements', async (c) => {
             unlockedAt: unlockedMap.get(a.id) ?? null,
         }));
 
-        return c.json({ success: true, data: result });
-    } catch (err) {
-        return c.json({ success: false, error: String(err) }, 500);
-    }
+        return ok(c, result);
 });
 
 export default router;

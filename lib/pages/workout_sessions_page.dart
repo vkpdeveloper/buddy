@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:buddy/app_theme.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/workout_service.dart';
 
 class WorkoutSessionsPage extends StatefulWidget {
   const WorkoutSessionsPage({super.key});
@@ -29,7 +29,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
       _error = null;
     });
     try {
-      final res = await ApiClient.getWorkoutSessionHistory(range: _range);
+      final res = await WorkoutService.getWorkoutSessionHistory(range: _range);
       if (!mounted) return;
       setState(() => _history = res['data'] as Map<String, dynamic>?);
     } catch (err) {

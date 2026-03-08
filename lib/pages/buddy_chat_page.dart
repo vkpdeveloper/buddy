@@ -7,7 +7,8 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:buddy/app_theme.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/buddy_service.dart';
+import 'package:buddy/services/profile_service.dart';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,8 @@ class _BuddyChatPageState extends State<BuddyChatPage>
   String? _userName;
   bool _isStreaming = false;
   String _streamingContent = '';
-  StreamSubscription<String>? _streamSub;
+  String? _activeToolLabel;
+  StreamSubscription<BuddyStreamEvent>? _streamSub;
 
   late AnimationController _dotAnimCtrl;
   late AnimationController _fadeInCtrl;
@@ -71,7 +73,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
 
   Future<void> _loadUserName() async {
     try {
-      final res = await ApiClient.getProfile();
+      final res = await ProfileService.getProfile();
       final name = (res['data'] as Map<String, dynamic>?)?['name'] as String?;
       if (mounted && name != null && name.isNotEmpty) {
         setState(() => _userName = name.split(' ').first);
@@ -118,6 +120,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
       _messages.add(_ChatMessage(role: _Role.user, content: trimmed));
       _isStreaming = true;
       _streamingContent = '';
+      _activeToolLabel = null;
     });
 
     _scrollToBottom();
@@ -136,6 +139,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
       _messages.removeWhere((m) => m.role == _Role.error);
       _isStreaming = true;
       _streamingContent = '';
+      _activeToolLabel = null;
     });
 
     _scrollToBottom();
@@ -161,10 +165,18 @@ class _BuddyChatPageState extends State<BuddyChatPage>
     _streamSub?.cancel();
 
     try {
-      _streamSub = ApiClient.buddyChat(apiMessages).listen(
-        (chunk) {
+      _streamSub = BuddyService.buddyChat(apiMessages).listen(
+        (event) {
           if (!mounted) return;
-          setState(() => _streamingContent += chunk);
+          switch (event) {
+            case BuddyToolStart(:final label):
+              setState(() => _activeToolLabel = label);
+            case BuddyTextChunk(:final text):
+              setState(() {
+                _activeToolLabel = null;
+                _streamingContent += text;
+              });
+          }
           _scrollToBottom();
         },
         onDone: _onStreamDone,
@@ -194,6 +206,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
       }
       _isStreaming = false;
       _streamingContent = '';
+      _activeToolLabel = null;
     });
     _scrollToBottom();
   }
@@ -210,6 +223,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
       );
       _isStreaming = false;
       _streamingContent = '';
+      _activeToolLabel = null;
     });
     _scrollToBottom();
   }
@@ -305,6 +319,9 @@ class _BuddyChatPageState extends State<BuddyChatPage>
         }
         // Streaming bubble
         if (_streamingContent.isEmpty) {
+          if (_activeToolLabel != null) {
+            return _ToolStatusBubble(label: _activeToolLabel!);
+          }
           return _ThinkingBubble(animation: _dotAnimCtrl);
         }
         return _AssistantBubble(content: _streamingContent, isStreaming: true);
@@ -664,32 +681,63 @@ class _MarkdownContent extends StatelessWidget {
   }
 }
 
-// ─── Buddy Avatar ─────────────────────────────────────────────────────────────
+// ─── Tool Status Bubble ───────────────────────────────────────────────────────
 
-class _BuddyAvatar extends StatelessWidget {
-  final bool dimmed;
-  const _BuddyAvatar({this.dimmed = false});
+class _ToolStatusBubble extends StatefulWidget {
+  final String label;
+  const _ToolStatusBubble({required this.label});
+
+  @override
+  State<_ToolStatusBubble> createState() => _ToolStatusBubbleState();
+}
+
+class _ToolStatusBubbleState extends State<_ToolStatusBubble>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        color: AppTheme.cardRaised,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: dimmed
-              ? AppTheme.borderDark.withValues(alpha: 0.4)
-              : AppTheme.borderDark,
-        ),
-      ),
-      child: Icon(
-        LucideIcons.brain,
-        color: dimmed
-            ? AppTheme.textSageMuted.withValues(alpha: 0.4)
-            : AppTheme.textSageMuted,
-        size: 14,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, _) => Transform.rotate(
+              angle: _ctrl.value * 2 * math.pi,
+              child: const Icon(
+                LucideIcons.loader_circle,
+                color: AppTheme.textSageMuted,
+                size: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            widget.label,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -881,7 +929,7 @@ class _SpinnerIconState extends State<_SpinnerIcon>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) => Transform.rotate(
+      builder: (_, _) => Transform.rotate(
         angle: _ctrl.value * 2 * math.pi,
         child: const Icon(
           LucideIcons.loader_circle,

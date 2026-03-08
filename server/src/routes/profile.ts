@@ -4,24 +4,21 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { userProfile } from '../db/schema';
+import { ok } from '../lib/response';
+import { notFound } from '../lib/errors';
 
 const router = new Hono();
 
 // GET /api/profile — get profile for the authenticated user
 router.get('/', async (c) => {
-    try {
-        const userId = c.var.userId;
-        const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
+    const userId = c.var.userId;
+    const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
 
-        if (profiles.length === 0) {
-            return c.json({ success: false, error: 'Profile not found' }, 404);
-        }
-
-        return c.json({ success: true, data: profiles[0] });
-    } catch (err) {
-        console.error('[profile GET]', err);
-        return c.json({ success: false, error: String(err) }, 500);
+    if (profiles.length === 0) {
+        throw notFound('Profile not found');
     }
+
+    return ok(c, profiles[0]);
 });
 
 const profileSchema = z.object({
@@ -51,51 +48,46 @@ const profileSchema = z.object({
 
 // PUT /api/profile — upsert profile for the authenticated user
 router.put('/', zValidator('json', profileSchema), async (c) => {
-    try {
-        const userId = c.var.userId;
-        const body = c.req.valid('json');
+    const userId = c.var.userId;
+    const body = c.req.valid('json');
 
-        const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
+    const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
 
-        const updateData: Partial<typeof userProfile.$inferInsert> = { userId };
-        if (body.name !== undefined) updateData.name = body.name;
-        if (body.height !== undefined) updateData.height = body.height;
-        if (body.weight !== undefined) updateData.weight = body.weight;
-        if (body.age !== undefined) updateData.age = body.age;
-        if (body.sex !== undefined) updateData.sex = body.sex;
-        if (body.goal !== undefined) updateData.goal = body.goal;
-        if (body.activityLevel !== undefined) updateData.activityLevel = body.activityLevel;
-        if (body.weeklyWorkoutDays !== undefined) updateData.weeklyWorkoutDays = body.weeklyWorkoutDays;
-        if (body.equipment !== undefined) updateData.equipment = body.equipment;
-        if (body.workoutCycle !== undefined) updateData.workoutCycle = body.workoutCycle;
-        if (body.useProteinPowder !== undefined) updateData.useProteinPowder = body.useProteinPowder;
-        if (body.proteinLevel !== undefined) updateData.proteinLevel = body.proteinLevel;
-        if (body.waterTargetMl !== undefined) updateData.waterTargetMl = body.waterTargetMl;
-        if (body.weightGoalKg !== undefined) updateData.weightGoalKg = body.weightGoalKg;
-        if (body.bodyFatGoalPercent !== undefined) updateData.bodyFatGoalPercent = body.bodyFatGoalPercent;
-        if (body.preferredMeals !== undefined) updateData.preferredMeals = body.preferredMeals;
-        if (body.dietType !== undefined) updateData.dietType = body.dietType;
-        if (body.mealPrepTime !== undefined) updateData.mealPrepTime = body.mealPrepTime;
-        if (body.cookingBy !== undefined) updateData.cookingBy = body.cookingBy as 'myself' | 'maid';
-        if (body.preferredFoods !== undefined) updateData.preferredFoods = body.preferredFoods;
-        if (body.profileCompleted !== undefined) updateData.profileCompleted = body.profileCompleted;
-        if (body.preferSupersets !== undefined) updateData.preferSupersets = body.preferSupersets;
+    const updateData: Partial<typeof userProfile.$inferInsert> = { userId };
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.height !== undefined) updateData.height = body.height;
+    if (body.weight !== undefined) updateData.weight = body.weight;
+    if (body.age !== undefined) updateData.age = body.age;
+    if (body.sex !== undefined) updateData.sex = body.sex;
+    if (body.goal !== undefined) updateData.goal = body.goal;
+    if (body.activityLevel !== undefined) updateData.activityLevel = body.activityLevel;
+    if (body.weeklyWorkoutDays !== undefined) updateData.weeklyWorkoutDays = body.weeklyWorkoutDays;
+    if (body.equipment !== undefined) updateData.equipment = body.equipment;
+    if (body.workoutCycle !== undefined) updateData.workoutCycle = body.workoutCycle;
+    if (body.useProteinPowder !== undefined) updateData.useProteinPowder = body.useProteinPowder;
+    if (body.proteinLevel !== undefined) updateData.proteinLevel = body.proteinLevel;
+    if (body.waterTargetMl !== undefined) updateData.waterTargetMl = body.waterTargetMl;
+    if (body.weightGoalKg !== undefined) updateData.weightGoalKg = body.weightGoalKg;
+    if (body.bodyFatGoalPercent !== undefined) updateData.bodyFatGoalPercent = body.bodyFatGoalPercent;
+    if (body.preferredMeals !== undefined) updateData.preferredMeals = body.preferredMeals;
+    if (body.dietType !== undefined) updateData.dietType = body.dietType;
+    if (body.mealPrepTime !== undefined) updateData.mealPrepTime = body.mealPrepTime;
+    if (body.cookingBy !== undefined) updateData.cookingBy = body.cookingBy as 'myself' | 'maid';
+    if (body.preferredFoods !== undefined) updateData.preferredFoods = body.preferredFoods;
+    if (body.profileCompleted !== undefined) updateData.profileCompleted = body.profileCompleted;
+    if (body.preferSupersets !== undefined) updateData.preferSupersets = body.preferSupersets;
 
-        let result: (typeof userProfile.$inferSelect)[];
-        if (profiles.length === 0) {
-            result = await db.insert(userProfile).values(updateData as typeof userProfile.$inferInsert).returning();
-        } else {
-            result = await db.update(userProfile)
-                .set(updateData)
-                .where(eq(userProfile.userId, userId))
-                .returning();
-        }
-
-        return c.json({ success: true, data: result[0] });
-    } catch (err) {
-        console.error('[profile PUT]', err);
-        return c.json({ success: false, error: String(err) }, 500);
+    let result: (typeof userProfile.$inferSelect)[];
+    if (profiles.length === 0) {
+        result = await db.insert(userProfile).values(updateData as typeof userProfile.$inferInsert).returning();
+    } else {
+        result = await db.update(userProfile)
+            .set(updateData)
+            .where(eq(userProfile.userId, userId))
+            .returning();
     }
+
+    return ok(c, result[0]);
 });
 
 export default router;

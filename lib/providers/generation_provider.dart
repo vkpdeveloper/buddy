@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:buddy/services/api_client.dart';
+import 'package:buddy/services/generation_service.dart';
 
 class GenerationStatus {
   final String diet;
@@ -40,7 +40,7 @@ class GenerationStatusNotifier extends Notifier<GenerationStatus> {
 
   Future<void> _fetch() async {
     try {
-      final res = await ApiClient.getGenerationStatus();
+      final res = await GenerationService.getGenerationStatus();
       final next =
           GenerationStatus.fromJson(res['data'] as Map<String, dynamic>);
       state = next;

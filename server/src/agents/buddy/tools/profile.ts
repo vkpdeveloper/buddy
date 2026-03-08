@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '../../../db';
-import { userProfile } from '../../../db/schema';
+import { userProfile, users } from '../../../db/schema';
 import { Tool } from 'ai';
 
 export function getUserProfileTool(userId: string): Tool {
@@ -11,9 +11,25 @@ export function getUserProfileTool(userId: string): Tool {
         inputSchema: z.object({}),
         execute: async () => {
             const [profile] = await db
-                .select()
-                .from(userProfile)
-                .where(eq(userProfile.userId, userId))
+                .select({
+                    name: users.name,
+                    age: userProfile.age,
+                    sex: userProfile.sex,
+                    weight: userProfile.weight,
+                    height: userProfile.height,
+                    goal: userProfile.goal,
+                    activityLevel: userProfile.activityLevel,
+                    dietType: userProfile.dietType,
+                    weeklyWorkoutDays: userProfile.weeklyWorkoutDays,
+                    equipment: userProfile.equipment,
+                    waterTargetMl: userProfile.waterTargetMl,
+                    preferredFoods: userProfile.preferredFoods,
+                    useProteinPowder: userProfile.useProteinPowder,
+                    mealPrepTime: userProfile.mealPrepTime,
+                })
+                .from(users)
+                .leftJoin(userProfile, eq(userProfile.userId, users.firebaseUid))
+                .where(eq(users.firebaseUid, userId))
                 .limit(1);
 
             if (!profile) throw new Error('User profile not found');
@@ -24,8 +40,8 @@ export function getUserProfileTool(userId: string): Tool {
                 sex: profile.sex,
                 weightKg: profile.weight,
                 heightCm: profile.height,
-                goal: profile.goal.replace(/_/g, ' '),
-                activityLevel: profile.activityLevel.replace(/_/g, ' '),
+                goal: profile.goal?.replace(/_/g, ' '),
+                activityLevel: profile.activityLevel?.replace(/_/g, ' '),
                 dietType: profile.dietType,
                 weeklyWorkoutDays: profile.weeklyWorkoutDays,
                 equipment: profile.equipment,
