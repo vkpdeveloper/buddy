@@ -4,13 +4,37 @@ import { db } from '../../../db';
 import { workoutPlans, workoutDays, workoutExercises, workoutSessions } from '../../../db/schema';
 import { Tool } from 'ai';
 
+export const DAY_TO_INDEX = {
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
+    Sunday: 7,
+};
+
+const getDayNumber = (day: string) => {
+    switch (day) {
+        case 'Monday': return 1;
+        case 'Tuesday': return 2;
+        case 'Wednesday': return 3;
+        case 'Thursday': return 4;
+        case 'Friday': return 5;
+        case 'Saturday': return 6;
+        case 'Sunday': return 7;
+        default: throw new Error('Invalid day name');
+    }
+}
+
 export function getTodayWorkoutTool(userId: string): Tool {
     return {
         description:
             "Get today's recommended workout — which training day is up next in the user's cycle (Push/Pull/Legs/Upper/Lower/etc.) and all the exercises with sets, reps, and rest times. Call this when the user asks what workout to do today, today's training, today's exercises, or what's next in their program.",
         inputSchema: z.object({}),
         execute: async () => {
-            const todayDayNumber = new Date().getDay();
+            const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+            const todayDayNumber = getDayNumber(todayDayName);
 
             const [activePlan] = await db
                 .select({
