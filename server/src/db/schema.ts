@@ -19,6 +19,7 @@ export const users = pgTable('users', {
     email: text('email').notNull(),
     name: text('name').notNull().default(''),
     photoUrl: text('photo_url').notNull().default(''),
+    onboarded: boolean('onboarded').notNull().default(false), // true only after full onboarding complete
     registeredAt: timestamp('registered_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

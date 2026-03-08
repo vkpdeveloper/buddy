@@ -22,18 +22,20 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _resolveDestination() async {
-    bool hasProfile = false;
+    bool isOnboarded = false;
     try {
-      final res = await ApiClient.getProfile();
-      hasProfile = res['data'] != null;
+      final res = await ApiClient.getMe();
+      final data = res['data'] as Map<String, dynamic>?;
+      isOnboarded = data?['onboarded'] == true;
     } catch (_) {
-      hasProfile = false;
+      isOnboarded = false;
     }
 
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => hasProfile ? const HomePage() : const OnboardingScreen(),
+        builder: (_) =>
+            isOnboarded ? const HomePage() : const OnboardingScreen(),
       ),
     );
   }

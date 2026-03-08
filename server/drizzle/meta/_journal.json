@@ -50,6 +50,13 @@
       "when": 1772961637415,
       "tag": "0006_lethal_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772963524190,
+      "tag": "0007_flawless_logan",
+      "breakpoints": true
     }
   ]
 }

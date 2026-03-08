@@ -319,13 +319,16 @@ class _FitnessOnboardingExtensionState
         'preferSupersets': _preferSupersets ?? false,
       });
 
-      // Trigger async generation — returns immediately, worker runs in background
-      try {
-        await ApiClient.triggerGeneration();
-        ref.read(generationStatusProvider.notifier).startPolling();
-      } catch (_) {
-        // Non-fatal: user can still proceed; status will show idle
+      if (mounted) {
+        setState(() => _generatingMessage = 'Building your plans...');
       }
+
+      // Trigger async generation — must succeed before marking onboarding complete
+      await ApiClient.triggerGeneration();
+      ref.read(generationStatusProvider.notifier).startPolling();
+
+      // Mark user as fully onboarded — only after profile + generation trigger both succeed
+      await ApiClient.completeOnboarding();
 
       if (mounted) {
         setState(() => _generatingMessage = 'All set! Let\'s go!');
@@ -343,18 +346,10 @@ class _FitnessOnboardingExtensionState
       if (mounted) {
         _stopQuoteCycle();
         setState(() => _isGenerating = false);
-        AppSnackbar.info(
+        AppSnackbar.error(
           context,
-          'Could not connect to server. Starting offline.',
+          'Setup failed. Please check your connection and try again.',
         );
-        await Future.delayed(const Duration(milliseconds: 500));
-        await widget.onComplete();
-        if (mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const HomePage()),
-            (_) => false,
-          );
-        }
       }
     }
   }

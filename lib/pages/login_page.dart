@@ -75,19 +75,20 @@ class _LoginPageState extends State<LoginPage>
 
       if (!mounted) return;
 
-      bool hasProfile = false;
+      bool isOnboarded = false;
       try {
-        final res = await ApiClient.getProfile();
-        hasProfile = res['data'] != null;
+        final res = await ApiClient.getMe();
+        final data = res['data'] as Map<String, dynamic>?;
+        isOnboarded = data?['onboarded'] == true;
       } catch (_) {
-        hasProfile = false;
+        isOnboarded = false;
       }
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) =>
-              hasProfile ? const HomePage() : const OnboardingScreen(),
+              isOnboarded ? const HomePage() : const OnboardingScreen(),
         ),
       );
     } catch (e) {

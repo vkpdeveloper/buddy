@@ -37,6 +37,22 @@ class ApiClient {
     _decode(res);
   }
 
+  static Future<Map<String, dynamic>> getMe() async {
+    final res = await _client.get(
+      Uri.parse('$baseUrl/api/auth/me'),
+      headers: await _authHeaders(),
+    );
+    return _decode(res);
+  }
+
+  static Future<void> completeOnboarding() async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/auth/complete-onboarding'),
+      headers: await _authHeaders(),
+    );
+    _decode(res);
+  }
+
   // ─── Profile ─────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> getProfile() async {
