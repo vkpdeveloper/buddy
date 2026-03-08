@@ -4,7 +4,8 @@ import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 
 import { env } from "./lib/env";
-import { clerkAuth } from "./lib/clerkAuth";
+import { firebaseAuth } from "./lib/firebaseAuth";
+import authRouter from "./routes/auth";
 import profileRouter from "./routes/profile";
 import dietRouter from "./routes/diet";
 import workoutRouter from "./routes/workout";
@@ -16,7 +17,6 @@ import generationRouter from "./routes/generation";
 import exercisesRouter from "./routes/exercises";
 import mediaRouter from "./routes/media";
 import buddyRouter from "./routes/buddy";
-import webhookRouter from "./routes/webhook";
 import { seedCatalog } from "./lib/seedCatalog";
 
 const app = new Hono();
@@ -34,11 +34,8 @@ app.use(
   }),
 );
 
-// ─── Webhooks (no auth — verified by svix signature) ─────────────────────────
-app.route("/webhooks", webhookRouter);
-
-// ─── Clerk JWT auth on all /api/* routes ─────────────────────────────────────
-app.use("/api/*", clerkAuth(env.CLERK_PUBLISHABLE_KEY));
+// ─── Firebase JWT auth on all /api/* routes ──────────────────────────────────
+app.use("/api/*", firebaseAuth(env.FIREBASE_PROJECT_ID));
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get("/", (c) =>
@@ -51,6 +48,7 @@ app.get("/", (c) =>
 );
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
+app.route("/api/auth", authRouter);
 app.route("/api/profile", profileRouter);
 app.route("/api/diet", dietRouter);
 app.route("/api/workout", workoutRouter);

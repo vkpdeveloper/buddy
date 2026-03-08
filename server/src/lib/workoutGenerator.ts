@@ -77,7 +77,7 @@ export async function runWorkoutGeneration(userId: string): Promise<{ planId: nu
     if (profiles.length === 0) throw new Error('Profile not found');
     const profile = profiles[0];
 
-    const equipment: string[] = JSON.parse(profile.equipment);
+    const equipment: string[] = profile.equipment;
     const cycleType = profile.workoutCycle;
     const daysPerWeek = profile.weeklyWorkoutDays;
 
@@ -114,7 +114,7 @@ STRICT RULES:
         title: planData.title ?? `${cycleType.toUpperCase()} Plan`,
         cycleType: cycleType as any,
         daysPerWeek,
-        equipment: JSON.stringify(equipment),
+        equipment,
         isActive: true,
     }).returning();
 

@@ -3,21 +3,23 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:clerk_flutter/clerk_flutter.dart' as clerk;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:buddy/config/env.dart';
-import 'package:buddy/providers/clerk_auth_provider.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'app_theme.dart';
 import 'pages/splash_screen.dart';
+import 'pages/login_page.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ── Load & validate environment ──────────────────────────────────────────
-  // This will throw EnvValidationError and halt the app if any required
-  // env var is missing or malformed. Pass --dart-define=APP_FLAVOR=production
-  // to load .env.production instead of the default .env.development.
   await EnvLoader.load();
+
+  // ── Initialize Firebase ──────────────────────────────────────────────────
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Pre-warm fonts to avoid flash of unstyled text on first render
   await GoogleFonts.pendingFonts([
@@ -48,42 +50,35 @@ void main() async {
 class HealthBiometricsApp extends StatelessWidget {
   const HealthBiometricsApp({super.key});
 
-  static final _clerkConfig = clerk.ClerkAuthConfig(
-    publishableKey: EnvInstance.instance.clerkPublishableKey,
-    loading: null, // splash screen handles loading UI — disable Clerk's overlay
-  );
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Buddy',
       theme: AppTheme.darkTheme,
-      // ClerkAuth wraps the entire app via builder. _ClerkAuthRegistrar sits
-      // inside that tree so ClerkAuth.of(context) is valid when it runs.
-      home: const _ClerkAuthRegistrar(child: SplashScreen()),
+      home: const _AuthGate(),
       debugShowCheckedModeBanner: false,
-      builder: clerk.ClerkAuth.materialAppBuilder(config: _clerkConfig),
     );
   }
 }
 
-/// Sits inside the ClerkAuth widget tree and registers the [ClerkAuthState]
-/// with [ClerkAuthProvider] so [ApiClient] can get tokens without a context.
-class _ClerkAuthRegistrar extends StatefulWidget {
-  const _ClerkAuthRegistrar({required this.child});
-  final Widget child;
+/// Listens to Firebase auth state and routes to [LoginPage] or [SplashScreen].
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
 
   @override
-  State<_ClerkAuthRegistrar> createState() => _ClerkAuthRegistrarState();
-}
-
-class _ClerkAuthRegistrarState extends State<_ClerkAuthRegistrar> {
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    ClerkAuthProvider.instance.setAuthState(clerk.ClerkAuth.of(context));
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: Colors.black,
+            body: SizedBox.shrink(),
+          );
+        }
+        final isSignedIn = snapshot.hasData && snapshot.data != null;
+        return isSignedIn ? const SplashScreen() : const LoginPage();
+      },
+    );
   }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }

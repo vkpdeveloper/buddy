@@ -1,41 +1,34 @@
 import type { Context, Next } from 'hono';
 
 /**
- * Clerk JWT middleware for Hono.
+ * Firebase Auth JWT middleware for Hono.
  *
- * Verifies the Bearer token from the Authorization header using Clerk's
- * public JWKS endpoint, then injects `c.var.userId` (the Clerk `sub` claim)
+ * Verifies the Bearer token from the Authorization header using Firebase's
+ * public JWKS endpoint, then injects `c.var.userId` (the Firebase `sub` claim)
  * into the request context.
  *
- * Clerk JWTs are RS256-signed. We cache the JWKS in-memory so we only
- * fetch it once per server boot (Clerk rotates keys rarely).
+ * Firebase JWTs are RS256-signed. We cache the JWKS in-memory with a 1-hour TTL.
  */
 
-const CLERK_JWKS_CACHE: { keys: CryptoKey[]; fetchedAt: number } = {
+const FIREBASE_JWKS_URL =
+    'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+
+const JWKS_CACHE: { keys: CryptoKey[]; fetchedAt: number } = {
     keys: [],
     fetchedAt: 0,
 };
 const JWKS_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-async function getClerkJwks(publishableKey: string): Promise<CryptoKey[]> {
+async function getFirebaseJwks(): Promise<CryptoKey[]> {
     const now = Date.now();
-    if (CLERK_JWKS_CACHE.keys.length > 0 && now - CLERK_JWKS_CACHE.fetchedAt < JWKS_TTL_MS) {
-        return CLERK_JWKS_CACHE.keys;
+    if (JWKS_CACHE.keys.length > 0 && now - JWKS_CACHE.fetchedAt < JWKS_TTL_MS) {
+        return JWKS_CACHE.keys;
     }
 
-    // Derive the frontend API URL from the publishable key
-    // pk_live_... → https://<instance>.clerk.accounts.dev
-    // pk_test_... → https://<instance>.clerk.accounts.dev
-    const instancePart = publishableKey.replace(/^pk_(live|test)_/, '');
-    // The instance is base64-encoded; decode it to get the domain
-    const decoded = Buffer.from(instancePart, 'base64').toString('utf-8').replace(/\0/g, '');
-    // decoded looks like "clerk.<domain>$" – strip the trailing $
-    const domain = decoded.replace(/\$$/, '').replace(/^clerk\./, '');
-    const jwksUrl = `https://${domain}/.well-known/jwks.json`;
-
-    const res = await fetch(jwksUrl);
-    if (!res.ok) throw new Error(`Failed to fetch JWKS: ${res.status}`);
-    const { keys } = await res.json() as { keys: JsonWebKey[] };
+    const res = await fetch(FIREBASE_JWKS_URL);
+    if (!res.ok) throw new Error(`Failed to fetch Firebase JWKS: ${res.status}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { keys } = await res.json() as { keys: any[] };
 
     const cryptoKeys: CryptoKey[] = await Promise.all(
         keys.map((k) =>
@@ -49,8 +42,8 @@ async function getClerkJwks(publishableKey: string): Promise<CryptoKey[]> {
         )
     );
 
-    CLERK_JWKS_CACHE.keys = cryptoKeys;
-    CLERK_JWKS_CACHE.fetchedAt = now;
+    JWKS_CACHE.keys = cryptoKeys;
+    JWKS_CACHE.fetchedAt = now;
     return cryptoKeys;
 }
 
@@ -65,7 +58,7 @@ function base64urlDecode(str: string): Uint8Array {
     return bytes;
 }
 
-async function verifyClerkJwt(token: string, publishableKey: string): Promise<{ sub: string }> {
+async function verifyFirebaseJwt(token: string, projectId: string): Promise<{ sub: string; email?: string; name?: string; picture?: string }> {
     const parts = token.split('.');
     if (parts.length !== 3) throw new Error('Invalid JWT format');
 
@@ -75,7 +68,7 @@ async function verifyClerkJwt(token: string, publishableKey: string): Promise<{ 
     const signature = base64urlDecode(sigB64);
     const data = new TextEncoder().encode(signingInput);
 
-    const keys = await getClerkJwks(publishableKey);
+    const keys = await getFirebaseJwks();
 
     let verified = false;
     for (const key of keys) {
@@ -96,13 +89,27 @@ async function verifyClerkJwt(token: string, publishableKey: string): Promise<{ 
 
     const payload = JSON.parse(
         new TextDecoder().decode(base64urlDecode(payloadB64))
-    ) as { sub: string; exp: number };
+    ) as { sub: string; exp: number; iss: string; aud: string; email?: string; name?: string; picture?: string };
 
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
         throw new Error('JWT expired');
     }
 
-    return { sub: payload.sub };
+    const expectedIssuer = `https://securetoken.google.com/${projectId}`;
+    if (payload.iss !== expectedIssuer) {
+        throw new Error(`Invalid issuer: ${payload.iss}`);
+    }
+
+    if (payload.aud !== projectId) {
+        throw new Error(`Invalid audience: ${payload.aud}`);
+    }
+
+    return {
+        sub: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+    };
 }
 
 declare module 'hono' {
@@ -111,7 +118,7 @@ declare module 'hono' {
     }
 }
 
-export function clerkAuth(publishableKey: string) {
+export function firebaseAuth(projectId: string) {
     return async (c: Context, next: Next) => {
         const authHeader = c.req.header('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
@@ -120,11 +127,11 @@ export function clerkAuth(publishableKey: string) {
 
         const token = authHeader.slice(7);
         try {
-            const { sub } = await verifyClerkJwt(token, publishableKey);
+            const { sub } = await verifyFirebaseJwt(token, projectId);
             c.set('userId', sub);
             await next();
         } catch (err) {
-            console.error('[clerkAuth]', err);
+            console.error('[firebaseAuth]', err);
             return c.json({ success: false, error: 'Invalid or expired token' }, 401);
         }
     };

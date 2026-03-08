@@ -359,7 +359,7 @@ router.post('/generate', async (c) => {
         if (profiles.length === 0) return c.json({ success: false, error: 'Profile not found' }, 400);
         const profile = profiles[0];
 
-        const equipment: string[] = JSON.parse(profile.equipment);
+        const equipment: string[] = profile.equipment;
         const cycleType = profile.workoutCycle;
         const daysPerWeek = profile.weeklyWorkoutDays;
 
@@ -407,7 +407,7 @@ STRICT RULES:
             title: planData.title ?? `${cycleType.toUpperCase()} Plan`,
             cycleType: cycleType as any,
             daysPerWeek,
-            equipment: JSON.stringify(equipment),
+            equipment,
             isActive: true,
         }).returning();
 
@@ -511,7 +511,7 @@ router.post('/exercises/:id/replace', zValidator('json', replaceExerciseSchema),
         }
 
         const [profile] = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
-        const equipmentList = profile ? safeParseArray(profile.equipment).map((item) => String(item)) : [];
+        const equipmentList = profile ? profile.equipment.map((item) => String(item)) : [];
         const equipmentDisplay = equipmentList.length > 0
             ? equipmentList.join(', ')
             : 'dumbbells, bodyweight';
@@ -1138,7 +1138,7 @@ router.post('/regenerate', async (c) => {
         if (profiles.length === 0) return c.json({ success: false, error: 'Profile not found' }, 400);
         const profile = profiles[0];
 
-        const equipment: string[] = JSON.parse(profile.equipment);
+        const equipment: string[] = profile.equipment;
         const cycleType = profile.workoutCycle;
         const daysPerWeek = profile.weeklyWorkoutDays;
 
@@ -1178,7 +1178,7 @@ STRICT RULES:
             title: planData.title ?? `${cycleType.toUpperCase()} Plan (Updated)`,
             cycleType: cycleType as any,
             daysPerWeek,
-            equipment: JSON.stringify(equipment),
+            equipment,
             isActive: true,
         }).returning();
 

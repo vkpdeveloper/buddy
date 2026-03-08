@@ -90,7 +90,7 @@ export async function runDietGeneration(userId: string): Promise<{ planId: numbe
     const macros = calculateMacros(profile.weight, tdee, profile.goal as any, bmr);
 
     const useProteinPowder = profile.useProteinPowder;
-    const preferredMeals: string[] = JSON.parse(profile.preferredMeals);
+    const preferredMeals: string[] = profile.preferredMeals;
     preferredMeals.sort((a, b) => (MEAL_ORDER[a] ?? 99) - (MEAL_ORDER[b] ?? 99));
     const mealTypesList = preferredMeals.map(m => `${m} (${MEAL_LABELS[m] ?? m})`).join(', ');
     const mealCount = preferredMeals.length;
@@ -98,7 +98,7 @@ export async function runDietGeneration(userId: string): Promise<{ planId: numbe
     const dietType = (profile.dietType ?? 'vegetarian') as keyof typeof HIGH_PROTEIN_FOODS;
     const mealPrepTime = profile.mealPrepTime ?? '30min';
     const cookingBy = profile.cookingBy ?? 'myself';
-    const preferredFoods: string[] = JSON.parse(profile.preferredFoods ?? '[]');
+    const preferredFoods: string[] = profile.preferredFoods;
     const preferredFoodsLower = new Set(preferredFoods.map(f => f.toLowerCase()));
 
     const dietLabels: Record<string, string> = {

@@ -28,9 +28,9 @@ export function getUserProfileTool(userId: string): Tool {
                 activityLevel: profile.activityLevel.replace(/_/g, ' '),
                 dietType: profile.dietType,
                 weeklyWorkoutDays: profile.weeklyWorkoutDays,
-                equipment: JSON.parse(profile.equipment ?? '[]'),
+                equipment: profile.equipment,
                 waterTargetMl: profile.waterTargetMl,
-                preferredFoods: JSON.parse(profile.preferredFoods ?? '[]'),
+                preferredFoods: profile.preferredFoods,
                 useProteinPowder: profile.useProteinPowder,
                 mealPrepTime: profile.mealPrepTime,
             };

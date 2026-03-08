@@ -25,10 +25,8 @@ const envSchema = z.object({
   R2_BUCKET_NAME: z.string().min(1, "R2_BUCKET_NAME is required"),
   R2_PUBLIC_BASE_URL: z.string().optional(),
 
-  // Clerk
-  CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is required"),
-  CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
-  CLERK_WEBHOOK_SECRET: z.string().min(1, "CLERK_WEBHOOK_SECRET is required"),
+  // Firebase
+  FIREBASE_PROJECT_ID: z.string().min(1, "FIREBASE_PROJECT_ID is required"),
 });
 
 // ── Parse & export ──────────────────────────────────────────────────────────

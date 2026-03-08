@@ -44,6 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Firebase config (contain API keys — never commit)
+google-services.json
+GoogleService-Info.plist
+
 # Backend and Environment
 .env
 .env.*

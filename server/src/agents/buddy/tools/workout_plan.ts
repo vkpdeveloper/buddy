@@ -59,7 +59,7 @@ export function getFullWorkoutPlanTool(userId: string): Tool {
                 planTitle: activePlan.title,
                 cycleType: activePlan.cycleType,
                 daysPerWeek: activePlan.daysPerWeek,
-                equipment: JSON.parse(activePlan.equipment ?? '["dumbbells"]'),
+                equipment: activePlan.equipment,
                 days: daysWithExercises,
             };
         },

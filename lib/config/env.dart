@@ -78,18 +78,6 @@ String? _validateEnum(String key, String? value, List<String> allowed) {
   return null;
 }
 
-/// Validates that [value] starts with one of the given [prefixes].
-String? _validatePrefix(String key, String? value, List<String> prefixes) {
-  final stringIssue = _validateString(key, value);
-  if (stringIssue != null) return stringIssue;
-
-  final matches = prefixes.any((p) => value!.startsWith(p));
-  if (!matches) {
-    return '$key: must start with one of [${prefixes.join(', ')}] (got "$value")';
-  }
-  return null;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // EnvSchema
 //
@@ -106,22 +94,17 @@ class Env {
   /// Full base URL for the backend API (no trailing slash).
   final String apiBaseUrl;
 
-  /// Clerk publishable key for authentication.
-  final String clerkPublishableKey;
-
   // Private constructor — only EnvSchema.validate() may produce an instance.
   const Env._({
     required this.appEnv,
     required this.apiBaseUrl,
-    required this.clerkPublishableKey,
   });
 
   bool get isDevelopment => appEnv == AppEnvironment.development;
   bool get isProduction => appEnv == AppEnvironment.production;
 
   @override
-  String toString() =>
-      'Env(appEnv: $appEnv, apiBaseUrl: $apiBaseUrl, clerkPublishableKey: [redacted])';
+  String toString() => 'Env(appEnv: $appEnv, apiBaseUrl: $apiBaseUrl)';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,14 +133,6 @@ abstract final class EnvSchema {
     final apiUrlIssue = _validateUrl('API_BASE_URL', rawApiBaseUrl);
     if (apiUrlIssue != null) issues.add(apiUrlIssue);
 
-    // ── CLERK_PUBLISHABLE_KEY ─────────────────────────────────────────────────
-    final rawClerkKey = dotenv.maybeGet('CLERK_PUBLISHABLE_KEY');
-    final clerkIssue = _validatePrefix('CLERK_PUBLISHABLE_KEY', rawClerkKey, [
-      'pk_test_',
-      'pk_live_',
-    ]);
-    if (clerkIssue != null) issues.add(clerkIssue);
-
     // ── Fail fast if any issues were found ───────────────────────────────────
     if (issues.isNotEmpty) {
       throw EnvValidationError(issues);
@@ -171,7 +146,6 @@ abstract final class EnvSchema {
     return Env._(
       appEnv: appEnv,
       apiBaseUrl: rawApiBaseUrl!.trimRight().replaceAll(RegExp(r'/+$'), ''),
-      clerkPublishableKey: rawClerkKey!,
     );
   }
 }

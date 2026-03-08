@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:buddy/config/env.dart';
 import 'package:buddy/models/pr.dart';
 import 'package:buddy/models/exercise_catalog.dart';
-import 'package:buddy/providers/clerk_auth_provider.dart';
+import 'package:buddy/providers/firebase_auth_provider.dart';
 
 class ApiClient {
   static String get baseUrl => EnvInstance.instance.apiBaseUrl;
@@ -14,12 +14,27 @@ class ApiClient {
   static final _client = http.Client();
 
   static Future<Map<String, String>> _authHeaders() async {
-    final token = await ClerkAuthProvider.instance.getToken();
+    final token = await FirebaseAuthProvider.instance.getToken();
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
+  }
+
+  // ─── Auth ─────────────────────────────────────────────────────────────
+
+  static Future<void> register({
+    required String email,
+    required String name,
+    String? photoUrl,
+  }) async {
+    final res = await _client.post(
+      Uri.parse('$baseUrl/api/auth/register'),
+      headers: await _authHeaders(),
+      body: jsonEncode({'email': email, 'name': name, 'photoUrl': photoUrl}),
+    );
+    _decode(res);
   }
 
   // ─── Profile ─────────────────────────────────────────────────────────
@@ -527,7 +542,7 @@ class ApiClient {
     int? measurementId,
     String note = '',
   }) async {
-    final token = await ClerkAuthProvider.instance.getToken();
+    final token = await FirebaseAuthProvider.instance.getToken();
     final req = http.MultipartRequest(
       'POST',
       Uri.parse('$baseUrl/api/body/photos'),
@@ -578,7 +593,7 @@ class ApiClient {
     File photo,
     String mimeType,
   ) async {
-    final token = await ClerkAuthProvider.instance.getToken();
+    final token = await FirebaseAuthProvider.instance.getToken();
     final bytes = await photo.readAsBytes();
     final fileName = photo.path.split('/').last;
     final req = http.MultipartRequest(
@@ -630,7 +645,7 @@ class ApiClient {
   static Stream<String> buddyChat(
     List<Map<String, dynamic>> messages,
   ) async* {
-    final token = await ClerkAuthProvider.instance.getToken();
+    final token = await FirebaseAuthProvider.instance.getToken();
     final request = http.Request(
       'POST',
       Uri.parse('$baseUrl/api/buddy/chat'),
@@ -725,7 +740,7 @@ class ApiClient {
     String text, {
     String voice = 'aura-2-orion-en',
   }) async {
-    final token = await ClerkAuthProvider.instance.getToken();
+    final token = await FirebaseAuthProvider.instance.getToken();
     final res = await _client.post(
       Uri.parse('$baseUrl/api/tts'),
       headers: {

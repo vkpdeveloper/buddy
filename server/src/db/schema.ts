@@ -11,18 +11,19 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-// ─── Users (synced from Clerk via webhook) ───────────────────────────────────
+// ─── Users (synced from Firebase Auth) ───────────────────────────────────────
 
 export const users = pgTable('users', {
     id: serial('id').primaryKey(),
-    clerkId: text('clerk_id').notNull().unique(),           // Clerk user ID (e.g. user_abc123)
+    firebaseUid: text('firebase_uid').notNull().unique(),   // Firebase UID
     email: text('email').notNull(),
     name: text('name').notNull().default(''),
+    photoUrl: text('photo_url').notNull().default(''),
     registeredAt: timestamp('registered_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-// ─── User Profile (one row per Clerk user) ───────────────────────────────────
+// ─── User Profile (one row per Firebase user) ────────────────────────────────
 
 export const userProfile = pgTable('user_profile', {
     id: serial('id').primaryKey(),
@@ -38,7 +39,7 @@ export const userProfile = pgTable('user_profile', {
         enum: ['sedentary', 'lightly_active', 'moderately_active', 'very_active', 'athlete'],
     }).notNull().default('moderately_active'),
     weeklyWorkoutDays: integer('weekly_workout_days').notNull().default(4),
-    equipment: text('equipment').notNull().default('["dumbbells","bodyweight"]'), // JSON array
+    equipment: jsonb('equipment').$type<string[]>().notNull().default(['dumbbells', 'bodyweight']),
     workoutCycle: text('workout_cycle', {
         enum: ['ppl', 'upper_lower', 'ppl_upper', 'full_body'],
     }).notNull().default('ppl'),
@@ -50,7 +51,7 @@ export const userProfile = pgTable('user_profile', {
     waterTargetMl: integer('water_target_ml').notNull().default(2500),
     weightGoalKg: real('weight_goal_kg'),
     bodyFatGoalPercent: real('body_fat_goal_percent'),
-    preferredMeals: text('preferred_meals').notNull().default('["breakfast","morning_snack","lunch","pre_workout","post_workout","dinner","evening_snack"]'), // JSON array
+    preferredMeals: jsonb('preferred_meals').$type<string[]>().notNull().default(['breakfast', 'morning_snack', 'lunch', 'pre_workout', 'post_workout', 'dinner', 'evening_snack']),
     dietType: text('diet_type', {
         enum: ['vegetarian', 'non_vegetarian', 'vegan'],
     }).notNull().default('vegetarian'),
@@ -60,7 +61,7 @@ export const userProfile = pgTable('user_profile', {
     cookingBy: text('cooking_by', {
         enum: ['myself', 'maid'],
     }).notNull().default('myself'),
-    preferredFoods: text('preferred_foods').notNull().default('[]'), // JSON array of food names
+    preferredFoods: jsonb('preferred_foods').$type<string[]>().notNull().default([]),
     profileCompleted: boolean('profile_completed').notNull().default(false),
     preferSupersets: boolean('prefer_supersets').default(false),
     updatedAt: text('updated_at').default(sql`now()`),
@@ -122,7 +123,7 @@ export const workoutPlans = pgTable('workout_plans', {
         enum: ['ppl', 'upper_lower', 'ppl_upper', 'full_body'],
     }).notNull(),
     daysPerWeek: integer('days_per_week').notNull(),
-    equipment: text('equipment').notNull().default('["dumbbells"]'), // JSON array
+    equipment: jsonb('equipment').$type<string[]>().notNull().default(['dumbbells']),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: text('created_at').default(sql`now()`),
 });

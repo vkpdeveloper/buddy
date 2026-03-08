@@ -66,18 +66,18 @@ router.put('/', zValidator('json', profileSchema), async (c) => {
         if (body.goal !== undefined) updateData.goal = body.goal;
         if (body.activityLevel !== undefined) updateData.activityLevel = body.activityLevel;
         if (body.weeklyWorkoutDays !== undefined) updateData.weeklyWorkoutDays = body.weeklyWorkoutDays;
-        if (body.equipment !== undefined) updateData.equipment = JSON.stringify(body.equipment);
+        if (body.equipment !== undefined) updateData.equipment = body.equipment;
         if (body.workoutCycle !== undefined) updateData.workoutCycle = body.workoutCycle;
         if (body.useProteinPowder !== undefined) updateData.useProteinPowder = body.useProteinPowder;
         if (body.proteinLevel !== undefined) updateData.proteinLevel = body.proteinLevel;
         if (body.waterTargetMl !== undefined) updateData.waterTargetMl = body.waterTargetMl;
         if (body.weightGoalKg !== undefined) updateData.weightGoalKg = body.weightGoalKg;
         if (body.bodyFatGoalPercent !== undefined) updateData.bodyFatGoalPercent = body.bodyFatGoalPercent;
-        if (body.preferredMeals !== undefined) updateData.preferredMeals = JSON.stringify(body.preferredMeals);
+        if (body.preferredMeals !== undefined) updateData.preferredMeals = body.preferredMeals;
         if (body.dietType !== undefined) updateData.dietType = body.dietType;
         if (body.mealPrepTime !== undefined) updateData.mealPrepTime = body.mealPrepTime;
         if (body.cookingBy !== undefined) updateData.cookingBy = body.cookingBy as 'myself' | 'maid';
-        if (body.preferredFoods !== undefined) updateData.preferredFoods = JSON.stringify(body.preferredFoods);
+        if (body.preferredFoods !== undefined) updateData.preferredFoods = body.preferredFoods;
         if (body.profileCompleted !== undefined) updateData.profileCompleted = body.profileCompleted;
         if (body.preferSupersets !== undefined) updateData.preferSupersets = body.preferSupersets;
 

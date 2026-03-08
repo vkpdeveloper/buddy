@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:clerk_flutter/clerk_flutter.dart' as clerk;
-import 'package:clerk_auth/clerk_auth.dart' as clerk_auth;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/pages/onboarding_screen.dart';
@@ -51,9 +51,27 @@ class _LoginPageState extends State<LoginPage>
     });
 
     try {
-      await clerk.ClerkAuth.of(
-        context,
-      ).ssoSignIn(context, clerk_auth.Strategy.oauthGoogle);
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        // User cancelled
+        setState(() => _loading = false);
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user!;
+
+      await ApiClient.register(
+        email: user.email ?? '',
+        name: user.displayName ?? '',
+        photoUrl: user.photoURL,
+      );
 
       if (!mounted) return;
 

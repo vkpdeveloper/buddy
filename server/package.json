@@ -1,7 +1,7 @@
 {
-    "name": "ledger-server",
+    "name": "buddy-server",
     "version": "1.0.0",
-    "description": "Ledger Fitness AI Backend — Bun + Hono + Drizzle + Gemini",
+    "description": "Buddy is here",
     "module": "src/index.ts",
     "type": "module",
     "scripts": {
