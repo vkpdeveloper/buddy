@@ -217,21 +217,27 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
       final mime = ext == 'png'
           ? 'image/png'
           : ext == 'webp'
-              ? 'image/webp'
-              : 'image/jpeg';
+          ? 'image/webp'
+          : 'image/jpeg';
 
       // Upload
       final uploadRes = await MediaService.uploadMealPhoto(file, mime);
-      final attachmentId = (uploadRes['data'] as Map<String, dynamic>)['id'] as int;
+      final attachmentId =
+          (uploadRes['data'] as Map<String, dynamic>)['id'] as int;
 
       // Analyze
       final analyzeRes = await MediaService.analyzeMealPhoto(attachmentId);
-      final result = (analyzeRes['data'] as Map<String, dynamic>)['analysisResult']
-          as Map<String, dynamic>;
+      final result =
+          (analyzeRes['data'] as Map<String, dynamic>)['analysisResult']
+              as Map<String, dynamic>;
 
       if (!mounted) return;
       setState(() => _isPhotoLogging = false);
-      _showPhotoResultSheet(file: file, attachmentId: attachmentId, result: result);
+      _showPhotoResultSheet(
+        file: file,
+        attachmentId: attachmentId,
+        result: result,
+      );
     } catch (e) {
       if (mounted) setState(() => _isPhotoLogging = false);
     }
@@ -243,7 +249,8 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     required Map<String, dynamic> result,
   }) {
     final macros = result['macros'] as Map<String, dynamic>;
-    final ingredients = (result['ingredients'] as List?)
+    final ingredients =
+        (result['ingredients'] as List?)
             ?.map((e) => e as Map<String, dynamic>)
             .toList() ??
         [];
@@ -283,7 +290,10 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -291,8 +301,11 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(LucideIcons.sparkles,
-                          size: 11, color: AppTheme.primary),
+                      const Icon(
+                        LucideIcons.sparkles,
+                        size: 11,
+                        color: AppTheme.primary,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${(confidence * 100).toStringAsFixed(0)}% confident',
@@ -324,22 +337,29 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
             // Macro row
             Row(
               children: [
-                _MacroPill(label: 'KCAL', value: '$calories', color: AppTheme.primary),
+                _MacroPill(
+                  label: 'KCAL',
+                  value: '$calories',
+                  color: AppTheme.primary,
+                ),
                 const SizedBox(width: 8),
                 _MacroPill(
-                    label: 'PROTEIN',
-                    value: '${protein.toStringAsFixed(1)}g',
-                    color: AppTheme.info),
+                  label: 'PROTEIN',
+                  value: '${protein.toStringAsFixed(1)}g',
+                  color: AppTheme.info,
+                ),
                 const SizedBox(width: 8),
                 _MacroPill(
-                    label: 'CARBS',
-                    value: '${carbs.toStringAsFixed(1)}g',
-                    color: AppTheme.warning),
+                  label: 'CARBS',
+                  value: '${carbs.toStringAsFixed(1)}g',
+                  color: AppTheme.warning,
+                ),
                 const SizedBox(width: 8),
                 _MacroPill(
-                    label: 'FAT',
-                    value: '${fat.toStringAsFixed(1)}g',
-                    color: AppTheme.muscleArms),
+                  label: 'FAT',
+                  value: '${fat.toStringAsFixed(1)}g',
+                  color: AppTheme.muscleArms,
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -356,32 +376,37 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              ...ingredients.map((ing) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        const Icon(LucideIcons.circle_dot,
-                            size: 10, color: AppTheme.primary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            ing['name']?.toString() ?? '',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          ing['quantity']?.toString() ?? '',
+              ...ingredients.map(
+                (ing) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.circle_dot,
+                        size: 10,
+                        color: AppTheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          ing['name']?.toString() ?? '',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 12,
+                            color: AppTheme.textCream,
+                            fontSize: 13,
                           ),
                         ),
-                      ],
-                    ),
-                  )),
+                      ),
+                      Text(
+                        ing['quantity']?.toString() ?? '',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
             ],
 
@@ -390,43 +415,46 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
               label: 'Log this meal',
               button: true,
               child: GestureDetector(
-              onTap: () async {
-                Navigator.of(context).pop();
-                try {
-                  await MediaService.logQuickMeal(_todayDate, {
-                    'mealName': (result['ingredients'] as List?)
-                            ?.map((e) => (e as Map)['name'])
-                            .take(2)
-                            .join(', ') ??
-                        'Photo meal',
-                    'calories': calories,
-                    'proteinG': protein,
-                    'carbsG': carbs,
-                    'fatG': fat,
-                    'attachmentId': attachmentId,
-                  });
-                  if (_activePlanId != null) await _loadPlanDetail(_activePlanId!);
-                } catch (_) {}
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'LOG THIS MEAL',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.oledBlack,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.1,
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  try {
+                    await MediaService.logQuickMeal(_todayDate, {
+                      'mealName':
+                          (result['ingredients'] as List?)
+                              ?.map((e) => (e as Map)['name'])
+                              .take(2)
+                              .join(', ') ??
+                          'Photo meal',
+                      'calories': calories,
+                      'proteinG': protein,
+                      'carbsG': carbs,
+                      'fatG': fat,
+                      'attachmentId': attachmentId,
+                    });
+                    if (_activePlanId != null) {
+                      await _loadPlanDetail(_activePlanId!);
+                    }
+                  } catch (_) {}
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'LOG THIS MEAL',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.oledBlack,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
+                    ),
                   ),
                 ),
               ),
             ),
-              ),
           ],
         ),
       ),
@@ -659,39 +687,43 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
               right: 20,
               bottom: fabBottom,
               child: Tooltip(
-                message: _isPhotoLogging ? 'Logging meal photo…' : 'Log meal with photo',
+                message: _isPhotoLogging
+                    ? 'Logging meal photo…'
+                    : 'Log meal with photo',
                 child: Semantics(
-                  label: _isPhotoLogging ? 'Logging meal photo, please wait' : 'Log meal with photo',
+                  label: _isPhotoLogging
+                      ? 'Logging meal photo, please wait'
+                      : 'Log meal with photo',
                   button: true,
                   enabled: !_isPhotoLogging,
                   child: GestureDetector(
-                onTap: _isPhotoLogging ? null : _quickPhotoLog,
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: ExcludeSemantics(
-                    child: _isPhotoLogging
-                        ? const Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: AppTheme.oledBlack,
+                    onTap: _isPhotoLogging ? null : _quickPhotoLog,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: AppTheme.actionSurface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: ExcludeSemantics(
+                        child: _isPhotoLogging
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: AppTheme.actionForeground,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                LucideIcons.camera,
+                                color: AppTheme.actionForeground,
+                                size: 22,
                               ),
-                            ),
-                          )
-                        : const Icon(
-                            LucideIcons.camera,
-                            color: AppTheme.oledBlack,
-                            size: 22,
-                          ),
-                  ),
-                ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -784,9 +816,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
             child: IconButton(
               onPressed: _openReminderSettingsSheet,
               icon: Icon(
-                _reminderEnabled
-                    ? LucideIcons.bell_ring
-                    : LucideIcons.bell,
+                _reminderEnabled ? LucideIcons.bell_ring : LucideIcons.bell,
                 color: _reminderEnabled
                     ? AppTheme.primary
                     : AppTheme.textSageMuted,
@@ -864,37 +894,37 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 button: true,
                 selected: isSelected,
                 child: GestureDetector(
-                onTap: () => setState(() => _selectedDayIndex = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  margin: const EdgeInsets.only(right: 8),
-                  width: 58,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primary : AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppTheme.primary
-                          : AppTheme.borderDark,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      dayName.substring(0, 3).toUpperCase(),
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.plusJakartaSans(
+                  onTap: () => setState(() => _selectedDayIndex = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    margin: const EdgeInsets.only(right: 8),
+                    width: 58,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primary : AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
                         color: isSelected
-                            ? AppTheme.oledBlack
-                            : AppTheme.textSageMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
+                            ? AppTheme.primary
+                            : AppTheme.borderDark,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        dayName.substring(0, 3).toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: isSelected
+                              ? AppTheme.oledBlack
+                              : AppTheme.textSageMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
               );
             },
           ),
@@ -902,7 +932,12 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         const SizedBox(height: 12),
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(24, 0, 24, MediaQuery.paddingOf(context).bottom + 92),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              0,
+              24,
+              MediaQuery.paddingOf(context).bottom + 92,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1165,53 +1200,55 @@ class _SettingRow extends StatelessWidget {
       label: '$title: $value',
       button: true,
       child: Material(
-      color: AppTheme.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.borderDark),
+        color: AppTheme.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.cardDark,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.borderDark),
+            ),
+            child: ExcludeSemantics(
+              child: Row(
+                children: [
+                  Icon(icon, color: AppTheme.primary, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textCream,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          value,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    LucideIcons.chevron_right,
+                    color: AppTheme.textSageMuted,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
           ),
-          child: ExcludeSemantics(child: Row(
-            children: [
-              Icon(icon, color: AppTheme.primary, size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      value,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                LucideIcons.chevron_right,
-                color: AppTheme.textSageMuted,
-                size: 16,
-              ),
-            ],
-          )),
         ),
-      ),
       ),
     );
   }
@@ -1346,8 +1383,8 @@ class _MealCardState extends State<_MealCard> {
             final mime = ext == 'png'
                 ? 'image/png'
                 : ext == 'webp'
-                    ? 'image/webp'
-                    : 'image/jpeg';
+                ? 'image/webp'
+                : 'image/jpeg';
 
             setSheetState(() {
               selectedPhoto = file;
@@ -1377,8 +1414,9 @@ class _MealCardState extends State<_MealCard> {
             setSheetState(() => isAnalyzing = true);
             try {
               final res = await MediaService.analyzeMealPhoto(attachmentId!);
-              final result = (res['data'] as Map<String, dynamic>)['analysisResult']
-                  as Map<String, dynamic>;
+              final result =
+                  (res['data'] as Map<String, dynamic>)['analysisResult']
+                      as Map<String, dynamic>;
               final macros = result['macros'] as Map<String, dynamic>;
               setSheetState(() {
                 calCtrl.text = (macros['calories'] as num).toInt().toString();
@@ -1435,39 +1473,57 @@ class _MealCardState extends State<_MealCard> {
                         onPressed: isUploading
                             ? null
                             : () async {
-                                final choice = await showModalBottomSheet<ImageSource>(
-                                  context: context,
-                                  backgroundColor: AppTheme.cardDark,
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(
-                                        top: Radius.circular(16)),
-                                  ),
-                                  builder: (pickerCtx) => SafeArea(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ListTile(
-                                          leading: const Icon(LucideIcons.camera,
-                                              color: AppTheme.primary),
-                                          title: Text('Camera',
-                                              style: GoogleFonts.plusJakartaSans(
-                                                  color: AppTheme.textCream)),
-                                          onTap: () => Navigator.pop(
-                                              pickerCtx, ImageSource.camera),
+                                final choice =
+                                    await showModalBottomSheet<ImageSource>(
+                                      context: context,
+                                      backgroundColor: AppTheme.cardDark,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(16),
                                         ),
-                                        ListTile(
-                                          leading: const Icon(LucideIcons.image,
-                                              color: AppTheme.primary),
-                                          title: Text('Gallery',
-                                              style: GoogleFonts.plusJakartaSans(
-                                                  color: AppTheme.textCream)),
-                                          onTap: () => Navigator.pop(
-                                              pickerCtx, ImageSource.gallery),
+                                      ),
+                                      builder: (pickerCtx) => SafeArea(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ListTile(
+                                              leading: const Icon(
+                                                LucideIcons.camera,
+                                                color: AppTheme.primary,
+                                              ),
+                                              title: Text(
+                                                'Camera',
+                                                style:
+                                                    GoogleFonts.plusJakartaSans(
+                                                      color: AppTheme.textCream,
+                                                    ),
+                                              ),
+                                              onTap: () => Navigator.pop(
+                                                pickerCtx,
+                                                ImageSource.camera,
+                                              ),
+                                            ),
+                                            ListTile(
+                                              leading: const Icon(
+                                                LucideIcons.image,
+                                                color: AppTheme.primary,
+                                              ),
+                                              title: Text(
+                                                'Gallery',
+                                                style:
+                                                    GoogleFonts.plusJakartaSans(
+                                                      color: AppTheme.textCream,
+                                                    ),
+                                              ),
+                                              onTap: () => Navigator.pop(
+                                                pickerCtx,
+                                                ImageSource.gallery,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                );
+                                      ),
+                                    );
                                 if (choice != null) await pickAndUpload(choice);
                               },
                         icon: isUploading
@@ -1475,17 +1531,21 @@ class _MealCardState extends State<_MealCard> {
                                 width: 14,
                                 height: 14,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppTheme.primary),
+                                  strokeWidth: 2,
+                                  color: AppTheme.primary,
+                                ),
                               )
-                            : const Icon(LucideIcons.camera,
-                                color: AppTheme.primary, size: 14),
+                            : const Icon(
+                                LucideIcons.camera,
+                                color: AppTheme.primary,
+                                size: 14,
+                              ),
                         label: Text(
                           isUploading
                               ? 'Uploading…'
                               : selectedPhoto == null
-                                  ? 'Add Photo'
-                                  : 'Change Photo',
+                              ? 'Add Photo'
+                              : 'Change Photo',
                           style: GoogleFonts.plusJakartaSans(
                             color: AppTheme.primary,
                             fontSize: 12,
@@ -1495,7 +1555,9 @@ class _MealCardState extends State<_MealCard> {
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: AppTheme.primary),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
                       ),
@@ -1509,12 +1571,15 @@ class _MealCardState extends State<_MealCard> {
                                 width: 14,
                                 height: 14,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppTheme.oledBlack),
+                                  strokeWidth: 2,
+                                  color: AppTheme.oledBlack,
+                                ),
                               )
-                            : const Icon(LucideIcons.sparkles,
+                            : const Icon(
+                                LucideIcons.sparkles,
                                 size: 14,
-                                color: AppTheme.oledBlack),
+                                color: AppTheme.oledBlack,
+                              ),
                         label: Text(
                           isAnalyzing ? 'Analyzing…' : 'Analyze',
                           style: GoogleFonts.plusJakartaSans(
@@ -1526,7 +1591,9 @@ class _MealCardState extends State<_MealCard> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primary,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                           elevation: 0,
                         ),
@@ -1537,17 +1604,24 @@ class _MealCardState extends State<_MealCard> {
 
                 if (uploadError != null) ...[
                   const SizedBox(height: 6),
-                  Text(uploadError!,
-                      style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.error, fontSize: 11)),
+                  Text(
+                    uploadError!,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.error,
+                      fontSize: 11,
+                    ),
+                  ),
                 ],
 
                 if (aiConfidence != null) ...[
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(LucideIcons.sparkles,
-                          size: 12, color: AppTheme.primary),
+                      const Icon(
+                        LucideIcons.sparkles,
+                        size: 12,
+                        color: AppTheme.primary,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         'AI estimate — ${(aiConfidence! * 100).toStringAsFixed(0)}% confident',
@@ -1610,47 +1684,47 @@ class _MealCardState extends State<_MealCard> {
                   label: 'Save actual meal log',
                   button: true,
                   child: GestureDetector(
-                  onTap: () async {
-                    await widget.onLogActual({
-                      'mealName': mealNameCtrl.text.trim().isEmpty
-                          ? 'Meal'
-                          : mealNameCtrl.text.trim(),
-                      'calories': int.tryParse(calCtrl.text) ?? 0,
-                      'proteinG': double.tryParse(protCtrl.text) ?? 0,
-                      'carbsG': double.tryParse(carbsCtrl.text) ?? 0,
-                      'fatG': double.tryParse(fatCtrl.text) ?? 0,
-                      'notes': notesCtrl.text.trim(),
-                      'attachmentId': attachmentId,
-                      'rawPayload': {
-                        'plannedMeal': meal,
-                        'source': attachmentId != null
-                            ? 'ai_photo_analysis'
-                            : 'diet_log_actual',
-                        'aiConfidence': aiConfidence,
-                      },
-                    });
-                    if (!mounted) return;
-                    Navigator.of(context).pop();
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'SAVE ACTUAL LOG',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.oledBlack,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
+                    onTap: () async {
+                      await widget.onLogActual({
+                        'mealName': mealNameCtrl.text.trim().isEmpty
+                            ? 'Meal'
+                            : mealNameCtrl.text.trim(),
+                        'calories': int.tryParse(calCtrl.text) ?? 0,
+                        'proteinG': double.tryParse(protCtrl.text) ?? 0,
+                        'carbsG': double.tryParse(carbsCtrl.text) ?? 0,
+                        'fatG': double.tryParse(fatCtrl.text) ?? 0,
+                        'notes': notesCtrl.text.trim(),
+                        'attachmentId': attachmentId,
+                        'rawPayload': {
+                          'plannedMeal': meal,
+                          'source': attachmentId != null
+                              ? 'ai_photo_analysis'
+                              : 'diet_log_actual',
+                          'aiConfidence': aiConfidence,
+                        },
+                      });
+                      if (!mounted) return;
+                      Navigator.of(context).pop();
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'SAVE ACTUAL LOG',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.oledBlack,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.1,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                  ),
               ],
             ),
           );
@@ -1789,186 +1863,189 @@ class _MealCardState extends State<_MealCard> {
         ),
       ),
       child: Semantics(
-        label: '$name, $mealType, $mealTime, $calories kcal. ${_isCompleted ? 'Completed' : 'Not completed'}. Double tap to view details.',
+        label:
+            '$name, $mealType, $mealTime, $calories kcal. ${_isCompleted ? 'Completed' : 'Not completed'}. Double tap to view details.',
         button: true,
         child: Material(
-        color: AppTheme.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: _showDetailSheet,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Semantics(
-                      label: _isCompleted ? 'Mark meal as not done' : 'Mark meal as done',
-                      button: true,
-                      checked: _isCompleted,
-                      child: GestureDetector(
-                      onTap: _toggleDone,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: _isCompleted
-                              ? AppTheme.primary
-                              : AppTheme.primary.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _isCompleted
-                                ? AppTheme.primary
-                                : AppTheme.borderDark,
+          color: AppTheme.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: _showDetailSheet,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Semantics(
+                        label: _isCompleted
+                            ? 'Mark meal as not done'
+                            : 'Mark meal as done',
+                        button: true,
+                        checked: _isCompleted,
+                        child: GestureDetector(
+                          onTap: _toggleDone,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: _isCompleted
+                                  ? AppTheme.primary
+                                  : AppTheme.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _isCompleted
+                                    ? AppTheme.primary
+                                    : AppTheme.borderDark,
+                              ),
+                            ),
+                            child: _isCompleted
+                                ? const ExcludeSemantics(
+                                    child: Icon(
+                                      LucideIcons.check,
+                                      color: AppTheme.oledBlack,
+                                      size: 16,
+                                    ),
+                                  )
+                                : null,
                           ),
                         ),
-                        child: _isCompleted
-                            ? const ExcludeSemantics(
-                                child: Icon(
-                                  LucideIcons.check,
-                                  color: AppTheme.oledBlack,
-                                  size: 16,
-                                ),
-                              )
-                            : null,
                       ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primary.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '$mealTime • $mealType',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.primary,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ),
-                              if (hasActual) ...[
-                                const SizedBox(width: 6),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 7,
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.accent.withValues(
-                                      alpha: 0.2,
+                                    color: AppTheme.primary.withValues(
+                                      alpha: 0.1,
                                     ),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
-                                    'ACTUAL',
+                                    '$mealTime • $mealType',
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textCream,
+                                      color: AppTheme.primary,
                                       fontSize: 8,
                                       fontWeight: FontWeight.w700,
                                       letterSpacing: 1,
                                     ),
                                   ),
                                 ),
-                                if (hasPhoto) ...[
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    LucideIcons.camera,
-                                    size: 11,
-                                    color: AppTheme.primary,
+                                if (hasActual) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.accent.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'ACTUAL',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textCream,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
                                   ),
+                                  if (hasPhoto) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      LucideIcons.camera,
+                                      size: 11,
+                                      color: AppTheme.primary,
+                                    ),
+                                  ],
                                 ],
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            name,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: _isCompleted
-                                  ? AppTheme.textSageMuted
-                                  : AppTheme.textCream,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              name,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: _isCompleted
+                                    ? AppTheme.textSageMuted
+                                    : AppTheme.textCream,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Tooltip(
+                        message: 'Drag to reorder',
+                        child: Semantics(
+                          label: 'Drag to reorder meal',
+                          child: ReorderableDragStartListener(
+                            index: widget.index,
+                            child: const ExcludeSemantics(
+                              child: Icon(
+                                LucideIcons.grip_vertical,
+                                color: AppTheme.textSageMuted,
+                                size: 16,
+                              ),
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                    Tooltip(
-                      message: 'Drag to reorder',
-                      child: Semantics(
-                        label: 'Drag to reorder meal',
-                        child: ReorderableDragStartListener(
-                        index: widget.index,
-                        child: const ExcludeSemantics(
-                          child: Icon(
-                            LucideIcons.grip_vertical,
-                            color: AppTheme.textSageMuted,
-                            size: 16,
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '$calories kcal • ${protein.toInt()}g protein',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _showLogActualSheet,
+                        icon: const Icon(
+                          LucideIcons.pencil_line,
+                          color: AppTheme.primary,
+                          size: 14,
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 30),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        label: Text(
+                          hasActual ? 'Update Actual' : 'Log Actual',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '$calories kcal • ${protein.toInt()}g protein',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: _showLogActualSheet,
-                      icon: const Icon(
-                        LucideIcons.pencil_line,
-                        color: AppTheme.primary,
-                        size: 14,
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppTheme.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        minimumSize: const Size(0, 30),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      label: Text(
-                        hasActual ? 'Update Actual' : 'Log Actual',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.primary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -2051,7 +2128,9 @@ class _QuickLogCard extends StatelessWidget {
         children: [
           if (signedUrl != null)
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(15),
+              ),
               child: Image.network(
                 signedUrl,
                 height: 160,
@@ -2073,7 +2152,8 @@ class _QuickLogCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+                errorBuilder: (context, error, stack) =>
+                    const SizedBox.shrink(),
               ),
             ),
           Padding(
@@ -2081,7 +2161,10 @@ class _QuickLogCard extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -2089,7 +2172,11 @@ class _QuickLogCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(LucideIcons.camera, size: 9, color: AppTheme.primary),
+                      const Icon(
+                        LucideIcons.camera,
+                        size: 9,
+                        color: AppTheme.primary,
+                      ),
                       const SizedBox(width: 3),
                       Text(
                         'PHOTO LOG',
