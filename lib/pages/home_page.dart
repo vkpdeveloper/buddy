@@ -1,8 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/pages/profile_page.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/models/home_dashboard.dart';
 import 'package:buddy/models/gamification.dart';
@@ -608,13 +610,74 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
               ),
             ],
           ),
-          _StatsRing(
-            ringProgress: ringProgress,
-            workoutsCompleted: weekly?.workoutsCompleted ?? 0,
-            plannedWorkouts: weekly?.plannedWorkouts ?? 0,
-            level: progress?.currentLevel,
-            streak: progress?.currentStreak,
+          Row(
+            children: [
+              _ProfileAvatar(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _StatsRing(
+                ringProgress: ringProgress,
+                workoutsCompleted: weekly?.workoutsCompleted ?? 0,
+                plannedWorkouts: weekly?.plannedWorkouts ?? 0,
+                level: progress?.currentLevel,
+                streak: progress?.currentStreak,
+              ),
+            ],
           ),        ],
+      ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ProfileAvatar({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final photoURL = user?.photoURL;
+    return Semantics(
+      button: true,
+      label: 'Open profile',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.cardDark,
+            border: Border.all(
+              color: AppTheme.primary.withValues(alpha: 0.5),
+              width: 1.5,
+            ),
+          ),
+          child: ClipOval(
+            child: photoURL != null && photoURL.isNotEmpty
+                ? Image.network(
+                    photoURL,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, err, st) => const Center(
+                      child: Icon(
+                        LucideIcons.user,
+                        color: AppTheme.textSageMuted,
+                        size: 19,
+                      ),
+                    ),
+                  )
+                : const Center(
+                    child: Icon(
+                      LucideIcons.user,
+                      color: AppTheme.textSageMuted,
+                      size: 19,
+                    ),
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -644,15 +707,15 @@ class _StatsRing extends StatelessWidget {
       label: '$levelLabel$workoutLabel$streakLabel',
       child: ExcludeSemantics(
         child: SizedBox(
-          width: 58,
-          height: 58,
+          width: 46,
+          height: 46,
           child: Stack(
             alignment: Alignment.center,
             children: [
               // Workout completion ring
               SizedBox(
-                width: 58,
-                height: 58,
+                width: 46,
+                height: 46,
                 child: CircularProgressIndicator(
                   value: ringProgress,
                   strokeWidth: 3.5,
@@ -670,7 +733,7 @@ class _StatsRing extends StatelessWidget {
                       'L$level',
                       style: GoogleFonts.plusJakartaSans(
                         color: AppTheme.textCream,
-                        fontSize: 13,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         height: 1,
                       ),
@@ -679,7 +742,7 @@ class _StatsRing extends StatelessWidget {
                     '$workoutsCompleted/$plannedWorkouts',
                     style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.textSageMuted,
-                      fontSize: 9,
+                      fontSize: 8,
                       fontWeight: FontWeight.w600,
                       height: 1.3,
                     ),
