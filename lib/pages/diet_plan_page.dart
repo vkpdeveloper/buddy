@@ -441,13 +441,13 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppTheme.primary,
+                    color: AppTheme.actionSurface,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'LOG THIS MEAL',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.oledBlack,
+                      color: AppTheme.actionForeground,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.1,
                     ),
@@ -1572,24 +1572,25 @@ class _MealCardState extends State<_MealCard> {
                                 height: 14,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppTheme.oledBlack,
+                                  color: AppTheme.actionForeground,
                                 ),
                               )
                             : const Icon(
                                 LucideIcons.sparkles,
                                 size: 14,
-                                color: AppTheme.oledBlack,
+                                color: AppTheme.actionForeground,
                               ),
                         label: Text(
                           isAnalyzing ? 'Analyzing…' : 'Analyze',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.oledBlack,
+                            color: AppTheme.actionForeground,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
+                          backgroundColor: AppTheme.actionSurface,
+                          foregroundColor: AppTheme.actionForeground,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
@@ -1711,13 +1712,13 @@ class _MealCardState extends State<_MealCard> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: AppTheme.primary,
+                        color: AppTheme.actionSurface,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         'SAVE ACTUAL LOG',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.oledBlack,
+                          color: AppTheme.actionForeground,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.1,
                         ),

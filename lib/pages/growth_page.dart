@@ -230,8 +230,8 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                                     }
                                   },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                              foregroundColor: AppTheme.oledBlack,
+                              backgroundColor: AppTheme.actionSurface,
+                              foregroundColor: AppTheme.actionForeground,
                             ),
                             icon: sharing
                                 ? const SizedBox(
@@ -239,7 +239,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                                     height: 14,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: AppTheme.oledBlack,
+                                      color: AppTheme.actionForeground,
                                     ),
                                   )
                                 : const Icon(LucideIcons.send, size: 16),
@@ -315,7 +315,9 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
 
                     return SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 92),
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.paddingOf(context).bottom + 92,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -395,11 +397,23 @@ class _GrowthHeader extends StatelessWidget {
               ],
             ),
           ),
-          _IconAction(icon: LucideIcons.share_2, onTap: onShareTap, tooltip: 'Share growth progress'),
+          _IconAction(
+            icon: LucideIcons.share_2,
+            onTap: onShareTap,
+            tooltip: 'Share growth progress',
+          ),
           const SizedBox(width: 10),
-          _IconAction(icon: LucideIcons.image_plus, onTap: onPhotoTap, tooltip: 'Add progress photo'),
+          _IconAction(
+            icon: LucideIcons.image_plus,
+            onTap: onPhotoTap,
+            tooltip: 'Add progress photo',
+          ),
           const SizedBox(width: 10),
-          _IconAction(icon: LucideIcons.plus, onTap: onLogTap, tooltip: 'Log measurements'),
+          _IconAction(
+            icon: LucideIcons.plus,
+            onTap: onLogTap,
+            tooltip: 'Log measurements',
+          ),
         ],
       ),
     );
@@ -411,7 +425,11 @@ class _IconAction extends StatelessWidget {
   final VoidCallback onTap;
   final String tooltip;
 
-  const _IconAction({required this.icon, required this.onTap, required this.tooltip});
+  const _IconAction({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -427,9 +445,13 @@ class _IconAction extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
+              border: Border.all(
+                color: AppTheme.primary.withValues(alpha: 0.25),
+              ),
             ),
-            child: ExcludeSemantics(child: Icon(icon, color: AppTheme.primary, size: 20)),
+            child: ExcludeSemantics(
+              child: Icon(icon, color: AppTheme.primary, size: 20),
+            ),
           ),
         ),
       ),
@@ -543,13 +565,16 @@ class _LevelCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Semantics(
-        label: 'Level ${overview.currentLevel}, ${overview.levelLabel}. ${overview.totalXp} XP. ${overview.currentStreak} day streak. ${(overview.levelProgressFraction * 100).toStringAsFixed(0)}% to next level.',
+        label:
+            'Level ${overview.currentLevel}, ${overview.levelLabel}. ${overview.totalXp} XP. ${overview.currentStreak} day streak. ${(overview.levelProgressFraction * 100).toStringAsFixed(0)}% to next level.',
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.cardDark,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.levelArc.withValues(alpha: 0.35)),
+            border: Border.all(
+              color: AppTheme.levelArc.withValues(alpha: 0.35),
+            ),
           ),
           child: ExcludeSemantics(
             child: Column(
@@ -662,75 +687,83 @@ class _MetricGrid extends StatelessWidget {
               return Semantics(
                 label: '${metric.label}: $metricValueStr$deltaStr',
                 child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.borderDark),
-                ),
-                child: ExcludeSemantics(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      metric.label.toUpperCase(),
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      metric.latestValue == null
-                          ? '—'
-                          : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardDark,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.borderDark),
+                  ),
+                  child: ExcludeSemantics(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (metric.deltaSinceLast != null)
-                          _DeltaBadge(
-                            label: 'vs last',
-                            value: _formatDelta(
-                              metric.deltaSinceLast!,
-                              metric.unit == '%' ? '%' : ' ${metric.unit}',
-                            ),
-                            color: _deltaColor(metric, metric.deltaSinceLast!),
+                        Text(
+                          metric.label.toUpperCase(),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.primary,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
                           ),
-                        if (metric.deltaSinceStart != null)
-                          _DeltaBadge(
-                            label: 'vs start',
-                            value: _formatDelta(
-                              metric.deltaSinceStart!,
-                              metric.unit == '%' ? '%' : ' ${metric.unit}',
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          metric.latestValue == null
+                              ? '—'
+                              : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textCream,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            if (metric.deltaSinceLast != null)
+                              _DeltaBadge(
+                                label: 'vs last',
+                                value: _formatDelta(
+                                  metric.deltaSinceLast!,
+                                  metric.unit == '%' ? '%' : ' ${metric.unit}',
+                                ),
+                                color: _deltaColor(
+                                  metric,
+                                  metric.deltaSinceLast!,
+                                ),
+                              ),
+                            if (metric.deltaSinceStart != null)
+                              _DeltaBadge(
+                                label: 'vs start',
+                                value: _formatDelta(
+                                  metric.deltaSinceStart!,
+                                  metric.unit == '%' ? '%' : ' ${metric.unit}',
+                                ),
+                                color: _deltaColor(
+                                  metric,
+                                  metric.deltaSinceStart!,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const Spacer(),
+                        if (metric.sparkline.length >= 2)
+                          SizedBox(
+                            width: double.infinity,
+                            height: 20,
+                            child: CustomPaint(
+                              painter: _SparklinePainter(
+                                metric.sparkline.map((e) => e.value).toList(),
+                              ),
                             ),
-                            color: _deltaColor(metric, metric.deltaSinceStart!),
                           ),
                       ],
                     ),
-                    const Spacer(),
-                    if (metric.sparkline.length >= 2)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 20,
-                        child: CustomPaint(
-                          painter: _SparklinePainter(
-                            metric.sparkline.map((e) => e.value).toList(),
-                          ),
-                        ),
-                      ),
-                  ],
-                )),
-              ),
-            );
+                  ),
+                ),
+              );
             },
           ),
         ],
@@ -835,71 +868,72 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                     builder: (context, constraints) {
                       final width = constraints.maxWidth;
                       return Semantics(
-                        label: 'Photo comparison slider. Drag left or right to compare first and latest progress photos.',
+                        label:
+                            'Photo comparison slider. Drag left or right to compare first and latest progress photos.',
                         child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTapDown: (details) =>
-                            _updateSlider(details.localPosition, width),
-                        onHorizontalDragStart: (details) =>
-                            _updateSlider(details.localPosition, width),
-                        onHorizontalDragUpdate: (details) =>
-                            _updateSlider(details.localPosition, width),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: Image.network(
-                                widget.firstPhoto!.imageUrl,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Positioned.fill(
-                              child: ClipRect(
-                                clipper: _HorizontalRevealClipper(_slider),
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (details) =>
+                              _updateSlider(details.localPosition, width),
+                          onHorizontalDragStart: (details) =>
+                              _updateSlider(details.localPosition, width),
+                          onHorizontalDragUpdate: (details) =>
+                              _updateSlider(details.localPosition, width),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
                                 child: Image.network(
-                                  widget.latestPhoto!.imageUrl,
+                                  widget.firstPhoto!.imageUrl,
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                            ),
-                            Positioned(
-                              left: _slider * width - 1,
-                              top: 0,
-                              bottom: 0,
-                              child: Container(
-                                width: 2,
-                                color: AppTheme.textCream.withValues(
-                                  alpha: 0.8,
+                              Positioned.fill(
+                                child: ClipRect(
+                                  clipper: _HorizontalRevealClipper(_slider),
+                                  child: Image.network(
+                                    widget.latestPhoto!.imageUrl,
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
                               ),
-                            ),
-                            Positioned(
-                              left: _slider * width - 14,
-                              top: (190 / 2) - 14,
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cardDark.withValues(
-                                    alpha: 0.92,
+                              Positioned(
+                                left: _slider * width - 1,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 2,
+                                  color: AppTheme.textCream.withValues(
+                                    alpha: 0.8,
                                   ),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
+                                ),
+                              ),
+                              Positioned(
+                                left: _slider * width - 14,
+                                top: (190 / 2) - 14,
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardDark.withValues(
+                                      alpha: 0.92,
+                                    ),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppTheme.textCream.withValues(
+                                        alpha: 0.85,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.drag_indicator_rounded,
+                                    size: 16,
                                     color: AppTheme.textCream.withValues(
-                                      alpha: 0.85,
+                                      alpha: 0.9,
                                     ),
                                   ),
                                 ),
-                                child: Icon(
-                                  Icons.drag_indicator_rounded,
-                                  size: 16,
-                                  color: AppTheme.textCream.withValues(
-                                    alpha: 0.9,
-                                  ),
-                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -991,82 +1025,85 @@ class _AchievementsCard extends StatelessWidget {
               itemBuilder: (_, i) {
                 final item = items[i];
                 final unlocked = item['isUnlocked'] == true;
-                final achievementName = item['name']?.toString() ?? 'Achievement';
+                final achievementName =
+                    item['name']?.toString() ?? 'Achievement';
                 final xpReward = item['xpReward'] ?? 0;
                 final unlockedAt = unlocked
-                    ? (item['unlockedAt'] ?? '').toString().replaceAll(' 00:00:00', '')
+                    ? (item['unlockedAt'] ?? '').toString().replaceAll(
+                        ' 00:00:00',
+                        '',
+                      )
                     : '';
                 return Semantics(
-                  label: '$achievementName, ${unlocked ? 'unlocked${unlockedAt.isNotEmpty ? ' $unlockedAt' : ''}' : 'locked'}, +$xpReward XP reward',
+                  label:
+                      '$achievementName, ${unlocked ? 'unlocked${unlockedAt.isNotEmpty ? ' $unlockedAt' : ''}' : 'locked'}, +$xpReward XP reward',
                   child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: unlocked
-                        ? AppTheme.xpGold.withValues(alpha: 0.08)
-                        : AppTheme.backgroundDark,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
                       color: unlocked
-                          ? AppTheme.xpGold.withValues(alpha: 0.35)
-                          : AppTheme.borderDark,
+                          ? AppTheme.xpGold.withValues(alpha: 0.08)
+                          : AppTheme.backgroundDark,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: unlocked
+                            ? AppTheme.xpGold.withValues(alpha: 0.35)
+                            : AppTheme.borderDark,
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            unlocked ? LucideIcons.trophy : LucideIcons.lock,
-                            color: unlocked
-                                ? AppTheme.xpGold
-                                : AppTheme.textSageMuted,
-                            size: 14,
-                          ),
-                          const Spacer(),
-                          Text(
-                            '+${item['xpReward'] ?? 0} XP',
-                            style: GoogleFonts.plusJakartaSans(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              unlocked ? LucideIcons.trophy : LucideIcons.lock,
                               color: unlocked
                                   ? AppTheme.xpGold
                                   : AppTheme.textSageMuted,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
+                              size: 14,
                             ),
+                            const Spacer(),
+                            Text(
+                              '+${item['xpReward'] ?? 0} XP',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: unlocked
+                                    ? AppTheme.xpGold
+                                    : AppTheme.textSageMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          item['name']?.toString() ?? 'Achievement',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: unlocked
+                                ? AppTheme.textCream
+                                : AppTheme.textSageMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        item['name']?.toString() ?? 'Achievement',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: unlocked
-                              ? AppTheme.textCream
-                              : AppTheme.textSageMuted,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        unlocked
-                            ? 'Unlocked ${item['unlockedAt'] ?? ''}'.replaceAll(
-                                ' 00:00:00',
-                                '',
-                              )
-                            : 'Locked',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 9,
+                        const Spacer(),
+                        Text(
+                          unlocked
+                              ? 'Unlocked ${item['unlockedAt'] ?? ''}'
+                                    .replaceAll(' 00:00:00', '')
+                              : 'Locked',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 9,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 );
               },
             ),
@@ -1454,48 +1491,48 @@ class _GoalCompactRow extends StatelessWidget {
     return Semantics(
       label: '$title: $valueLine. $status.',
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundDark,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.borderDark),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.backgroundDark,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textCream,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  valueLine,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
-                    fontSize: 10,
+                  const SizedBox(height: 3),
+                  Text(
+                    valueLine,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 10,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            status,
-            style: GoogleFonts.plusJakartaSans(
-              color: hasTarget ? AppTheme.success : AppTheme.textSageMuted,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
+            const SizedBox(width: 10),
+            Text(
+              status,
+              style: GoogleFonts.plusJakartaSans(
+                color: hasTarget ? AppTheme.success : AppTheme.textSageMuted,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -1594,14 +1631,17 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
             child: ElevatedButton(
               onPressed: _saving ? null : _save,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: AppTheme.oledBlack,
+                backgroundColor: AppTheme.actionSurface,
+                foregroundColor: AppTheme.actionForeground,
               ),
               child: _saving
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.actionForeground,
+                      ),
                     )
                   : const Text('Save Targets'),
             ),
@@ -2049,14 +2089,17 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
                   child: ElevatedButton(
                     onPressed: _submitting ? null : () => _advance(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: AppTheme.oledBlack,
+                      backgroundColor: AppTheme.actionSurface,
+                      foregroundColor: AppTheme.actionForeground,
                     ),
                     child: _submitting
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.actionForeground,
+                            ),
                           )
                         : Text(isLast ? 'Submit' : 'Next'),
                   ),
@@ -2153,8 +2196,8 @@ class _XpCelebrationDialog extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  foregroundColor: AppTheme.oledBlack,
+                  backgroundColor: AppTheme.actionSurface,
+                  foregroundColor: AppTheme.actionForeground,
                 ),
                 child: const Text('Awesome'),
               ),

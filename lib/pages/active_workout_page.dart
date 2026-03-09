@@ -925,8 +925,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     }
                                   },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                              foregroundColor: AppTheme.oledBlack,
+                              backgroundColor: AppTheme.actionSurface,
+                              foregroundColor: AppTheme.actionForeground,
                             ),
                             icon: sharing
                                 ? const SizedBox(
@@ -934,7 +934,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     height: 14,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: AppTheme.oledBlack,
+                                      color: AppTheme.actionForeground,
                                     ),
                                   )
                                 : const Icon(LucideIcons.send, size: 16),
@@ -1346,7 +1346,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       final sets = (partnerEx['sets'] ?? 3) as int;
       final reps = partnerEx['repsOrTime'] ?? partnerEx['reps_or_time'] ?? '10';
       final isLastSet = _setIndex >= sets - 1;
-      final setText = isLastSet ? 'Last set! ' : 'Set ${_setIndex + 1} of $sets. ';
+      final setText = isLastSet
+          ? 'Last set! '
+          : 'Set ${_setIndex + 1} of $sets. ';
       _startCountdown(60, onDone: () => _playTTS('${setText}Do $reps reps.'));
       _playTTS('Now: $name. ${setText}Do $reps. Go!');
     } else if (_inSupersetSecondHalf) {
@@ -1543,8 +1545,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                     Navigator.pop(context, true);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: AppTheme.oledBlack,
+                    backgroundColor: AppTheme.actionSurface,
+                    foregroundColor: AppTheme.actionForeground,
                   ),
                   child: const Text('Save note'),
                 ),
@@ -1747,46 +1749,48 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 checked: checks[i],
                 button: true,
                 child: InkWell(
-                onTap: () {
-                  setState(() => checks[i] = !checks[i]);
-                  _syncSessionLog(force: true);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: checks[i] ? AppTheme.primary : AppTheme.borderDark,
+                  onTap: () {
+                    setState(() => checks[i] = !checks[i]);
+                    _syncSessionLog(force: true);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
                     ),
-                  ),
-                  child: ExcludeSemantics(
-                    child: Row(
-                    children: [
-                      Icon(
-                        checks[i] ? LucideIcons.check : LucideIcons.circle,
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
                         color: checks[i]
                             ? AppTheme.primary
-                            : AppTheme.textSageMuted,
-                        size: 18,
+                            : AppTheme.borderDark,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          items[i],
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
-                            fontWeight: FontWeight.w600,
+                    ),
+                    child: ExcludeSemantics(
+                      child: Row(
+                        children: [
+                          Icon(
+                            checks[i] ? LucideIcons.check : LucideIcons.circle,
+                            color: checks[i]
+                                ? AppTheme.primary
+                                : AppTheme.textSageMuted,
+                            size: 18,
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              items[i],
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textCream,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                  ),
-                ),
                 ),
               ),
             ),
@@ -1798,8 +1802,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               onPressed: onDone,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: AppTheme.primary,
-                foregroundColor: AppTheme.oledBlack,
+                backgroundColor: AppTheme.actionSurface,
+                foregroundColor: AppTheme.actionForeground,
               ),
               child: Text(
                 cta,
@@ -1855,8 +1859,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 child: ElevatedButton(
                   onPressed: _resumeSession,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: AppTheme.oledBlack,
+                    backgroundColor: AppTheme.actionSurface,
+                    foregroundColor: AppTheme.actionForeground,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: Text(
@@ -1929,24 +1933,26 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                               label: 'Exit workout',
                               button: true,
                               child: GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: AppTheme.cardDark,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: AppTheme.borderDark),
-                              ),
-                              child: const ExcludeSemantics(
-                                child: Icon(
-                                  LucideIcons.x,
-                                  color: AppTheme.textSageMuted,
-                                  size: 18,
+                                onTap: () => Navigator.pop(context),
+                                child: Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardDark,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppTheme.borderDark,
+                                    ),
+                                  ),
+                                  child: const ExcludeSemantics(
+                                    child: Icon(
+                                      LucideIcons.x,
+                                      color: AppTheme.textSageMuted,
+                                      size: 18,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
                             ),
                           ),
                           const Spacer(),
@@ -1994,7 +2000,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                             ),
                           const Spacer(),
                           Semantics(
-                            label: _isMuted ? 'Voice muted, tap to unmute' : 'Voice on, tap to mute',
+                            label: _isMuted
+                                ? 'Voice muted, tap to unmute'
+                                : 'Voice on, tap to mute',
                             button: true,
                             child: GestureDetector(
                               onTap: () {
@@ -2107,7 +2115,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 decoration: BoxDecoration(
                                   color: AppTheme.cardDark,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppTheme.borderDark),
+                                  border: Border.all(
+                                    color: AppTheme.borderDark,
+                                  ),
                                 ),
                                 child: ExcludeSemantics(
                                   child: Row(
@@ -2156,7 +2166,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 decoration: BoxDecoration(
                                   color: AppTheme.cardDark,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppTheme.borderDark),
+                                  border: Border.all(
+                                    color: AppTheme.borderDark,
+                                  ),
                                 ),
                                 child: ExcludeSemantics(
                                   child: Row(
@@ -2190,9 +2202,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                     if (!isRest) ...[
                       Builder(
                         builder: (context) {
-                          final partnerIdx =
-                              _supersetPartnerIndex(_exerciseIndex);
-                          if (partnerIdx == null) return const SizedBox.shrink();
+                          final partnerIdx = _supersetPartnerIndex(
+                            _exerciseIndex,
+                          );
+                          if (partnerIdx == null) {
+                            return const SizedBox.shrink();
+                          }
                           final partnerEx = widget.exercises[partnerIdx];
                           final label = _inSupersetSecondHalf
                               ? 'SUPERSET · Set ${_setIndex + 1}/$sets · Now: ${ex['name']}'
@@ -2269,110 +2284,113 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                           ? 'Rest timer: $_timerSeconds seconds remaining'
                           : 'Exercise timer: $_timerSeconds seconds',
                       child: SizedBox(
-                      width: 200,
-                      height: 200,
-                      child: ExcludeSemantics(
-                        child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          AnimatedBuilder(
-                            animation: _ringController,
-                            builder: (_, _) => SizedBox(
-                              width: 200,
-                              height: 200,
-                              child: CircularProgressIndicator(
-                                value: isRest
-                                    ? (_timerSeconds /
-                                          ((ex['restSeconds'] ??
-                                                  ex['rest_seconds'] ??
-                                                  60)
-                                              as int))
-                                    : null,
-                                strokeWidth: 5,
-                                backgroundColor: AppTheme.borderDark,
-                                color: isRest
-                                    ? AppTheme.accent
-                                    : AppTheme.primary,
-                                strokeCap: StrokeCap.round,
-                              ),
-                            ),
-                          ),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
+                        width: 200,
+                        height: 200,
+                        child: ExcludeSemantics(
+                          child: Stack(
+                            alignment: Alignment.center,
                             children: [
-                              Text(
-                                _timerSeconds > 0 ? '$_timerSeconds' : '0',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textCream,
-                                  fontSize: 64,
-                                  fontWeight: FontWeight.w200,
-                                  letterSpacing: -2,
+                              AnimatedBuilder(
+                                animation: _ringController,
+                                builder: (_, _) => SizedBox(
+                                  width: 200,
+                                  height: 200,
+                                  child: CircularProgressIndicator(
+                                    value: isRest
+                                        ? (_timerSeconds /
+                                              ((ex['restSeconds'] ??
+                                                      ex['rest_seconds'] ??
+                                                      60)
+                                                  as int))
+                                        : null,
+                                    strokeWidth: 5,
+                                    backgroundColor: AppTheme.borderDark,
+                                    color: isRest
+                                        ? AppTheme.accent
+                                        : AppTheme.primary,
+                                    strokeCap: StrokeCap.round,
+                                  ),
                                 ),
                               ),
-                              Text(
-                                'seconds',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textSageMuted,
-                                  fontSize: 11,
-                                ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _timerSeconds > 0 ? '$_timerSeconds' : '0',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.textCream,
+                                      fontSize: 64,
+                                      fontWeight: FontWeight.w200,
+                                      letterSpacing: -2,
+                                    ),
+                                  ),
+                                  Text(
+                                    'seconds',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.textSageMuted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
-                      ),
-                    ),
                     ),
                     const SizedBox(height: 28),
                     if (!isRest) ...[
                       Semantics(
-                        label: '$name, $reps reps${muscle.isNotEmpty ? ', $muscle' : ''}. Set ${_setIndex + 1} of $sets.',
+                        label:
+                            '$name, $reps reps${muscle.isNotEmpty ? ', $muscle' : ''}. Set ${_setIndex + 1} of $sets.',
                         child: ExcludeSemantics(
                           child: Column(
                             children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.sora(
-                          color: AppTheme.textCream,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '$reps reps',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.primary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (muscle.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cardDark,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppTheme.borderDark),
-                          ),
-                          child: Text(
-                            muscle.toUpperCase(),
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                      ],
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.sora(
+                                  color: AppTheme.textCream,
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '$reps reps',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.primary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (muscle.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardDark,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: AppTheme.borderDark,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    muscle.toUpperCase(),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.textSageMuted,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -2544,9 +2562,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                           child: Container(
                                             decoration: BoxDecoration(
                                               color: AppTheme.backgroundDark,
-                                              borderRadius: BorderRadius.circular(
-                                                12,
-                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                               border: Border.all(
                                                 color: AppTheme.borderDark,
                                               ),
@@ -2554,11 +2571,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                             alignment: Alignment.center,
                                             child: Text(
                                               'DONE ✓',
-                                              style: GoogleFonts.plusJakartaSans(
-                                                color: AppTheme.textCream,
-                                                fontWeight: FontWeight.w700,
-                                                letterSpacing: 1.2,
-                                              ),
+                                              style:
+                                                  GoogleFonts.plusJakartaSans(
+                                                    color: AppTheme.textCream,
+                                                    fontWeight: FontWeight.w700,
+                                                    letterSpacing: 1.2,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -2568,7 +2586,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   ],
                                   Expanded(
                                     child: Semantics(
-                                      label: isRest ? 'Skip rest period' : 'Skip this set',
+                                      label: isRest
+                                          ? 'Skip rest period'
+                                          : 'Skip this set',
                                       button: true,
                                       child: GestureDetector(
                                         onTap: () async {
@@ -2597,14 +2617,15 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                               12,
                                             ),
                                             border: Border.all(
-                                              color: AppTheme.primary.withValues(
-                                                alpha: 0.45,
-                                              ),
+                                              color: AppTheme.primary
+                                                  .withValues(alpha: 0.45),
                                             ),
                                           ),
                                           alignment: Alignment.center,
                                           child: Text(
-                                            isRest ? 'SKIP REST →' : 'SKIP SET →',
+                                            isRest
+                                                ? 'SKIP REST →'
+                                                : 'SKIP SET →',
                                             style: GoogleFonts.plusJakartaSans(
                                               color: AppTheme.textCream,
                                               fontWeight: FontWeight.w700,
@@ -2664,40 +2685,42 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       label: 'Set progress: set ${_setIndex + 1} of $sets',
       child: ExcludeSemantics(
         child: Wrap(
-      spacing: 8,
-      alignment: WrapAlignment.center,
-      children: List.generate(sets, (i) {
-        final log = _setLogs.where(
-          (entry) =>
-              entry.exerciseIndex == _exerciseIndex && entry.setNumber == i + 1,
-        );
-        final status = log.isEmpty ? _SetStatus.pending : log.first.status;
-        final isCurrent = i == _setIndex && _phase == _WorkoutPhase.exercise;
-        final icon = switch (status) {
-          _SetStatus.completed => LucideIcons.check,
-          _SetStatus.skipped => LucideIcons.x,
-          _SetStatus.pending => LucideIcons.circle,
-        };
-        final color = switch (status) {
-          _SetStatus.completed => AppTheme.primary,
-          _SetStatus.skipped => AppTheme.accent,
-          _SetStatus.pending =>
-            isCurrent
-                ? AppTheme.textCream
-                : AppTheme.textSageMuted.withValues(alpha: 0.5),
-        };
-        return Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: AppTheme.cardDark,
-            shape: BoxShape.circle,
-            border: Border.all(color: color.withValues(alpha: 0.9)),
-          ),
-          alignment: Alignment.center,
-          child: Icon(icon, color: color, size: 14),
-        );
-      }),
+          spacing: 8,
+          alignment: WrapAlignment.center,
+          children: List.generate(sets, (i) {
+            final log = _setLogs.where(
+              (entry) =>
+                  entry.exerciseIndex == _exerciseIndex &&
+                  entry.setNumber == i + 1,
+            );
+            final status = log.isEmpty ? _SetStatus.pending : log.first.status;
+            final isCurrent =
+                i == _setIndex && _phase == _WorkoutPhase.exercise;
+            final icon = switch (status) {
+              _SetStatus.completed => LucideIcons.check,
+              _SetStatus.skipped => LucideIcons.x,
+              _SetStatus.pending => LucideIcons.circle,
+            };
+            final color = switch (status) {
+              _SetStatus.completed => AppTheme.primary,
+              _SetStatus.skipped => AppTheme.accent,
+              _SetStatus.pending =>
+                isCurrent
+                    ? AppTheme.textCream
+                    : AppTheme.textSageMuted.withValues(alpha: 0.5),
+            };
+            return Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: AppTheme.cardDark,
+                shape: BoxShape.circle,
+                border: Border.all(color: color.withValues(alpha: 0.9)),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: color, size: 14),
+            );
+          }),
         ),
       ),
     );
@@ -3090,7 +3113,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary,
+                      color: AppTheme.actionSurface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     alignment: Alignment.center,
@@ -3098,7 +3121,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       child: Text(
                         'DONE',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.oledBlack,
+                          color: AppTheme.actionForeground,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                         ),

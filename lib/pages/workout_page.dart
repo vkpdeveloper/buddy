@@ -175,7 +175,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     if (_isHydrationLogging) return;
     setState(() => _isHydrationLogging = true);
     try {
-      final res = await LogsService.incrementHydration(_todayDate, amountMl: 250);
+      final res = await LogsService.incrementHydration(
+        _todayDate,
+        amountMl: 250,
+      );
       final data = res['data'] as Map<String, dynamic>? ?? {};
       if (!mounted) return;
       final updated =
@@ -1040,7 +1043,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                 isTodayPlanDay &&
                                     sessionState == _TodayWorkoutState.completed
                                 ? AppTheme.cardDark
-                                : AppTheme.primary,
+                                : AppTheme.actionSurface,
                             borderRadius: BorderRadius.circular(12),
                             border:
                                 isTodayPlanDay &&
@@ -1062,7 +1065,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                         sessionState ==
                                             _TodayWorkoutState.completed
                                     ? AppTheme.primary
-                                    : AppTheme.oledBlack,
+                                    : AppTheme.actionForeground,
                                 size: 16,
                               ),
                               const SizedBox(width: 5),
@@ -1082,7 +1085,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                           sessionState ==
                                               _TodayWorkoutState.completed
                                       ? AppTheme.primary
-                                      : AppTheme.oledBlack,
+                                      : AppTheme.actionForeground,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1,
@@ -1529,14 +1532,14 @@ class _ExerciseCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
+                  color: AppTheme.actionSurface,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   'SAVE',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.oledBlack,
+                    color: AppTheme.actionForeground,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
                   ),

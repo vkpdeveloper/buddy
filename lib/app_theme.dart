@@ -112,6 +112,22 @@ class AppTheme {
         secondary: accent,
         surface: cardDark,
       ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: actionSurface,
+          foregroundColor: actionForeground,
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: actionSurface,
+          foregroundColor: actionForeground,
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: actionSurface,
+        foregroundColor: actionForeground,
+      ),
       appBarTheme: const AppBarTheme(backgroundColor: oledBlack, elevation: 0),
     );
   }
