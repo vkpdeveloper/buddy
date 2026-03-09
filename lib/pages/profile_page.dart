@@ -465,7 +465,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             Text(
               memberSince,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted.withValues(alpha: 0.55),
+                color: AppTheme.textSageMuted.withValues(alpha: 0.75),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.5,
@@ -495,7 +495,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               children: [
                 _StatPill(
                   icon: LucideIcons.flame,
-                  iconColor: const Color(0xFFE8834A),
+                  iconColor: AppTheme.warning,
                   label: 'Streak',
                   value: '${progress.currentStreak}d',
                 ),
@@ -954,8 +954,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const Spacer(),
-          Flexible(
+          Expanded(
             child: Text(
               value,
               style: GoogleFonts.plusJakartaSans(

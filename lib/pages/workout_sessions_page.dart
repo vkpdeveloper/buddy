@@ -469,7 +469,7 @@ class _RangeChip extends StatelessWidget {
           child: Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              color: selected ? AppTheme.backgroundDark : AppTheme.textSageMuted,
+              color: selected ? AppTheme.oledBlack : AppTheme.textSageMuted,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,

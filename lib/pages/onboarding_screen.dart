@@ -271,10 +271,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           return false;
         }
         if (_preferSupersets == null) {
-          AppSnackbar.error(
-            context,
-            'Please select your superset preference.',
-          );
+          AppSnackbar.error(context, 'Please select your superset preference.');
           return false;
         }
         return true;
@@ -444,7 +441,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await prefs.setString('user_sex', _sex.toLowerCase());
       await prefs.setString('user_birth_date', _birthDate.toIso8601String());
 
-      if (mounted) setState(() => _generatingMessage = 'Building your plans...');
+      if (mounted) {
+        setState(() => _generatingMessage = 'Building your plans...');
+      }
 
       await GenerationService.triggerGeneration();
       ref.read(generationStatusProvider.notifier).startPolling();
@@ -516,17 +515,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              'Step ${_currentPage + 1} of $_totalSteps',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
           Expanded(
             child: PageView(
               controller: _pageController,
@@ -556,8 +544,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             height: 4,
             margin: EdgeInsets.only(right: i < _totalSteps - 1 ? 6 : 0),
             decoration: BoxDecoration(
-              color:
-                  i <= _currentPage ? AppTheme.primary : AppTheme.borderDark,
+              color: i <= _currentPage ? AppTheme.primary : AppTheme.borderDark,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -737,10 +724,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         child: ExcludeSemantics(
                           child: Row(
                             children: [
-                              Text(
-                                g.$4,
-                                style: const TextStyle(fontSize: 24),
-                              ),
+                              Text(g.$4, style: const TextStyle(fontSize: 24)),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
@@ -777,7 +761,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   ),
                                   child: const Icon(
                                     LucideIcons.check,
-                                    color: AppTheme.backgroundDark,
+                                    color: AppTheme.oledBlack,
                                     size: 12,
                                   ),
                                 ),
@@ -812,7 +796,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         Icon(
                           LucideIcons.log_out,
                           size: 13,
-                          color: AppTheme.textSageMuted.withValues(alpha: 0.55),
+                          color: AppTheme.textSageMuted.withValues(alpha: 0.65),
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -930,69 +914,126 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  Widget _buildSexImageCard(String label) {
-    final isSelected = _sex == label;
-    final imgKey = label.toLowerCase();
+  Widget _buildSelectableImageCard({
+    required String assetPath,
+    required String title,
+    String? subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+    double height = 160,
+    double borderRadius = 18,
+    EdgeInsets imagePadding = const EdgeInsets.fromLTRB(8, 8, 8, 36),
+  }) {
     return Semantics(
       button: true,
       selected: isSelected,
-      label: label,
+      label: subtitle == null ? title : '$title: $subtitle',
       child: GestureDetector(
-        onTap: () => setState(() => _sex = label),
+        onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
+          height: height,
           decoration: BoxDecoration(
             color: isSelected
                 ? AppTheme.primary.withValues(alpha: 0.12)
                 : AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(
               color: isSelected ? AppTheme.primary : AppTheme.borderDark,
               width: isSelected ? 2 : 1,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primary.withValues(alpha: 0.14),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
           ),
           child: ExcludeSemantics(
             child: Stack(
               children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(17),
-                      ),
-                      child: Image.asset(
-                        'assets/images/body_shapes/${imgKey}_lean.png',
-                        height: 140,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, _) => SizedBox(
-                          height: 140,
-                          child: Center(
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(borderRadius - 1),
+                    child: ColoredBox(
+                      color: AppTheme.oledBlack,
+                      child: Padding(
+                        padding: imagePadding,
+                        child: Image.asset(
+                          assetPath,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.topCenter,
+                          errorBuilder: (context, error, _) => Center(
                             child: Icon(
                               LucideIcons.user,
-                              color:
-                                  AppTheme.textSageMuted.withValues(alpha: 0.4),
-                              size: 36,
+                              color: AppTheme.textSageMuted.withValues(
+                                alpha: 0.4,
+                              ),
+                              size: subtitle == null ? 36 : 28,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        label,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: isSelected
-                              ? AppTheme.textCream
-                              : AppTheme.textSageMuted,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(borderRadius - 1),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0, 0.58, 1],
+                          colors: [
+                            AppTheme.transparent,
+                            AppTheme.transparent,
+                            AppTheme.oledBlack.withValues(alpha: 0.94),
+                          ],
                         ),
                       ),
                     ),
-                  ],
+                  ),
+                ),
+                Positioned(
+                  left: 12,
+                  right: 40,
+                  bottom: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textCream,
+                          fontSize: subtitle == null ? 15 : 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted.withValues(
+                              alpha: 0.9,
+                            ),
+                            fontSize: 9,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 if (isSelected)
                   Positioned(
@@ -1007,7 +1048,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                       child: const Icon(
                         LucideIcons.check,
-                        color: AppTheme.backgroundDark,
+                        color: AppTheme.oledBlack,
                         size: 14,
                       ),
                     ),
@@ -1017,6 +1058,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSexImageCard(String label) {
+    final isSelected = _sex == label;
+    final imgKey = label.toLowerCase();
+    return _buildSelectableImageCard(
+      assetPath: 'assets/images/body_shapes/${imgKey}_lean.png',
+      title: label,
+      isSelected: isSelected,
+      onTap: () => setState(() => _sex = label),
+      height: 158,
+      imagePadding: const EdgeInsets.fromLTRB(10, 8, 10, 34),
     );
   }
 
@@ -1253,7 +1307,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ];
 
     final experienceLevels = [
-      ('beginner', 'Beginner', '0 – 1 year', 'Building foundations, form first'),
+      (
+        'beginner',
+        'Beginner',
+        '0 – 1 year',
+        'Building foundations, form first',
+      ),
       (
         'intermediate',
         'Intermediate',
@@ -1396,10 +1455,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         child: ExcludeSemantics(
                           child: Row(
                             children: [
-                              Text(
-                                l.$4,
-                                style: const TextStyle(fontSize: 24),
-                              ),
+                              Text(l.$4, style: const TextStyle(fontSize: 24)),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
@@ -1436,7 +1492,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   ),
                                   child: const Icon(
                                     LucideIcons.check,
-                                    color: AppTheme.backgroundDark,
+                                    color: AppTheme.oledBlack,
                                     size: 12,
                                   ),
                                 ),
@@ -1531,7 +1587,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   ),
                                   child: const Icon(
                                     LucideIcons.check,
-                                    color: AppTheme.backgroundDark,
+                                    color: AppTheme.oledBlack,
                                     size: 12,
                                   ),
                                 ),
@@ -1657,10 +1713,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         child: ExcludeSemantics(
                           child: Row(
                             children: [
-                              Text(
-                                d.$4,
-                                style: const TextStyle(fontSize: 22),
-                              ),
+                              Text(d.$4, style: const TextStyle(fontSize: 22)),
                               const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
@@ -1697,7 +1750,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   ),
                                   child: const Icon(
                                     LucideIcons.check,
-                                    color: AppTheme.backgroundDark,
+                                    color: AppTheme.oledBlack,
                                     size: 12,
                                   ),
                                 ),
@@ -1730,105 +1783,108 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    ('breakfast', 'Breakfast', '🌅'),
-                    ('morning_snack', 'Morning Snack', '🍎'),
-                    ('lunch', 'Lunch', '🥗'),
-                    ('pre_workout', 'Pre-Workout', '💪'),
-                    ('post_workout', 'Post-Workout', '🥤'),
-                    ('dinner', 'Dinner', '🍽️'),
-                    ('evening_snack', 'Evening Snack', '🌙'),
-                  ].map((meal) {
-                    final id = meal.$1;
-                    final label = meal.$2;
-                    final emoji = meal.$3;
-                    final isRequired = _requiredMeals.contains(id);
-                    final isSelected = _selectedMeals.contains(id);
-                    return Semantics(
-                      button: !isRequired,
-                      selected: isSelected,
-                      enabled: !isRequired,
-                      label: isRequired ? '$label (required)' : label,
-                      child: GestureDetector(
-                        onTap: isRequired
-                            ? null
-                            : () => setState(() {
-                                  if (isSelected) {
-                                    _selectedMeals.remove(id);
-                                  } else {
-                                    _selectedMeals.add(id);
-                                  }
-                                }),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 160),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.12)
-                                : AppTheme.cardDark,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.borderDark,
-                              width: isSelected ? 1.5 : 1,
-                            ),
-                          ),
-                          child: ExcludeSemantics(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  emoji,
-                                  style: const TextStyle(fontSize: 14),
+                  children:
+                      [
+                        ('breakfast', 'Breakfast', '🌅'),
+                        ('morning_snack', 'Morning Snack', '🍎'),
+                        ('lunch', 'Lunch', '🥗'),
+                        ('pre_workout', 'Pre-Workout', '💪'),
+                        ('post_workout', 'Post-Workout', '🥤'),
+                        ('dinner', 'Dinner', '🍽️'),
+                        ('evening_snack', 'Evening Snack', '🌙'),
+                      ].map((meal) {
+                        final id = meal.$1;
+                        final label = meal.$2;
+                        final emoji = meal.$3;
+                        final isRequired = _requiredMeals.contains(id);
+                        final isSelected = _selectedMeals.contains(id);
+                        return Semantics(
+                          button: !isRequired,
+                          selected: isSelected,
+                          enabled: !isRequired,
+                          label: isRequired ? '$label (required)' : label,
+                          child: GestureDetector(
+                            onTap: isRequired
+                                ? null
+                                : () => setState(() {
+                                    if (isSelected) {
+                                      _selectedMeals.remove(id);
+                                    } else {
+                                      _selectedMeals.add(id);
+                                    }
+                                  }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppTheme.primary.withValues(alpha: 0.12)
+                                    : AppTheme.cardDark,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppTheme.primary
+                                      : AppTheme.borderDark,
+                                  width: isSelected ? 1.5 : 1,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  label,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
-                                    fontSize: 13,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                  ),
-                                ),
-                                if (isRequired) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 5,
-                                      vertical: 2,
+                              ),
+                              child: ExcludeSemantics(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      emoji,
+                                      style: const TextStyle(fontSize: 14),
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primary.withValues(
-                                        alpha: 0.18,
-                                      ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'req',
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      label,
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.primary,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 0.5,
+                                        color: isSelected
+                                            ? AppTheme.textCream
+                                            : AppTheme.textSageMuted,
+                                        fontSize: 13,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ],
+                                    if (isRequired) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 5,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primary.withValues(
+                                            alpha: 0.18,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'req',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: AppTheme.primary,
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        );
+                      }).toList(),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -1850,8 +1906,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         selected: isSelected,
                         label: 'Meal prep time: ${p.$2}, ${p.$3}',
                         child: GestureDetector(
-                          onTap: () =>
-                              setState(() => _mealPrepTime = p.$1),
+                          onTap: () => setState(() => _mealPrepTime = p.$1),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 180),
                             margin: EdgeInsets.only(
@@ -2028,7 +2083,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 f,
                                 style: GoogleFonts.plusJakartaSans(
                                   color: isSelected
-                                      ? AppTheme.backgroundDark
+                                      ? AppTheme.oledBlack
                                       : AppTheme.textSageMuted,
                                   fontSize: 12,
                                   fontWeight: isSelected
@@ -2090,8 +2145,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ];
 
     final burnTarget = (_weight * 30).toInt();
-    final recommendedWater =
-        ((_weight * 33) / 250).round() * 250.0;
+    final recommendedWater = ((_weight * 33) / 250).round() * 250.0;
 
     final bottomPad = MediaQuery.paddingOf(context).bottom;
     return Column(
@@ -2137,8 +2191,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 4,
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
@@ -2401,9 +2454,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     divisions: 46,
                     activeColor: AppTheme.primary,
                     inactiveColor: AppTheme.borderDark,
-                    onChanged: (v) => setState(
-                      () => _stepGoal = (v / 500).round() * 500.0,
-                    ),
+                    onChanged: (v) =>
+                        setState(() => _stepGoal = (v / 500).round() * 500.0),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -2420,9 +2472,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     divisions: 16,
                     activeColor: AppTheme.primary,
                     inactiveColor: AppTheme.borderDark,
-                    onChanged: (v) => setState(
-                      () => _sleepTarget = (v * 2).round() / 2.0,
-                    ),
+                    onChanged: (v) =>
+                        setState(() => _sleepTarget = (v * 2).round() / 2.0),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -2481,8 +2532,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             Text(
                               'Based on your weight',
                               style: GoogleFonts.plusJakartaSans(
-                                color:
-                                    AppTheme.textSageMuted.withValues(alpha: 0.6),
+                                color: AppTheme.textSageMuted.withValues(
+                                  alpha: 0.6,
+                                ),
                                 fontSize: 10,
                               ),
                             ),
@@ -2622,7 +2674,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 18),
           decoration: BoxDecoration(
-            color: AppTheme.primary,
+            color: AppTheme.actionSurface,
             borderRadius: BorderRadius.circular(16),
           ),
           child: ExcludeSemantics(
@@ -2632,14 +2684,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   label,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.backgroundDark,
+                    color: AppTheme.actionForeground,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(icon, color: AppTheme.backgroundDark, size: 18),
+                Icon(icon, color: AppTheme.actionForeground, size: 18),
               ],
             ),
           ),
@@ -2658,11 +2710,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppTheme.primary, AppTheme.accent],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
+            color: AppTheme.actionSurface,
             borderRadius: BorderRadius.circular(20),
           ),
           child: ExcludeSemantics(
@@ -2671,14 +2719,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               children: [
                 const Icon(
                   LucideIcons.sparkles,
-                  color: AppTheme.backgroundDark,
+                  color: AppTheme.actionForeground,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
                 Text(
                   'GENERATE MY PLAN',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.backgroundDark,
+                    color: AppTheme.actionForeground,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.5,
@@ -2729,86 +2777,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             return Expanded(
               child: Padding(
                 padding: EdgeInsets.only(right: s.$1 != 'fat' ? 8 : 0),
-                child: Semantics(
-                  button: true,
-                  selected: isSelected,
-                  label: '${s.$2}: ${_bfLabel(s.$1)}',
-                  child: GestureDetector(
-                    onTap: () => onSelect(s.$1),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : AppTheme.cardDark,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
-                          width: isSelected ? 2 : 1,
-                        ),
-                      ),
-                      child: ExcludeSemantics(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(13),
-                              ),
-                              child: Image.asset(
-                                'assets/images/body_shapes/${_sex.toLowerCase()}_${s.$1}.png',
-                                height: 100,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, _) => SizedBox(
-                                  height: 100,
-                                  child: Center(
-                                    child: Icon(
-                                      LucideIcons.user,
-                                      color: AppTheme.textSageMuted.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      size: 28,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    s.$2,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: isSelected
-                                          ? AppTheme.textCream
-                                          : AppTheme.textSageMuted,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _bfLabel(s.$1),
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textSageMuted.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                      fontSize: 9,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                child: _buildSelectableImageCard(
+                  assetPath:
+                      'assets/images/body_shapes/${_sex.toLowerCase()}_${s.$1}.png',
+                  title: s.$2,
+                  subtitle: _bfLabel(s.$1),
+                  isSelected: isSelected,
+                  onTap: () => onSelect(s.$1),
+                  height: 138,
+                  borderRadius: 14,
+                  imagePadding: const EdgeInsets.fromLTRB(6, 8, 6, 38),
                 ),
               ),
             );
@@ -2902,9 +2880,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                     child: Icon(
                       LucideIcons.check,
-                      color: synced
-                          ? AppTheme.backgroundDark
-                          : AppTheme.primary,
+                      color: synced ? AppTheme.oledBlack : AppTheme.primary,
                       size: 14,
                     ),
                   ),
@@ -2947,16 +2923,36 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   void _showBirthDatePicker() {
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     final now = DateTime.now();
     const minYear = 1940;
@@ -2988,7 +2984,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           if (selDay > dayCount) {
             selDay = dayCount;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (dayController.hasClients) dayController.jumpToItem(selDay - 1);
+              if (dayController.hasClients) {
+                dayController.jumpToItem(selDay - 1);
+              }
             });
           }
 
@@ -3088,8 +3086,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             ),
                             col(
                               controller: yearController,
-                              items:
-                                  years.map((y) => y.toString()).toList(),
+                              items: years.map((y) => y.toString()).toList(),
                               onChanged: (i) => selYear = years[i],
                             ),
                           ],
@@ -3110,7 +3107,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           daysInMonth(selMonth, selYear),
                         );
                         setState(
-                          () => _birthDate = DateTime(selYear, selMonth, clamped),
+                          () =>
+                              _birthDate = DateTime(selYear, selMonth, clamped),
                         );
                         Navigator.pop(ctx);
                       },
@@ -3118,14 +3116,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
-                          color: AppTheme.primary,
+                          color: AppTheme.actionSurface,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         alignment: Alignment.center,
                         child: Text(
                           'CONFIRM',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.backgroundDark,
+                            color: AppTheme.actionForeground,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 2,
@@ -3158,9 +3156,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _showDrumPicker(
       title: title,
       labels: values
-          .map(
-            (v) => decimals ? v.toStringAsFixed(1) : v.toStringAsFixed(0),
-          )
+          .map((v) => decimals ? v.toStringAsFixed(1) : v.toStringAsFixed(0))
           .toList(),
       initialIndex: initialIndex < 0 ? 0 : initialIndex,
       onConfirm: (i) => onChanged(values[i]),
@@ -3251,14 +3247,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary,
+                      color: AppTheme.actionSurface,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       'CONFIRM',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.backgroundDark,
+                        color: AppTheme.actionForeground,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 2,
@@ -3278,19 +3274,55 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   static const _fallbackFoods = {
     'vegetarian': [
-      'Paneer', 'Tofu', 'Moong Dal', 'Masoor Dal', 'Chana Dal',
-      'Rajma', 'Chole', 'Dahi (Curd)', 'Greek Yogurt', 'Moong Sprouts',
-      'Sattu', 'Soya Chunks', 'Skimmed Milk', 'Peanut Butter', 'Makhana',
+      'Paneer',
+      'Tofu',
+      'Moong Dal',
+      'Masoor Dal',
+      'Chana Dal',
+      'Rajma',
+      'Chole',
+      'Dahi (Curd)',
+      'Greek Yogurt',
+      'Moong Sprouts',
+      'Sattu',
+      'Soya Chunks',
+      'Skimmed Milk',
+      'Peanut Butter',
+      'Makhana',
     ],
     'non_vegetarian': [
-      'Chicken Breast', 'Whole Eggs', 'Egg Whites', 'Tuna', 'Salmon',
-      'Prawn/Shrimp', 'Fish (Rohu/Catla)', 'Lean Mutton Keema', 'Turkey',
-      'Paneer', 'Moong Dal', 'Dahi (Curd)', 'Greek Yogurt', 'Soya Chunks', 'Rajma',
+      'Chicken Breast',
+      'Whole Eggs',
+      'Egg Whites',
+      'Tuna',
+      'Salmon',
+      'Prawn/Shrimp',
+      'Fish (Rohu/Catla)',
+      'Lean Mutton Keema',
+      'Turkey',
+      'Paneer',
+      'Moong Dal',
+      'Dahi (Curd)',
+      'Greek Yogurt',
+      'Soya Chunks',
+      'Rajma',
     ],
     'vegan': [
-      'Tofu', 'Tempeh', 'Seitan', 'Edamame', 'Moong Dal', 'Masoor Dal',
-      'Chole', 'Rajma', 'Quinoa', 'Hemp Seeds', 'Soya Chunks',
-      'Sattu', 'Peanut Butter', 'Lentil Sprouts', 'Black Beans',
+      'Tofu',
+      'Tempeh',
+      'Seitan',
+      'Edamame',
+      'Moong Dal',
+      'Masoor Dal',
+      'Chole',
+      'Rajma',
+      'Quinoa',
+      'Hemp Seeds',
+      'Soya Chunks',
+      'Sattu',
+      'Peanut Butter',
+      'Lentil Sprouts',
+      'Black Beans',
     ],
   };
 }

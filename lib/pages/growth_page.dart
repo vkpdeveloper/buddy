@@ -231,7 +231,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                                   },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primary,
-                              foregroundColor: AppTheme.backgroundDark,
+                              foregroundColor: AppTheme.oledBlack,
                             ),
                             icon: sharing
                                 ? const SizedBox(
@@ -239,7 +239,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                                     height: 14,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: AppTheme.backgroundDark,
+                                      color: AppTheme.oledBlack,
                                     ),
                                   )
                                 : const Icon(LucideIcons.send, size: 16),
@@ -1595,7 +1595,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
               onPressed: _saving ? null : _save,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
-                foregroundColor: AppTheme.backgroundDark,
+                foregroundColor: AppTheme.oledBlack,
               ),
               child: _saving
                   ? const SizedBox(
@@ -2050,7 +2050,7 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
                     onPressed: _submitting ? null : () => _advance(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primary,
-                      foregroundColor: AppTheme.backgroundDark,
+                      foregroundColor: AppTheme.oledBlack,
                     ),
                     child: _submitting
                         ? const SizedBox(
@@ -2154,7 +2154,7 @@ class _XpCelebrationDialog extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
-                  foregroundColor: AppTheme.backgroundDark,
+                  foregroundColor: AppTheme.oledBlack,
                 ),
                 child: const Text('Awesome'),
               ),

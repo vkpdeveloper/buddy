@@ -767,7 +767,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                 color: isSelected
                                     ? (isRest
                                           ? AppTheme.textSageMuted
-                                          : AppTheme.backgroundDark)
+                                          : AppTheme.oledBlack)
                                     : AppTheme.textSageMuted,
                                 fontSize: 8,
                                 fontWeight: FontWeight.w600,
@@ -781,7 +781,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                 color: isSelected
                                     ? (isRest
                                           ? AppTheme.textSageMuted
-                                          : AppTheme.backgroundDark)
+                                          : AppTheme.oledBlack)
                                     : AppTheme.textSageMuted,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
@@ -1035,16 +1035,12 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                 isTodayPlanDay &&
                                     sessionState == _TodayWorkoutState.completed
                                 ? null
-                                : LinearGradient(
-                                    colors: [AppTheme.primary, AppTheme.accent],
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                  ),
+                                : null,
                             color:
                                 isTodayPlanDay &&
                                     sessionState == _TodayWorkoutState.completed
                                 ? AppTheme.cardDark
-                                : null,
+                                : AppTheme.primary,
                             borderRadius: BorderRadius.circular(12),
                             border:
                                 isTodayPlanDay &&
@@ -1066,7 +1062,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                         sessionState ==
                                             _TodayWorkoutState.completed
                                     ? AppTheme.primary
-                                    : AppTheme.backgroundDark,
+                                    : AppTheme.oledBlack,
                                 size: 16,
                               ),
                               const SizedBox(width: 5),
@@ -1086,7 +1082,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                           sessionState ==
                                               _TodayWorkoutState.completed
                                       ? AppTheme.primary
-                                      : AppTheme.backgroundDark,
+                                      : AppTheme.oledBlack,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1,
@@ -1540,7 +1536,7 @@ class _ExerciseCard extends StatelessWidget {
                 child: Text(
                   'SAVE',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.backgroundDark,
+                    color: AppTheme.oledBlack,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
                   ),
@@ -2098,7 +2094,7 @@ class _StatBlock extends StatelessWidget {
           Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted.withValues(alpha: 0.55),
+              color: AppTheme.textSageMuted.withValues(alpha: 0.75),
               fontSize: 8,
               fontWeight: FontWeight.w600,
               letterSpacing: 1,

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -174,14 +175,15 @@ class _PermissionBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final permAsync = ref.watch(healthPermissionProvider);
-        return permAsync.when(
+    return permAsync.when(
       data: (granted) {
         if (granted) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
           child: Semantics(
             button: true,
-            label: 'Connect Health data to see your steps, sleep, and calories. Tap to allow.',
+            label:
+                'Connect Health data to see your steps, sleep, and calories. Tap to allow.',
             child: GestureDetector(
               onTap: () async {
                 await requestHealthPermissions(ref);
@@ -236,7 +238,6 @@ class _PermissionBanner extends ConsumerWidget {
 }
 
 // ─── Quick Actions Row ────────────────────────────────────────────────────────
-
 
 class _QuickActionsRow extends ConsumerWidget {
   final void Function(int) onNavigate;
@@ -573,8 +574,6 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
   @override
   Widget build(BuildContext context) {
     final progress = ref.watch(progressProvider).asData?.value;
-    final weekly = ref.watch(weeklyWorkoutSummaryProvider).asData?.value;
-    final ringProgress = weekly?.completionFraction ?? 0.0;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -610,23 +609,14 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
               ),
             ],
           ),
-          Row(
-            children: [
-              _ProfileAvatar(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ProfilePage()),
-                ),
-              ),
-              const SizedBox(width: 10),
-              _StatsRing(
-                ringProgress: ringProgress,
-                workoutsCompleted: weekly?.workoutsCompleted ?? 0,
-                plannedWorkouts: weekly?.plannedWorkouts ?? 0,
-                level: progress?.currentLevel,
-                streak: progress?.currentStreak,
-              ),
-            ],
-          ),        ],
+          _ProfileAvatar(
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const ProfilePage())),
+            levelFraction: progress?.levelProgressFraction ?? 0.0,
+            level: progress?.currentLevel ?? 1,
+          ),
+        ],
       ),
     );
   }
@@ -634,7 +624,14 @@ class _HeaderSectionState extends ConsumerState<_HeaderSection> {
 
 class _ProfileAvatar extends StatelessWidget {
   final VoidCallback onTap;
-  const _ProfileAvatar({required this.onTap});
+  final double levelFraction;
+  final int level;
+
+  const _ProfileAvatar({
+    required this.onTap,
+    required this.levelFraction,
+    required this.level,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -642,141 +639,80 @@ class _ProfileAvatar extends StatelessWidget {
     final photoURL = user?.photoURL;
     return Semantics(
       button: true,
-      label: 'Open profile',
+      label: 'Open profile, Level $level',
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppTheme.cardDark,
-            border: Border.all(
-              color: AppTheme.primary.withValues(alpha: 0.5),
-              width: 1.5,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // XP progress ring
+            SizedBox(
+              width: 50,
+              height: 50,
+              child: CircularProgressIndicator(
+                value: levelFraction,
+                strokeWidth: 2.5,
+                backgroundColor: AppTheme.borderDark,
+                valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
+                strokeCap: StrokeCap.round,
+              ),
             ),
-          ),
-          child: ClipOval(
-            child: photoURL != null && photoURL.isNotEmpty
-                ? Image.network(
-                    photoURL,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, st) => const Center(
-                      child: Icon(
-                        LucideIcons.user,
-                        color: AppTheme.textSageMuted,
-                        size: 19,
-                      ),
-                    ),
-                  )
-                : const Center(
-                    child: Icon(
-                      LucideIcons.user,
-                      color: AppTheme.textSageMuted,
-                      size: 19,
-                    ),
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatsRing extends StatelessWidget {
-  final double ringProgress;
-  final int workoutsCompleted;
-  final int plannedWorkouts;
-  final int? level;
-  final int? streak;
-
-  const _StatsRing({
-    required this.ringProgress,
-    required this.workoutsCompleted,
-    required this.plannedWorkouts,
-    this.level,
-    this.streak,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final levelLabel = level != null ? 'Level $level. ' : '';
-    final workoutLabel = '$workoutsCompleted of $plannedWorkouts workouts completed this week.';
-    final streakLabel = (streak != null && streak! > 0) ? ' $streak day streak.' : '';
-    return Semantics(
-      label: '$levelLabel$workoutLabel$streakLabel',
-      child: ExcludeSemantics(
-        child: SizedBox(
-          width: 46,
-          height: 46,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Workout completion ring
-              SizedBox(
-                width: 46,
-                height: 46,
-                child: CircularProgressIndicator(
-                  value: ringProgress,
-                  strokeWidth: 3.5,
-                  backgroundColor: AppTheme.borderDark,
-                  color: AppTheme.primary,
-                  strokeCap: StrokeCap.round,
-                ),
+            // Photo circle
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.cardDark,
+                border: Border.all(color: AppTheme.borderDark, width: 1.5),
               ),
-              // Center: level number
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (level != null)
-                    Text(
-                      'L$level',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
+              child: ClipOval(
+                child: photoURL != null && photoURL.isNotEmpty
+                    ? Image.network(
+                        photoURL,
+                        fit: BoxFit.cover,
+                        errorBuilder: (ctx, err, st) => const Center(
+                          child: Icon(
+                            LucideIcons.user,
+                            color: AppTheme.textSageMuted,
+                            size: 18,
+                          ),
+                        ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          LucideIcons.user,
+                          color: AppTheme.textSageMuted,
+                          size: 18,
+                        ),
                       ),
-                    ),
-                  Text(
-                    '$workoutsCompleted/$plannedWorkouts',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
               ),
-              // Streak badge at bottom-right of ring
-              if (streak != null && streak! > 0)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.oledBlack,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppTheme.xpGold.withValues(alpha: 0.5),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      '$streak🔥',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.xpGold,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
-                      ),
-                    ),
+            ),
+            // Level badge
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.oledBlack,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: AppTheme.xpGold.withValues(alpha: 0.7),
                   ),
                 ),
-            ],
-          ),
+                child: Text(
+                  'LVL $level',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.xpGold,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -2489,11 +2425,9 @@ class _BottomNavigation extends StatelessWidget {
             button: true,
             label: 'Open Buddy AI Chat',
             child: GestureDetector(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const BuddyChatPage(),
-                ),
-              ),
+              onTap: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const BuddyChatPage())),
               child: Transform.translate(
                 offset: const Offset(0, -20),
                 child: Container(
@@ -2506,11 +2440,7 @@ class _BottomNavigation extends StatelessWidget {
                       color: AppTheme.borderDark.withValues(alpha: 0.9),
                     ),
                   ),
-                  child: const Icon(
-                    LucideIcons.brain,
-                    color: AppTheme.textCream,
-                    size: 30,
-                  ),
+                  child: const _BuddyFabIcon(),
                 ),
               ),
             ),
@@ -2605,4 +2535,263 @@ class _NavItem extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Buddy FAB animated icon ────────────────────────────────────────────────
+//
+// A compact idle face that stays friendly and alive inside the FAB.
+// Instead of morphing into a letter, it cycles through a small set of upbeat
+// expressions: blinks, winks, and smile shifts with randomized timing.
+// ─────────────────────────────────────────────────────────────────────────
+
+class _BuddyFabIcon extends StatefulWidget {
+  const _BuddyFabIcon();
+
+  @override
+  State<_BuddyFabIcon> createState() => _BuddyFabIconState();
+}
+
+class _BuddyFabIconState extends State<_BuddyFabIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  final math.Random _random = math.Random();
+  _BuddyExpression _expression = _BuddyExpression.blink;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: _expression.duration);
+    _startCycle();
+  }
+
+  Future<void> _startCycle() async {
+    while (mounted) {
+      await Future.delayed(_idleDelay());
+      if (!mounted) break;
+
+      final nextExpression = _pickNextExpression();
+      if (mounted) {
+        setState(() => _expression = nextExpression);
+      }
+      _ctrl.duration = nextExpression.duration;
+      await _ctrl.forward(from: 0.0);
+    }
+  }
+
+  Duration _idleDelay() => Duration(milliseconds: 1600 + _random.nextInt(2200));
+
+  _BuddyExpression _pickNextExpression() {
+    final candidates = _BuddyExpression.values
+        .where((expression) => expression != _expression)
+        .toList(growable: false);
+    return candidates[_random.nextInt(candidates.length)];
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, _) => Center(
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: CustomPaint(
+            painter: _BuddyFacePainter(t: _ctrl.value, expression: _expression),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _BuddyExpression {
+  blink(Duration(milliseconds: 620)),
+  doubleBlink(Duration(milliseconds: 920)),
+  rightWink(Duration(milliseconds: 760)),
+  cheerfulBlink(Duration(milliseconds: 880)),
+  grinBounce(Duration(milliseconds: 980)),
+  playfulWink(Duration(milliseconds: 860));
+
+  const _BuddyExpression(this.duration);
+
+  final Duration duration;
+}
+
+class _BuddyFacePainter extends CustomPainter {
+  final double t;
+  final _BuddyExpression expression;
+
+  const _BuddyFacePainter({required this.t, required this.expression});
+
+  // ── Face geometry (canvas 44×44, centre = 22) ───────────────────────────
+  static const _leftEye = Offset(15, 13.6);
+  static const _rightEye = Offset(29, 13.6);
+  static const double _eyeR = 3.5;
+  static const _smileCenterX = 22.0;
+  static const _smileBaseY = 27.0;
+
+  // ── Paints ───────────────────────────────────────────────────────────────
+  static Paint _stroke({double alpha = 1.0}) => Paint()
+    ..color = AppTheme.textCream.withValues(alpha: alpha)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.8
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+
+  static Paint _fill({double alpha = 1.0}) => Paint()
+    ..color = AppTheme.textCream.withValues(alpha: alpha)
+    ..style = PaintingStyle.fill;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final frame = _sampleFrame();
+    _drawEye(
+      canvas,
+      center: _leftEye.translate(0, frame.eyeYOffset),
+      scaleY: frame.leftEyeScaleY,
+    );
+    _drawEye(
+      canvas,
+      center: _rightEye.translate(0, frame.eyeYOffset),
+      scaleY: frame.rightEyeScaleY,
+    );
+    _drawSmile(canvas, frame);
+  }
+
+  _BuddyFaceFrame _sampleFrame() {
+    switch (expression) {
+      case _BuddyExpression.blink:
+        final pulse = _pulse(t, 0.18, 0.34, 0.52);
+        return _BuddyFaceFrame(
+          leftEyeScaleY: 1.0 - pulse,
+          rightEyeScaleY: 1.0 - pulse,
+        );
+      case _BuddyExpression.doubleBlink:
+        final first = _pulse(t, 0.08, 0.20, 0.34);
+        final second = _pulse(t, 0.44, 0.58, 0.76);
+        final blink = math.max(first, second);
+        final smileLift = 0.35 * second;
+        return _BuddyFaceFrame(
+          leftEyeScaleY: 1.0 - blink,
+          rightEyeScaleY: 1.0 - blink,
+          smileDepth: 4.4 + smileLift,
+          smileWidth: 10.0 + smileLift * 0.5,
+        );
+      case _BuddyExpression.rightWink:
+        final wink = _pulse(t, 0.16, 0.34, 0.66);
+        final smileEase = _pulse(t, 0.12, 0.42, 0.82);
+        return _BuddyFaceFrame(
+          leftEyeScaleY: 1.0 - wink * 0.06,
+          rightEyeScaleY: 1.0 - wink,
+          smileTilt: 1.0 * smileEase,
+          smileWidth: 10.3 + 0.5 * smileEase,
+          smileDepth: 4.5 + 0.2 * smileEase,
+        );
+      case _BuddyExpression.cheerfulBlink:
+        final blink = _pulse(t, 0.18, 0.36, 0.58);
+        final smileEase = _pulse(t, 0.08, 0.44, 0.86);
+        return _BuddyFaceFrame(
+          leftEyeScaleY: 1.0 - blink * 0.92,
+          rightEyeScaleY: 1.0 - blink * 0.92,
+          smileWidth: 10.0 + smileEase * 1.2,
+          smileDepth: 4.4 + smileEase * 1.0,
+          smileYOffset: smileEase * 0.25,
+        );
+      case _BuddyExpression.grinBounce:
+        final squint = _pulse(t, 0.14, 0.46, 0.86);
+        return _BuddyFaceFrame(
+          leftEyeScaleY: 1.0 - squint * 0.42,
+          rightEyeScaleY: 1.0 - squint * 0.42,
+          smileWidth: 10.0 + squint * 1.7,
+          smileDepth: 4.4 + squint * 1.3,
+          smileYOffset: squint * 0.4,
+          eyeYOffset: -0.2 * squint,
+        );
+      case _BuddyExpression.playfulWink:
+        final wink = _pulse(t, 0.18, 0.32, 0.60);
+        final bounce = _pulse(t, 0.12, 0.40, 0.84);
+        return _BuddyFaceFrame(
+          leftEyeScaleY: 1.0 - wink * 0.18,
+          rightEyeScaleY: 1.0 - wink,
+          smileWidth: 10.1 + bounce * 1.0,
+          smileDepth: 4.5 + bounce * 0.9,
+          smileTilt: 1.4 * bounce,
+          smileYOffset: bounce * 0.2,
+          eyeYOffset: -0.15 * bounce,
+        );
+    }
+  }
+
+  double _pulse(double value, double start, double peak, double end) {
+    if (value <= start || value >= end) return 0.0;
+    if (value < peak) {
+      final rise = (value - start) / (peak - start);
+      return Curves.easeInOut.transform(rise.clamp(0.0, 1.0));
+    }
+    final fall = 1.0 - (value - peak) / (end - peak);
+    return Curves.easeInOut.transform(fall.clamp(0.0, 1.0));
+  }
+
+  void _drawEye(
+    Canvas canvas, {
+    required Offset center,
+    required double scaleY,
+  }) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(1.0, scaleY.clamp(0.06, 1.0));
+    canvas.drawCircle(Offset.zero, _eyeR, _fill());
+    canvas.restore();
+  }
+
+  void _drawSmile(Canvas canvas, _BuddyFaceFrame frame) {
+    final startY = _smileBaseY - frame.smileTilt * 0.5 + frame.smileYOffset;
+    final endY = _smileBaseY + frame.smileTilt * 0.5 + frame.smileYOffset;
+    final start = Offset(_smileCenterX - frame.smileWidth, startY);
+    final end = Offset(_smileCenterX + frame.smileWidth, endY);
+    final controlDepth = frame.smileDepth + frame.smileYOffset;
+    canvas.drawPath(
+      Path()
+        ..moveTo(start.dx, start.dy)
+        ..cubicTo(
+          _smileCenterX - frame.smileWidth * 0.55,
+          startY + controlDepth,
+          _smileCenterX + frame.smileWidth * 0.55,
+          endY + controlDepth,
+          end.dx,
+          end.dy,
+        ),
+      _stroke(),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BuddyFacePainter old) =>
+      old.t != t || old.expression != expression;
+}
+
+class _BuddyFaceFrame {
+  final double leftEyeScaleY;
+  final double rightEyeScaleY;
+  final double smileWidth;
+  final double smileDepth;
+  final double smileTilt;
+  final double smileYOffset;
+  final double eyeYOffset;
+
+  const _BuddyFaceFrame({
+    this.leftEyeScaleY = 1.0,
+    this.rightEyeScaleY = 1.0,
+    this.smileWidth = 10.0,
+    this.smileDepth = 4.4,
+    this.smileTilt = 0.0,
+    this.smileYOffset = 0.0,
+    this.eyeYOffset = 0.0,
+  });
 }

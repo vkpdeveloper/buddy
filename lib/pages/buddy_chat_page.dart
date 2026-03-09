@@ -884,7 +884,7 @@ class _SendButton extends StatelessWidget {
           color: isStreaming ? AppTheme.cardRaised : AppTheme.textCream,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isStreaming ? AppTheme.borderDark : Colors.transparent,
+            color: isStreaming ? AppTheme.borderDark : AppTheme.transparent,
           ),
         ),
         child: isStreaming

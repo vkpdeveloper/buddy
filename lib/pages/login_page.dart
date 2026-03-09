@@ -64,7 +64,9 @@ class _LoginPageState extends State<LoginPage>
         idToken: googleAuth.idToken,
       );
 
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
       final user = userCredential.user!;
 
       await AuthService.register(
@@ -104,7 +106,7 @@ class _LoginPageState extends State<LoginPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppTheme.oledBlack,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -118,22 +120,24 @@ class _LoginPageState extends State<LoginPage>
 
           // Multi-stop gradient overlay — preserves image at top,
           // creates a solid readable base for the CTA at the bottom
-          const ExcludeSemantics(child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x00000000),
-                  Color(0x33000000),
-                  Color(0xCC000000),
-                  Color(0xF5000000),
-                  Color(0xFF000000),
-                ],
-                stops: [0.0, 0.3, 0.55, 0.75, 1.0],
+          const ExcludeSemantics(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.transparent,
+                    AppTheme.scrimSoft,
+                    AppTheme.scrimHeavy,
+                    AppTheme.scrimDense,
+                    AppTheme.oledBlack,
+                  ],
+                  stops: [0.0, 0.3, 0.55, 0.75, 1.0],
+                ),
               ),
             ),
-          ),),
+          ),
 
           // Content
           SafeArea(
@@ -152,7 +156,7 @@ class _LoginPageState extends State<LoginPage>
                       Text(
                         'Buddy',
                         style: GoogleFonts.sora(
-                          color: Colors.white,
+                          color: AppTheme.textCream,
                           fontSize: 52,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.5,
@@ -165,7 +169,7 @@ class _LoginPageState extends State<LoginPage>
                       Text.rich(
                         TextSpan(
                           style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white.withValues(alpha: 0.55),
+                            color: AppTheme.textMain.withValues(alpha: 0.72),
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                             height: 1.6,
@@ -173,12 +177,13 @@ class _LoginPageState extends State<LoginPage>
                           ),
                           children: [
                             const TextSpan(
-                              text: 'Your personal fitness companion.\nBuilt to make you ',
+                              text:
+                                  'Your personal fitness companion.\nBuilt to make you ',
                             ),
                             TextSpan(
                               text: 'unstoppable',
                               style: GoogleFonts.plusJakartaSans(
-                                color: Colors.white.withValues(alpha: 0.85),
+                                color: AppTheme.textCream,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -211,7 +216,7 @@ class _LoginPageState extends State<LoginPage>
                         child: Text(
                           'By continuing you agree to our Terms & Privacy Policy',
                           style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white.withValues(alpha: 0.3),
+                            color: AppTheme.textSageMuted,
                             fontSize: 11,
                             letterSpacing: 0.3,
                           ),
@@ -239,13 +244,13 @@ class _LoginPageState extends State<LoginPage>
         width: double.infinity,
         height: 56,
         child: Material(
-          color: Colors.white,
+          color: AppTheme.actionSurface,
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
             onTap: _loading ? null : _signInWithGoogle,
             borderRadius: BorderRadius.circular(14),
-            splashColor: Colors.black.withValues(alpha: 0.06),
-            highlightColor: Colors.black.withValues(alpha: 0.03),
+            splashColor: AppTheme.actionForeground.withValues(alpha: 0.06),
+            highlightColor: AppTheme.actionForeground.withValues(alpha: 0.03),
             child: Center(
               child: _loading
                   ? const SizedBox(
@@ -253,8 +258,9 @@ class _LoginPageState extends State<LoginPage>
                       height: 22,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Color(0xFF444444)),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.actionForeground,
+                        ),
                       ),
                     )
                   : Row(
@@ -265,7 +271,7 @@ class _LoginPageState extends State<LoginPage>
                         Text(
                           'Continue with Google',
                           style: GoogleFonts.plusJakartaSans(
-                            color: const Color(0xFF1A1A1A),
+                            color: AppTheme.actionForeground,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.1,
@@ -284,10 +290,6 @@ class _LoginPageState extends State<LoginPage>
 class _GoogleLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/icons/google.png',
-      width: 22,
-      height: 22,
-    );
+    return Image.asset('assets/icons/google.png', width: 22, height: 22);
   }
 }

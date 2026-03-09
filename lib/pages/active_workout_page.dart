@@ -926,7 +926,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primary,
-                              foregroundColor: AppTheme.backgroundDark,
+                              foregroundColor: AppTheme.oledBlack,
                             ),
                             icon: sharing
                                 ? const SizedBox(
@@ -934,7 +934,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     height: 14,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: AppTheme.backgroundDark,
+                                      color: AppTheme.oledBlack,
                                     ),
                                   )
                                 : const Icon(LucideIcons.send, size: 16),
@@ -1544,7 +1544,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
-                    foregroundColor: AppTheme.backgroundDark,
+                    foregroundColor: AppTheme.oledBlack,
                   ),
                   child: const Text('Save note'),
                 ),
@@ -1799,7 +1799,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: AppTheme.primary,
-                foregroundColor: AppTheme.backgroundDark,
+                foregroundColor: AppTheme.oledBlack,
               ),
               child: Text(
                 cta,
@@ -1856,7 +1856,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                   onPressed: _resumeSession,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
-                    foregroundColor: AppTheme.backgroundDark,
+                    foregroundColor: AppTheme.oledBlack,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: Text(
@@ -2720,7 +2720,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
         }
         final color = result == true
             ? AppTheme.primary
-            : AppTheme.textSageMuted.withValues(alpha: 0.3);
+            : AppTheme.textSageMuted.withValues(alpha: 0.4);
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 3),
           child: Container(
@@ -3098,7 +3098,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       child: Text(
                         'DONE',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.backgroundDark,
+                          color: AppTheme.oledBlack,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                         ),

@@ -329,17 +329,17 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 _MacroPill(
                     label: 'PROTEIN',
                     value: '${protein.toStringAsFixed(1)}g',
-                    color: const Color(0xFF4FC3F7)),
+                    color: AppTheme.info),
                 const SizedBox(width: 8),
                 _MacroPill(
                     label: 'CARBS',
                     value: '${carbs.toStringAsFixed(1)}g',
-                    color: const Color(0xFFFFB74D)),
+                    color: AppTheme.warning),
                 const SizedBox(width: 8),
                 _MacroPill(
                     label: 'FAT',
                     value: '${fat.toStringAsFixed(1)}g',
-                    color: const Color(0xFFEF9A9A)),
+                    color: AppTheme.muscleArms),
               ],
             ),
             const SizedBox(height: 20),
@@ -419,7 +419,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 child: Text(
                   'LOG THIS MEAL',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.backgroundDark,
+                    color: AppTheme.oledBlack,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.1,
                   ),
@@ -681,13 +681,13 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                               height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                color: AppTheme.backgroundDark,
+                                color: AppTheme.oledBlack,
                               ),
                             ),
                           )
                         : const Icon(
                             LucideIcons.camera,
-                            color: AppTheme.backgroundDark,
+                            color: AppTheme.oledBlack,
                             size: 22,
                           ),
                   ),
@@ -885,7 +885,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
                         color: isSelected
-                            ? AppTheme.backgroundDark
+                            ? AppTheme.oledBlack
                             : AppTheme.textSageMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -1510,15 +1510,15 @@ class _MealCardState extends State<_MealCard> {
                                 height: 14,
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: AppTheme.backgroundDark),
+                                    color: AppTheme.oledBlack),
                               )
                             : const Icon(LucideIcons.sparkles,
                                 size: 14,
-                                color: AppTheme.backgroundDark),
+                                color: AppTheme.oledBlack),
                         label: Text(
                           isAnalyzing ? 'Analyzing…' : 'Analyze',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.backgroundDark,
+                            color: AppTheme.oledBlack,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
@@ -1539,7 +1539,7 @@ class _MealCardState extends State<_MealCard> {
                   const SizedBox(height: 6),
                   Text(uploadError!,
                       style: GoogleFonts.plusJakartaSans(
-                          color: Colors.redAccent, fontSize: 11)),
+                          color: AppTheme.error, fontSize: 11)),
                 ],
 
                 if (aiConfidence != null) ...[
@@ -1643,7 +1643,7 @@ class _MealCardState extends State<_MealCard> {
                     child: Text(
                       'SAVE ACTUAL LOG',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.backgroundDark,
+                        color: AppTheme.oledBlack,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.1,
                       ),
@@ -1827,7 +1827,7 @@ class _MealCardState extends State<_MealCard> {
                             ? const ExcludeSemantics(
                                 child: Icon(
                                   LucideIcons.check,
-                                  color: AppTheme.backgroundDark,
+                                  color: AppTheme.oledBlack,
                                   size: 16,
                                 ),
                               )

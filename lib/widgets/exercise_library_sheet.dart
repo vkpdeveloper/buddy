@@ -177,7 +177,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                         child: Text(
                           group,
                           style: GoogleFonts.plusJakartaSans(
-                            color: isSelected ? AppTheme.backgroundDark : AppTheme.textSageMuted,
+                            color: isSelected ? AppTheme.oledBlack : AppTheme.textSageMuted,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
