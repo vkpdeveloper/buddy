@@ -5,7 +5,8 @@ import { env } from './env';
 import { z } from 'zod';
 import { db } from '../db';
 import { userProfile, dietPlans, dietDays, dietMeals } from '../db/schema';
-import { calculateBMR, calculateTDEE, calculateMacros } from './macros';
+import { calculateBMR, calculateTDEE, calculateMacros, deriveBodyFatRange, type BodyShape, type ExperienceLevel } from './macros';
+import { trackAiUsage, AI_FEATURE } from './aiUsageTracker';
 
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
@@ -30,7 +31,7 @@ const DietPlanSchema = z.object({
             carbsG: z.number().describe('Carbohydrate content of this meal in grams'),
             fatG: z.number().describe('Fat content of this meal in grams'),
             notes: z.string().describe('Preparation tips, soaking instructions, or short serving notes'),
-            recipe: z.string().describe('Full recipe written in markdown: 2-3 intro sentences then a bullet list of cooking steps. Total 350-500 words.'),
+            recipe: z.string().describe('Full recipe written in markdown: 2-3 intro sentences then a bullet list of cooking steps. Total 150-250 words.'),
         })).describe('All meals for this day. The number of meals must exactly match the meal types requested in the prompt.'),
     })).describe('Exactly 7 days of the diet plan (Mon through Sun). You MUST generate all 7 days — do not stop early.'),
 });
@@ -80,7 +81,7 @@ const MEAL_LABELS: Record<string, string> = {
     dinner: 'Dinner', evening_snack: 'Evening Snack',
 };
 
-export async function runDietGeneration(userId: string): Promise<{ planId: number }> {
+export async function runDietGeneration(userId: number): Promise<{ planId: number }> {
     const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
     if (profiles.length === 0) throw new Error('Profile not found. Set up profile first.');
     const profile = profiles[0];
@@ -88,6 +89,29 @@ export async function runDietGeneration(userId: string): Promise<{ planId: numbe
     const bmr = calculateBMR(profile.weight, profile.height, profile.age, profile.sex as any);
     const tdee = calculateTDEE(bmr, profile.activityLevel as any);
     const macros = calculateMacros(profile.weight, tdee, profile.goal as any, bmr);
+
+    const experienceLevel = (profile.experienceLevel ?? 'beginner') as ExperienceLevel;
+    const currentBodyShape = profile.currentBodyShape as BodyShape | null | undefined;
+    const goalBodyShape = profile.goalBodyShape as BodyShape | null | undefined;
+
+    const EXPERIENCE_DIET_CONTEXT: Record<ExperienceLevel, string> = {
+        beginner: 'Beginner (0–1 yr training) — metabolism still adapting to training stimulus; conservative deficit prevents excessive muscle loss; prioritise hitting protein target above all else',
+        intermediate: 'Intermediate (1–3 yrs training) — stable metabolism; standard 500 kcal deficit is well tolerated; protein and timing become increasingly important for recovery',
+        advanced: 'Advanced (3+ yrs training) — high training volume means protein must stay at the top end of the target range to prevent muscle catabolism; nutrient timing around workouts matters more',
+    };
+
+    let bodyCompositionContext = '';
+    if (currentBodyShape && goalBodyShape) {
+        const currentBf = deriveBodyFatRange(currentBodyShape, profile.sex as any);
+        const goalBf = deriveBodyFatRange(goalBodyShape, profile.sex as any);
+        bodyCompositionContext = `
+BODY COMPOSITION CONTEXT:
+- Current physique: ${currentBodyShape} (estimated ${currentBf.min}–${currentBf.max}% body fat, ${profile.sex})
+- Goal physique: ${goalBodyShape} (target ${goalBf.min}–${goalBf.max}% body fat, ${profile.sex})
+- Weekly fat loss target: 0.5 kg/week → 500 kcal/day deficit already applied (TDEE ${macros.tdee} kcal → target ${macros.calories} kcal)
+- Experience level: ${EXPERIENCE_DIET_CONTEXT[experienceLevel]}
+`;
+    }
 
     const useProteinPowder = profile.useProteinPowder;
     const preferredMeals: string[] = profile.preferredMeals;
@@ -147,7 +171,7 @@ export async function runDietGeneration(userId: string): Promise<{ planId: numbe
         : '';
 
     const systemPrompt = `You are an expert ${dietLabel} sports nutritionist. Generate a detailed, practical 7-day high-protein ${dietLabel} diet plan calibrated for South Asian physiology.
-
+${bodyCompositionContext}
 DIET TYPE: ${dietLabel.toUpperCase()}
 ${dietRule}
 
@@ -181,17 +205,20 @@ RECIPE RULES:
 - Include a "recipe" field for every meal written in markdown
 - Start with 2–3 sentences introducing the dish
 - Then add a blank line, followed by the full cooking method as a markdown bullet list
-- Total length: 350–500 words
+- Total length: 150–250 words
 
 STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
 
-    const { object: planData } = await generateObject({
-        model: google('gemini-3.1-flash-lite-preview'),
+    const model = 'gemini-3.1-flash-lite-preview';
+    const { object: planData, usage } = await generateObject({
+        model: google(model),
         schema: DietPlanSchema,
         system: systemPrompt,
         prompt: `Generate the complete 7-day diet plan (all 7 days, Monday through Sunday) for a ${profile.age}-year-old ${profile.sex} weighing ${profile.weight}kg, height ${profile.height}cm. Goal: ${profile.goal.replace('_', ' ')}. Activity: ${profile.activityLevel.replace('_', ' ')}. Each day must have exactly ${mealCount} meals: ${preferredMeals.join(', ')}.`,
-        maxOutputTokens: 16000,
+        maxOutputTokens: 65536,
     });
+
+    await trackAiUsage({ model, feature: AI_FEATURE.DIET_GENERATION, userId, usage });
 
     await db.update(dietPlans).set({ isActive: false });
 

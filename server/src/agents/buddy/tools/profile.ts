@@ -4,7 +4,7 @@ import { db } from '../../../db';
 import { userProfile, users } from '../../../db/schema';
 import { Tool } from 'ai';
 
-export function getUserProfileTool(userId: string): Tool {
+export function getUserProfileTool(userId: number): Tool {
     return {
         description:
             "Get the user's profile — name, physical stats (age, weight, height, sex), fitness goal, activity level, diet type, equipment, and food preferences. Call this when you need the user's personal details, goal, or dietary restrictions.",
@@ -28,8 +28,8 @@ export function getUserProfileTool(userId: string): Tool {
                     mealPrepTime: userProfile.mealPrepTime,
                 })
                 .from(users)
-                .leftJoin(userProfile, eq(userProfile.userId, users.firebaseUid))
-                .where(eq(users.firebaseUid, userId))
+                .leftJoin(userProfile, eq(userProfile.userId, users.id))
+                .where(eq(users.id, userId))
                 .limit(1);
 
             if (!profile) throw new Error('User profile not found');

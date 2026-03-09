@@ -41,7 +41,7 @@ class FitnessOnboardingExtension extends ConsumerStatefulWidget {
   const FitnessOnboardingExtension({
     super.key,
     required this.onComplete,
-    this.totalSteps = 5,
+    this.totalSteps = 6,
     this.startStep = 3,
   });
 
@@ -89,6 +89,12 @@ class _FitnessOnboardingExtensionState
 
   // Page 5: Supersets preference
   bool? _preferSupersets;
+
+  // New fields
+  String _experienceLevel = '';
+  String _currentBodyShape = '';
+  String _goalBodyShape = '';
+  String _userSex = 'male'; // loaded from shared prefs
 
   // Derived from the chosen split
   int get _daysPerWeek =>
@@ -183,7 +189,13 @@ class _FitnessOnboardingExtensionState
   Future<void> _loadCurrentWeight() async {
     final prefs = await SharedPreferences.getInstance();
     final w = prefs.getDouble('user_weight') ?? 75.0;
-    if (mounted) setState(() => _targetWeight = w);
+    final sex = prefs.getString('user_sex') ?? 'male';
+    if (mounted) {
+      setState(() {
+        _targetWeight = w;
+        _userSex = sex;
+      });
+    }
   }
 
   void _showValidationError(String message) {
@@ -193,20 +205,34 @@ class _FitnessOnboardingExtensionState
   bool _validateCurrentPage() {
     switch (_currentPage) {
       case 0:
-        if (_fitnessGoal.isEmpty) {
-          _showValidationError('Please select your body goal to continue.');
+        if (_currentBodyShape.isEmpty) {
+          _showValidationError('Please select your current body shape.');
           return false;
         }
         return true;
       case 1:
+        if (_fitnessGoal.isEmpty) {
+          _showValidationError('Please select your body goal to continue.');
+          return false;
+        }
+        if (_goalBodyShape.isEmpty) {
+          _showValidationError('Please select your goal body shape.');
+          return false;
+        }
+        return true;
+      case 2:
         if (_activityLevel.isEmpty) {
           _showValidationError(
             'Please select your activity level to continue.',
           );
           return false;
         }
+        if (_experienceLevel.isEmpty) {
+          _showValidationError('Please select your training experience level.');
+          return false;
+        }
         return true;
-      case 2:
+      case 3:
         if (_dietType.isEmpty) {
           _showValidationError('Please select your diet type.');
           return false;
@@ -228,7 +254,7 @@ class _FitnessOnboardingExtensionState
           return false;
         }
         return true;
-      case 3:
+      case 4:
         if (_selectedEquipment.isEmpty) {
           _showValidationError(
             'Please select at least one piece of equipment.',
@@ -247,7 +273,7 @@ class _FitnessOnboardingExtensionState
 
   void _nextPage() {
     if (!_validateCurrentPage()) return;
-    if (_currentPage < 4) {
+    if (_currentPage < 5) {
       setState(() => _currentPage++);
       _pageController.animateToPage(
         _currentPage,
@@ -320,6 +346,9 @@ class _FitnessOnboardingExtensionState
         'preferredFoods': _selectedFoods.toList(),
         'profileCompleted': true,
         'preferSupersets': _preferSupersets ?? false,
+        'experienceLevel': _experienceLevel,
+        'currentBodyShape': _currentBodyShape,
+        'goalBodyShape': _goalBodyShape,
       });
 
       if (mounted) {
@@ -397,6 +426,7 @@ class _FitnessOnboardingExtensionState
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
               children: [
+                _buildCurrentBodyShapePage(),
                 _buildGoalPage(),
                 _buildActivityPage(),
                 _buildDietPreferencesPage(),
@@ -605,7 +635,303 @@ class _FitnessOnboardingExtensionState
     );
   }
 
-  // ─── Page 4: Weight Goal ─────────────────────────────────────────────
+  // ─── Body shape helpers ──────────────────────────────────────────────
+
+  String _bfLabel(String shape) {
+    final male = _userSex == 'male';
+    return switch (shape) {
+      'skinny' => male ? '14–22% body fat' : '22–28% body fat',
+      'lean' => male ? '8–15% body fat' : '14–22% body fat',
+      'fat' => male ? '22–32% body fat' : '30–40% body fat',
+      _ => '',
+    };
+  }
+
+  Widget _buildBodyShapeGrid({
+    required String label,
+    required String selectedValue,
+    required ValueChanged<String> onSelect,
+  }) {
+    const shapes = [('skinny', 'Skinny'), ('lean', 'Lean'), ('fat', 'Fat')];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textSageMuted,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: shapes.map((s) {
+            final isSelected = selectedValue == s.$1;
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: s.$1 != 'fat' ? 8 : 0),
+                child: Semantics(
+                  button: true,
+                  selected: isSelected,
+                  label: '${s.$2}: ${_bfLabel(s.$1)}',
+                  child: GestureDetector(
+                    onTap: () => onSelect(s.$1),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary.withValues(alpha: 0.12)
+                            : AppTheme.cardDark,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.borderDark,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: ExcludeSemantics(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(13),
+                              ),
+                              child: Image.asset(
+                                'assets/images/body_shapes/${_userSex.toLowerCase()}_${s.$1}.png',
+                                height: 100,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => SizedBox(
+                                  height: 100,
+                                  child: Center(
+                                    child: Icon(
+                                      LucideIcons.user,
+                                      color: AppTheme.textSageMuted.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                      size: 28,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    s.$2,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: isSelected
+                                          ? AppTheme.textCream
+                                          : AppTheme.textSageMuted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _bfLabel(s.$1),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.textSageMuted.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                      fontSize: 9,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // ─── Page 0: Current Body Shape ──────────────────────────────────────
+
+  Widget _buildCurrentBodyShapePage() {
+    const shapes = [
+      ('skinny', 'Skinny', 'Thin, little muscle'),
+      ('lean', 'Lean', 'Athletic & fit'),
+      ('fat', 'Fat', 'Higher body fat'),
+    ];
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 32),
+                Text(
+                  'YOUR BODY NOW',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Where are you\nstarting from?',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Be honest — this sets the right baseline for your plan.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: shapes.map((s) {
+                    final isSelected = _currentBodyShape == s.$1;
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: s.$1 != 'fat' ? 10 : 0),
+                        child: Semantics(
+                          button: true,
+                          selected: isSelected,
+                          label: '${s.$2}: ${_bfLabel(s.$1)}',
+                          child: GestureDetector(
+                            onTap: () =>
+                                setState(() => _currentBodyShape = s.$1),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppTheme.primary.withValues(alpha: 0.12)
+                                    : AppTheme.cardDark,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppTheme.primary
+                                      : AppTheme.borderDark,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: ExcludeSemantics(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(15),
+                                      ),
+                                      child: Image.asset(
+                                        'assets/images/body_shapes/${_userSex.toLowerCase()}_${s.$1}.png',
+                                        height: 160,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => SizedBox(
+                                          height: 160,
+                                          child: Center(
+                                            child: Icon(
+                                              LucideIcons.user,
+                                              color: AppTheme.textSageMuted
+                                                  .withValues(alpha: 0.3),
+                                              size: 40,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        8,
+                                        10,
+                                        8,
+                                        12,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Text(
+                                            s.$2,
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: isSelected
+                                                  ? AppTheme.textCream
+                                                  : AppTheme.textSageMuted,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            s.$3,
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: AppTheme.textSageMuted
+                                                  .withValues(alpha: 0.6),
+                                              fontSize: 10,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _bfLabel(s.$1),
+                                            style: GoogleFonts.plusJakartaSans(
+                                              color: isSelected
+                                                  ? AppTheme.primary.withValues(
+                                                      alpha: 0.8,
+                                                    )
+                                                  : AppTheme.textSageMuted
+                                                        .withValues(alpha: 0.4),
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
+          child: _buildPrimaryButton(label: 'CONTINUE', onTap: _nextPage),
+        ),
+      ],
+    );
+  }
+
+  // ─── Page 1: Weight Goal ──────────────────────────────────────────────
 
   Widget _buildGoalPage() {
     final goals = [
@@ -733,9 +1059,8 @@ class _FitnessOnboardingExtensionState
                                     Text(
                                       isSelected ? g.$5 : g.$3,
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textSageMuted.withValues(
-                                          alpha: 0.7,
-                                        ),
+                                        color: AppTheme.textSageMuted
+                                            .withValues(alpha: 0.7),
                                         fontSize: 11,
                                       ),
                                     ),
@@ -763,6 +1088,12 @@ class _FitnessOnboardingExtensionState
                     ),
                   );
                 }),
+                const SizedBox(height: 24),
+                _buildBodyShapeGrid(
+                  label: 'YOUR GOAL BODY',
+                  selectedValue: _goalBodyShape,
+                  onSelect: (v) => setState(() => _goalBodyShape = v),
+                ),
                 AnimatedSize(
                   duration: const Duration(milliseconds: 300),
                   curve: Curves.easeInOut,
@@ -799,65 +1130,70 @@ class _FitnessOnboardingExtensionState
                                 label:
                                     'Target weight: ${_targetWeight.toStringAsFixed(1)} kg, tap to change',
                                 child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cardDark,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: AppTheme.borderDark,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardDark,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: AppTheme.borderDark,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.baseline,
+                                          textBaseline: TextBaseline.alphabetic,
+                                          children: [
+                                            Text(
+                                              _targetWeight.toStringAsFixed(1),
+                                              style:
+                                                  GoogleFonts.plusJakartaSans(
+                                                    color: AppTheme.textCream,
+                                                    fontSize: 32,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'kg',
+                                              style:
+                                                  GoogleFonts.plusJakartaSans(
+                                                    color:
+                                                        AppTheme.textSageMuted,
+                                                    fontSize: 14,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 34,
+                                        height: 34,
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primary.withValues(
+                                            alpha: 0.12,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          LucideIcons.chevrons_up_down,
+                                          color: AppTheme.primary,
+                                          size: 17,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.baseline,
-                                        textBaseline: TextBaseline.alphabetic,
-                                        children: [
-                                          Text(
-                                            _targetWeight.toStringAsFixed(1),
-                                            style: GoogleFonts.plusJakartaSans(
-                                              color: AppTheme.textCream,
-                                              fontSize: 32,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            'kg',
-                                            style: GoogleFonts.plusJakartaSans(
-                                              color: AppTheme.textSageMuted,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      width: 34,
-                                      height: 34,
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primary.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(
-                                        LucideIcons.chevrons_up_down,
-                                        color: AppTheme.primary,
-                                        size: 17,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                               ),
-                               ),
-                             ),
-                             const SizedBox(height: 4),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
                             Text(
                               _fitnessGoal == 'lose_fat'
                                   ? 'Set a realistic target — aim for 0.5–1 kg/week.'
@@ -1001,9 +1337,122 @@ class _FitnessOnboardingExtensionState
                                     Text(
                                       l.$3,
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textSageMuted.withValues(
-                                          alpha: 0.7,
-                                        ),
+                                        color: AppTheme.textSageMuted
+                                            .withValues(alpha: 0.7),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    LucideIcons.check,
+                                    color: AppTheme.backgroundDark,
+                                    size: 12,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 28),
+                Text(
+                  'TRAINING EXPERIENCE',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'How long have you been training consistently?',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ...[
+                  (
+                    'beginner',
+                    'Beginner',
+                    '0 – 1 year',
+                    'Building foundations, form first',
+                  ),
+                  (
+                    'intermediate',
+                    'Intermediate',
+                    '1 – 3 years',
+                    'Progressive overload, more variety',
+                  ),
+                  (
+                    'advanced',
+                    'Advanced',
+                    '3+ years',
+                    'High volume, periodisation',
+                  ),
+                ].map((e) {
+                  final isSelected = _experienceLevel == e.$1;
+                  return Semantics(
+                    button: true,
+                    selected: isSelected,
+                    label: '${e.$2}: ${e.$3}',
+                    child: GestureDetector(
+                      onTap: () => setState(() => _experienceLevel = e.$1),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primary.withValues(alpha: 0.12)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.borderDark,
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: ExcludeSemantics(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      e.$2,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: isSelected
+                                            ? AppTheme.textCream
+                                            : AppTheme.textSageMuted,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      isSelected ? e.$4 : e.$3,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textSageMuted
+                                            .withValues(alpha: 0.7),
                                         fontSize: 11,
                                       ),
                                     ),
@@ -1167,9 +1616,8 @@ class _FitnessOnboardingExtensionState
                                     Text(
                                       d.$3,
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textSageMuted.withValues(
-                                          alpha: 0.7,
-                                        ),
+                                        color: AppTheme.textSageMuted
+                                            .withValues(alpha: 0.7),
                                         fontSize: 11,
                                       ),
                                     ),
@@ -1301,7 +1749,9 @@ class _FitnessOnboardingExtensionState
                                           color: AppTheme.primary.withValues(
                                             alpha: 0.18,
                                           ),
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         child: Text(
                                           'required',
@@ -1440,7 +1890,10 @@ class _FitnessOnboardingExtensionState
                             child: ExcludeSemantics(
                               child: Column(
                                 children: [
-                                  Text(c.$3, style: const TextStyle(fontSize: 20)),
+                                  Text(
+                                    c.$3,
+                                    style: const TextStyle(fontSize: 20),
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(
                                     c.$2,
@@ -1798,9 +2251,8 @@ class _FitnessOnboardingExtensionState
                                     Text(
                                       cy.$3,
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textSageMuted.withValues(
-                                          alpha: 0.6,
-                                        ),
+                                        color: AppTheme.textSageMuted
+                                            .withValues(alpha: 0.6),
                                         fontSize: 11,
                                       ),
                                     ),
@@ -1835,10 +2287,16 @@ class _FitnessOnboardingExtensionState
   Widget _buildSupersetPreferencePage() {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
     final options = [
-      (true, 'Yes, include supersets',
-          'Pair exercises back-to-back for more intensity and time efficiency.'),
-      (false, 'Keep it simple',
-          'One exercise at a time with full rest between sets.'),
+      (
+        true,
+        'Yes, include supersets',
+        'Pair exercises back-to-back for more intensity and time efficiency.',
+      ),
+      (
+        false,
+        'Keep it simple',
+        'One exercise at a time with full rest between sets.',
+      ),
     ];
     return Column(
       children: [
@@ -1885,7 +2343,9 @@ class _FitnessOnboardingExtensionState
                               : AppTheme.cardDark,
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.borderDark,
                             width: isSelected ? 1.5 : 1,
                           ),
                         ),

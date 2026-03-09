@@ -1,4 +1,7 @@
 import type { Context, Next } from 'hono';
+import { eq } from 'drizzle-orm';
+import { db } from '../db';
+import { users } from '../db/schema';
 
 /**
  * Firebase Auth JWT middleware for Hono.
@@ -114,7 +117,8 @@ async function verifyFirebaseJwt(token: string, projectId: string): Promise<{ su
 
 declare module 'hono' {
     interface ContextVariableMap {
-        userId: string;
+        firebaseUid: string;  // Raw Firebase UID — used only by auth routes
+        userId: number;       // Internal integer DB ID from users.id — used by all data routes
     }
 }
 
@@ -128,7 +132,23 @@ export function firebaseAuth(projectId: string) {
         const token = authHeader.slice(7);
         try {
             const { sub } = await verifyFirebaseJwt(token, projectId);
-            c.set('userId', sub);
+            c.set('firebaseUid', sub);
+
+            // Resolve the integer DB id. Auth routes (/api/auth/*) tolerate 0
+            // for the new-user registration case; all other routes require a valid id.
+            const [user] = await db
+                .select({ id: users.id })
+                .from(users)
+                .where(eq(users.firebaseUid, sub))
+                .limit(1);
+
+            const isAuthRoute = c.req.path.startsWith('/api/auth');
+            if (!user && !isAuthRoute) {
+                return c.json({ success: false, error: 'User not registered' }, 401);
+            }
+
+            c.set('userId', user?.id ?? 0);
+
             await next();
         } catch (err) {
             console.error('[firebaseAuth]', err);

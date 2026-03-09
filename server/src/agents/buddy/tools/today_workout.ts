@@ -27,7 +27,7 @@ const getDayNumber = (day: string) => {
     }
 }
 
-export function getTodayWorkoutTool(userId: string): Tool {
+export function getTodayWorkoutTool(userId: number): Tool {
     return {
         description:
             "Get today's recommended workout — which training day is up next in the user's cycle (Push/Pull/Legs/Upper/Lower/etc.) and all the exercises with sets, reps, and rest times. Call this when the user asks what workout to do today, today's training, today's exercises, or what's next in their program.",

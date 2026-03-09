@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { env } from './env';
 import { r2Client } from './r2';
+import { trackAiUsage, AI_FEATURE } from './aiUsageTracker';
 
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
@@ -57,8 +58,9 @@ export async function analyzeMealImage(
 ): Promise<MealAnalysisResult> {
   const imageBytes = await fetchImageFromR2(objectKey);
 
-  const { object } = await generateObject({
-    model: google('gemini-3.1-flash-lite-preview'),
+  const mealModel = 'gemini-3.1-flash-lite-preview';
+  const { object, usage } = await generateObject({
+    model: google(mealModel),
     schema: MealAnalysisSchema,
     messages: [
       {
@@ -73,6 +75,8 @@ export async function analyzeMealImage(
       },
     ],
   });
+
+  await trackAiUsage({ model: mealModel, feature: AI_FEATURE.MEAL_ANALYSIS, userId: null, usage });
 
   return {
     ingredients: object.ingredients,

@@ -162,7 +162,7 @@ function milestoneEvaluations(params: {
   return evals;
 }
 
-async function ensureProgressRow(userId: string) {
+async function ensureProgressRow(userId: number) {
   let rows = await db.select().from(userProgress).where(eq(userProgress.userId, userId)).limit(1);
   if (rows.length === 0) {
     await db.insert(userProgress).values({ userId });
@@ -171,7 +171,7 @@ async function ensureProgressRow(userId: string) {
   return rows[0];
 }
 
-async function ensureProfileRow(userId: string) {
+async function ensureProfileRow(userId: number) {
   const rows = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
   if (rows.length === 0) return null;
   return rows[0];

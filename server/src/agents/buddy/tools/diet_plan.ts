@@ -4,7 +4,7 @@ import { db } from '../../../db';
 import { dietPlans, dietDays, dietMeals } from '../../../db/schema';
 import { Tool } from 'ai';
 
-export function getFullDietPlanTool(userId: string): Tool {
+export function getFullDietPlanTool(userId: number): Tool {
     return {
         description:
             "Get the user's full 7-day diet plan — every day (Mon–Sun) with each meal's name, type, and macros. Call this when the user asks about their weekly diet, a specific day of the week's meals, overall meal plan structure, or wants to compare days.",

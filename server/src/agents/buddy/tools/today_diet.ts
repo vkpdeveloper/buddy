@@ -10,7 +10,7 @@ function todayDayNumber(): number {
     return jsDay === 0 ? 7 : jsDay;
 }
 
-export function getTodayDietTool(userId: string): Tool {
+export function getTodayDietTool(userId: number): Tool {
     return {
         description:
             "Get today's planned diet — all meals scheduled for today with their meal type, name, macro breakdown (calories, protein, carbs, fat), ingredients, and whether each meal has been completed/logged. Call this when the user asks about today's meals, what to eat today, today's calories, or meal completion status.",

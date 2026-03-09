@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { ok } from '../lib/response';
 import {
@@ -64,7 +64,13 @@ router.get('/home-summary/:date', async (c) => {
                 .where(eq(dietMeals.dayId, dietDay.id))
                 .orderBy(asc(dietMeals.orderIndex));
 
-            const logs = await db.select().from(dietMealLogs).where(eq(dietMealLogs.date, date));
+            const mealIds = meals.map((m) => m.id);
+            const logs = mealIds.length > 0
+                ? await db
+                    .select({ mealId: dietMealLogs.mealId, isCompleted: dietMealLogs.isCompleted })
+                    .from(dietMealLogs)
+                    .where(and(eq(dietMealLogs.date, date), inArray(dietMealLogs.mealId, mealIds)))
+                : [];
             const logMap = new Map(logs.map((l) => [l.mealId, l.isCompleted]));
             const pending = meals.find((m) => !(logMap.get(m.id) ?? false));
             const fallback = meals[0];
@@ -109,7 +115,7 @@ router.get('/home-summary/:date', async (c) => {
             const inProgressSession = sessionsToday.find((s) => !s.completedAt);
             const exercisesCount = workoutDay.isRestDay
                 ? 0
-                : (await db.select().from(workoutExercises).where(eq(workoutExercises.dayId, workoutDay.id))).length;
+                : (await db.select({ value: count() }).from(workoutExercises).where(eq(workoutExercises.dayId, workoutDay.id)))[0].value;
 
             todayWorkoutSummary = {
                 dayId: workoutDay.id,

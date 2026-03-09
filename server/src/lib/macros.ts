@@ -5,6 +5,30 @@
 export type Sex = 'male' | 'female';
 export type ActivityLevel = 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active' | 'athlete';
 export type Goal = 'muscle_gain' | 'fat_loss' | 'recomp' | 'maintain' | 'endurance';
+export type BodyShape = 'skinny' | 'lean' | 'fat';
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export interface BodyFatRange {
+    min: number;
+    max: number;
+    midpoint: number;
+}
+
+// Body fat % ranges by shape and sex (clinical/sports science reference ranges)
+// "skinny" = thin/untrained, low muscle mass, moderate BF% (skinny-fat profile)
+// "lean"   = athletic/fit, visible muscle tone, low BF%
+const BODY_FAT_RANGES: Record<BodyShape, Record<Sex, BodyFatRange>> = {
+    skinny: { male: { min: 14, max: 22, midpoint: 18 }, female: { min: 22, max: 28, midpoint: 25 } },
+    lean:   { male: { min: 8,  max: 15, midpoint: 12 }, female: { min: 14, max: 22, midpoint: 18 } },
+    fat:    { male: { min: 22, max: 32, midpoint: 27 }, female: { min: 30, max: 40, midpoint: 35 } },
+};
+
+/**
+ * Returns estimated body fat % range for a given body shape and sex.
+ */
+export function deriveBodyFatRange(shape: BodyShape, sex: Sex): BodyFatRange {
+    return BODY_FAT_RANGES[shape][sex];
+}
 
 export interface MacroTargets {
     calories: number;

@@ -5,6 +5,8 @@ import { env } from './env';
 import { z } from 'zod';
 import { db } from '../db';
 import { userProfile, workoutPlans, workoutDays, workoutExercises } from '../db/schema';
+import { deriveBodyFatRange, type BodyShape, type ExperienceLevel } from './macros';
+import { trackAiUsage, AI_FEATURE } from './aiUsageTracker';
 
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
@@ -72,7 +74,7 @@ const CYCLE_TEMPLATES: Record<string, { days: { label: string; isRest: boolean }
     },
 };
 
-export async function runWorkoutGeneration(userId: string): Promise<{ planId: number }> {
+export async function runWorkoutGeneration(userId: number): Promise<{ planId: number }> {
     const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
     if (profiles.length === 0) throw new Error('Profile not found');
     const profile = profiles[0];
@@ -80,14 +82,45 @@ export async function runWorkoutGeneration(userId: string): Promise<{ planId: nu
     const equipment: string[] = profile.equipment;
     const cycleType = profile.workoutCycle;
     const daysPerWeek = profile.weeklyWorkoutDays;
+    const experienceLevel = (profile.experienceLevel ?? 'beginner') as ExperienceLevel;
+    const currentBodyShape = profile.currentBodyShape as BodyShape | null | undefined;
+    const goalBodyShape = profile.goalBodyShape as BodyShape | null | undefined;
+    const sex = profile.sex as 'male' | 'female';
 
     const template = CYCLE_TEMPLATES[cycleType];
     const workDays = template.days.filter(d => !d.isRest).slice(0, daysPerWeek);
     const uniqueDayLabels = [...new Set(workDays.map(d => d.label))];
     const equipmentDisplay = equipment.map(e => e.replace('_', ' ')).join(', ');
 
+    const EXPERIENCE_CONTEXT: Record<ExperienceLevel, string> = {
+        beginner: 'BEGINNER (0–1 year of training): Prioritise form and neural adaptation. Use foundational compound movements. Keep all rep ranges moderate (8–12). 3 sets per exercise maximum. Avoid complex or highly technical exercises — build the habit and movement patterns first.',
+        intermediate: 'INTERMEDIATE (1–3 years of training): Progressive overload is the main driver. Mix heavy compound lifts (6–8 reps) with moderate isolation work (10–12 reps). 3–4 sets per exercise. Introduce more exercise variety and periodisation.',
+        advanced: 'ADVANCED (3+ years of training): High volume and intensity. Include full periodisation — heavy sets (4–6 reps), moderate hypertrophy sets (8–12 reps), and high-rep pump sets (15–20 reps). 4–5 sets on key lifts. Complex movement patterns, supersets (if preferred), and near-failure intensity expected.',
+    };
+
+    let physiqueSection = '';
+    if (currentBodyShape && goalBodyShape) {
+        const currentBf = deriveBodyFatRange(currentBodyShape, sex);
+        const goalBf = deriveBodyFatRange(goalBodyShape, sex);
+        const emphasisMap: Record<BodyShape, string> = {
+            skinny: 'Muscle building from scratch — foundational compound movements, progressive overload, sustainable volume to build mass',
+            lean: 'Maintain and improve body composition — balance resistance training with metabolic conditioning',
+            fat: 'General fitness and habit building — compound movements, moderate intensity, sustainable volume',
+        };
+        physiqueSection = `
+PHYSIQUE TRANSFORMATION CONTEXT:
+- Current physique: ${currentBodyShape} (~${currentBf.min}–${currentBf.max}% body fat for ${sex})
+- Target physique: ${goalBodyShape} (~${goalBf.min}–${goalBf.max}% body fat for ${sex})
+- Weekly fat loss target: 0.5 kg/week (500 kcal/day deficit applied via diet plan)
+- Training emphasis: ${emphasisMap[goalBodyShape]}
+`;
+    }
+
     const systemPrompt = `You are an elite personal trainer and strength coach. Generate a detailed, periodized workout plan.
 
+TRAINEE EXPERIENCE LEVEL:
+${EXPERIENCE_CONTEXT[experienceLevel]}
+${physiqueSection}
 STRICT RULES:
 - ONLY use these available equipment: ${equipmentDisplay}
 - Split type: ${cycleType.replace('_', ' ').toUpperCase()}
@@ -95,17 +128,20 @@ STRICT RULES:
 - 5-7 exercises per workout day
 - Include sets, reps (or time), rest periods, and the primary muscle group for EACH exercise
 - Be specific: use proper exercise names (e.g., "Romanian Deadlift", "Incline Dumbbell Press", "Cable Lateral Raise")
-- Vary rep ranges: include heavy compound (4-6 reps), moderate (8-12 reps), and higher rep (15-20 reps) work
+- Vary rep ranges appropriately for the experience level above
 - Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s
 - For Cable Machine exercises, only include them if "cable" appears in the equipment list`;
 
-    const { object: planData } = await generateObject({
-        model: google('gemini-3.1-flash-lite-preview'),
+    const model = 'gemini-3.1-flash-lite-preview';
+    const { object: planData, usage } = await generateObject({
+        model: google(model),
         schema: WorkoutPlanSchema,
         system: systemPrompt,
         prompt: `Generate the workout plan. Available equipment: ${equipmentDisplay}. Split: ${cycleType}. Workout days needed: ${uniqueDayLabels.join(', ')}.`,
         maxOutputTokens: 6000,
     });
+
+    await trackAiUsage({ model, feature: AI_FEATURE.WORKOUT_GENERATION, userId, usage });
 
     await db.update(workoutPlans).set({ isActive: false });
 

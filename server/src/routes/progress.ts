@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { ok } from '../lib/response';
 import { db } from '../db';
 import {
@@ -112,7 +112,7 @@ async function getPlannedWorkoutsByPlanId(planIds: number[]) {
     return plannedByPlan;
 }
 
-async function getSoloLeaderboard(userId: string) {
+async function getSoloLeaderboard(userId: number) {
     const now = new Date();
     const currentWeek = getWeekRange(now);
     const [activePlan] = await db.select().from(workoutPlans)
@@ -256,7 +256,7 @@ export async function seedAchievements() {
 }
 
 // ─── Ensure user_progress row exists ─────────────────────────────────────────
-export async function ensureUserProgress(userId: string) {
+export async function ensureUserProgress(userId: number) {
     const rows = await db.select().from(userProgress).where(eq(userProgress.userId, userId)).limit(1);
     if (rows.length === 0) {
         await db.insert(userProgress).values({ userId });
@@ -282,7 +282,7 @@ router.get('/', async (c) => {
             achievementId: userAchievements.achievementId,
         }).from(userAchievements)
             .where(eq(userAchievements.userId, userId))
-            .orderBy(userAchievements.unlockedAt)
+            .orderBy(desc(userAchievements.unlockedAt))
             .limit(5);
 
         const achievementIds = recentUnlocks.map(u => u.achievementId);

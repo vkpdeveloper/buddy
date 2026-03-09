@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ilike, SQL } from 'drizzle-orm';
 import { db } from '../db';
 import { exerciseCatalog, personalRecords } from '../db/schema';
 import { ok } from '../lib/response';
@@ -11,12 +11,11 @@ router.get('/', async (c) => {
     const muscleGroup = c.req.query('muscleGroup');
     const equipment = c.req.query('equipment');
 
-    const results = await db.select().from(exerciseCatalog);
-    const filtered = results.filter((ex) => {
-        if (muscleGroup && ex.muscleGroup.toLowerCase() !== muscleGroup.toLowerCase()) return false;
-        if (equipment && ex.equipment.toLowerCase() !== equipment.toLowerCase()) return false;
-        return true;
-    });
+    const conditions: SQL[] = [];
+    if (muscleGroup) conditions.push(ilike(exerciseCatalog.muscleGroup, muscleGroup));
+    if (equipment) conditions.push(ilike(exerciseCatalog.equipment, equipment));
+    const filtered = await db.select().from(exerciseCatalog)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
 
     return ok(c, filtered);
 });

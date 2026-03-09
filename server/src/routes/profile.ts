@@ -44,6 +44,9 @@ const profileSchema = z.object({
     preferredFoods: z.array(z.string()).optional(),
     profileCompleted: z.boolean().optional(),
     preferSupersets: z.boolean().optional(),
+    experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+    currentBodyShape: z.enum(['skinny', 'lean', 'fat']).optional(),
+    goalBodyShape: z.enum(['skinny', 'lean', 'fat']).optional(),
 });
 
 // PUT /api/profile — upsert profile for the authenticated user
@@ -51,7 +54,7 @@ router.put('/', zValidator('json', profileSchema), async (c) => {
     const userId = c.var.userId;
     const body = c.req.valid('json');
 
-    const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
+    const profiles = await db.select({ id: userProfile.id }).from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
 
     const updateData: Partial<typeof userProfile.$inferInsert> = { userId };
     if (body.name !== undefined) updateData.name = body.name;
@@ -76,6 +79,9 @@ router.put('/', zValidator('json', profileSchema), async (c) => {
     if (body.preferredFoods !== undefined) updateData.preferredFoods = body.preferredFoods;
     if (body.profileCompleted !== undefined) updateData.profileCompleted = body.profileCompleted;
     if (body.preferSupersets !== undefined) updateData.preferSupersets = body.preferSupersets;
+    if (body.experienceLevel !== undefined) updateData.experienceLevel = body.experienceLevel;
+    if (body.currentBodyShape !== undefined) updateData.currentBodyShape = body.currentBodyShape;
+    if (body.goalBodyShape !== undefined) updateData.goalBodyShape = body.goalBodyShape;
 
     let result: (typeof userProfile.$inferSelect)[];
     if (profiles.length === 0) {

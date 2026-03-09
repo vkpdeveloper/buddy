@@ -5,7 +5,7 @@ import { userProgress, achievements, userAchievements } from '../../../db/schema
 import { getLevel, getLevelLabel } from '../../../lib/xp';
 import { Tool } from 'ai';
 
-export function getUserProgressTool(userId: string): Tool {
+export function getUserProgressTool(userId: number): Tool {
     return {
         description:
             "Get the user's gamification progress — XP total, current level and label, workout streak, best streak, total workouts completed, and recently unlocked achievements. Call this when the user asks about their level, XP, streak, achievements, overall progress, or how they're doing in the app.",

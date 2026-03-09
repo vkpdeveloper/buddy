@@ -10,6 +10,7 @@ import { userProfile, users } from '../../db/schema';
 import { env } from '../../lib/env';
 import { buildBuddySystemPrompt } from './system_prompt';
 import { createBuddyTools } from './tools/index';
+import { trackAiUsage, AI_FEATURE } from '../../lib/aiUsageTracker';
 
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
@@ -31,7 +32,7 @@ router.post('/chat', zValidator('json', chatSchema), async (c) => {
         const userId = c.var.userId;
         const { messages } = c.req.valid('json');
 
-        const [profile] = await db.select({ name: users.name }).from(users).where(eq(users.firebaseUid, userId)).limit(1);
+        const [profile] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId)).limit(1);
         const firstName = profile.name;
 
         const systemPrompt = buildBuddySystemPrompt(firstName);
@@ -49,8 +50,9 @@ router.post('/chat', zValidator('json', chatSchema), async (c) => {
                     getUserProgress: 'Looking at how you\'ve been tracking...',
                 };
 
+                const buddyModel = 'gemini-3.1-flash-lite-preview';
                 const result = streamText({
-                    model: google('gemini-3.1-flash-lite-preview'),
+                    model: google(buddyModel),
                     system: systemPrompt,
                     messages,
                     tools,
@@ -73,6 +75,10 @@ router.post('/chat', zValidator('json', chatSchema), async (c) => {
                         await stream.writeSSE({ event: 'tool', data: JSON.stringify(label) });
                     }
                 }
+
+                // Track token usage after stream is fully consumed
+                const usage = await result.usage;
+                await trackAiUsage({ model: buddyModel, feature: AI_FEATURE.BUDDY_CHAT, userId, usage });
 
                 await stream.writeSSE({ data: '[DONE]' });
             } catch (streamErr) {

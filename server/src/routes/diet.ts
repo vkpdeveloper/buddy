@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, inArray } from 'drizzle-orm';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { env } from '../lib/env';
@@ -10,6 +10,7 @@ import { userProfile, dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs, d
 import { calculateBMR, calculateTDEE, calculateMacros } from '../lib/macros';
 import { ok, fail } from '../lib/response';
 import { notFound, badRequest } from '../lib/errors';
+import { trackAiUsage, AI_FEATURE } from '../lib/aiUsageTracker';
 
 const router = new Hono();
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
@@ -35,7 +36,7 @@ const DietPlanSchema = z.object({
             carbsG: z.number().describe('Carbohydrate content of this meal in grams'),
             fatG: z.number().describe('Fat content of this meal in grams'),
             notes: z.string().describe('Preparation tips, soaking instructions, or short serving notes'),
-            recipe: z.string().describe('Full recipe written in markdown: 2-3 intro sentences then a bullet list of cooking steps. Total 350-500 words.'),
+            recipe: z.string().describe('Full recipe written in markdown: 2-3 intro sentences then a bullet list of cooking steps. Total 150-250 words.'),
         })).describe('All meals for this day. The number of meals must exactly match the meal types requested in the prompt.'),
     })).describe('Exactly 7 days of the diet plan (Monday through Sunday). You MUST generate all 7 days — do not stop early.'),
 });
@@ -148,11 +149,22 @@ router.get('/plans/:id', async (c) => {
         .where(eq(dietDays.planId, id))
         .orderBy(dietDays.dayNumber);
 
-    const daysWithMeals = await Promise.all(days.map(async (day) => {
-        const meals = await db.select().from(dietMeals)
-            .where(eq(dietMeals.dayId, day.id))
-            .orderBy(asc(dietMeals.orderIndex));
-        return { ...day, meals };
+    const dayIds = days.map((d) => d.id);
+    const allMeals = dayIds.length > 0
+        ? await db.select().from(dietMeals)
+            .where(inArray(dietMeals.dayId, dayIds))
+            .orderBy(asc(dietMeals.orderIndex))
+        : [];
+
+    const mealsByDayId = new Map<number, (typeof dietMeals.$inferSelect)[]>();
+    for (const meal of allMeals) {
+        const arr = mealsByDayId.get(meal.dayId) ?? [];
+        arr.push(meal);
+        mealsByDayId.set(meal.dayId, arr);
+    }
+    const daysWithMeals = days.map((day) => ({
+        ...day,
+        meals: mealsByDayId.get(day.id) ?? [],
     }));
 
     return ok(c, { ...plan, days: daysWithMeals });
@@ -271,21 +283,22 @@ RECIPE RULES:
 - Include a "recipe" field for every meal written in markdown, formatted like a proper recipe book entry
 - Start with 2–3 sentences introducing the dish: what it is, its flavour/texture, and why it fits the plan
 - Then add a blank line, followed by the full cooking method as a markdown bullet list (use "- " prefix)
-- Cover every meaningful step: soaking/marinating, prep work, cooking sequence, heat levels, timing cues, seasoning adjustments, and how to plate or serve
-- Be specific — mention exact pan types, flame levels (low/medium/high), visual doneness cues ("until golden", "until oil separates"), and small tips that make the dish better
-- Do NOT artificially limit the number of steps — use as many bullets as the recipe genuinely needs
-- Total length: 350–500 words; do NOT exceed 550 words
+- Cover every meaningful step: soaking/marinating, prep work, cooking sequence, heat levels, timing cues, and how to plate or serve
+- Total length: 150–250 words; do NOT exceed 300 words
 - Use plain language; bold (**word**) only key technique words or timing cues if helpful
 
 STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not add any other meal types.`;
 
-    const { object: planData } = await generateObject({
-        model: google('gemini-3.1-flash-lite-preview'),
+    const dietModel = 'gemini-3.1-flash-lite-preview';
+    const { object: planData, usage } = await generateObject({
+        model: google(dietModel),
         schema: DietPlanSchema,
         system: systemPrompt,
         prompt: `Generate the complete 7-day diet plan (all 7 days, Monday through Sunday) for a ${profile.age}-year-old ${profile.sex} weighing ${profile.weight}kg, height ${profile.height}cm. Goal: ${profile.goal.replace('_', ' ')}. Activity: ${profile.activityLevel.replace('_', ' ')}. Each day must have exactly ${mealCount} meals: ${preferredMeals.join(', ')}.`,
-        maxOutputTokens: 16000,
+        maxOutputTokens: 65536,
     });
+
+    await trackAiUsage({ model: dietModel, feature: AI_FEATURE.DIET_GENERATION, userId, usage });
 
     // Deactivate all existing plans for this user
     await db.update(dietPlans).set({ isActive: false }).where(eq(dietPlans.userId, userId));
@@ -400,12 +413,13 @@ router.put('/days/:id/reorder', zValidator('json', z.object({
         }
     }
 
-    for (let i = 0; i < mealIds.length; i += 1) {
-        const mealId = mealIds[i];
-        await db.update(dietMeals)
-            .set({ orderIndex: i + 1 })
-            .where(eq(dietMeals.id, mealId));
-    }
+    await db.transaction(async (tx) => {
+        for (let i = 0; i < mealIds.length; i += 1) {
+            await tx.update(dietMeals)
+                .set({ orderIndex: i + 1 })
+                .where(eq(dietMeals.id, mealIds[i]));
+        }
+    });
 
     const reordered = await db.select().from(dietMeals)
         .where(eq(dietMeals.dayId, dayId))
@@ -429,7 +443,36 @@ router.put('/days/:id', zValidator('json', z.object({
 router.get('/log/:date', async (c) => {
     const userId = c.var.userId;
     const date = c.req.param('date'); // YYYY-MM-DD
-    const logs = await db.select().from(dietMealLogs).where(eq(dietMealLogs.date, date));
+
+    // Scope logs to this user's meals via active plan → day → meal IDs
+    const weekday = new Date(`${date}T00:00:00`).getDay(); // 0=Sun…6=Sat
+    const dayNumber = weekday === 0 ? 7 : weekday;
+
+    const [activePlan] = await db
+        .select({ id: dietPlans.id })
+        .from(dietPlans)
+        .where(and(eq(dietPlans.userId, userId), eq(dietPlans.isActive, true)))
+        .limit(1);
+
+    let logs: (typeof dietMealLogs.$inferSelect)[] = [];
+    if (activePlan) {
+        const [dietDay] = await db
+            .select({ id: dietDays.id })
+            .from(dietDays)
+            .where(and(eq(dietDays.planId, activePlan.id), eq(dietDays.dayNumber, dayNumber)))
+            .limit(1);
+        if (dietDay) {
+            const userMeals = await db
+                .select({ id: dietMeals.id })
+                .from(dietMeals)
+                .where(eq(dietMeals.dayId, dietDay.id));
+            const mealIds = userMeals.map((m) => m.id);
+            if (mealIds.length > 0) {
+                logs = await db.select().from(dietMealLogs)
+                    .where(and(eq(dietMealLogs.date, date), inArray(dietMealLogs.mealId, mealIds)));
+            }
+        }
+    }
     const completionMap: Record<number, boolean> = {};
     const actualLogs: Record<number, {
         mealName: string;
@@ -539,6 +582,7 @@ router.put('/log/:date', zValidator('json', z.object({
     mealId: z.number().int(),
     isCompleted: z.boolean(),
 })), async (c) => {
+    const userId = c.var.userId;
     const date = c.req.param('date');
     const { mealId, isCompleted } = c.req.valid('json');
 
@@ -551,7 +595,7 @@ router.put('/log/:date', zValidator('json', z.object({
             .set({ isCompleted, loggedAt: new Date().toISOString() })
             .where(eq(dietMealLogs.id, existing.id));
     } else {
-        await db.insert(dietMealLogs).values({ mealId, date, isCompleted });
+        await db.insert(dietMealLogs).values({ userId, mealId, date, isCompleted });
     }
 
     return ok(c, null);
@@ -569,6 +613,7 @@ router.put('/log/:date/actual', zValidator('json', z.object({
     rawPayload: z.record(z.string(), z.unknown()).optional(),
     attachmentId: z.number().int().positive().optional(),
 })), async (c) => {
+    const userId = c.var.userId;
     const date = c.req.param('date');
     const {
         mealId,
@@ -609,6 +654,7 @@ router.put('/log/:date/actual', zValidator('json', z.object({
             .where(eq(dietMealLogs.id, existing.id));
     } else {
         await db.insert(dietMealLogs).values({
+            userId,
             mealId,
             date,
             ...values,

@@ -4,7 +4,7 @@ import { db } from '../../../db';
 import { workoutPlans, workoutDays, workoutExercises } from '../../../db/schema';
 import { Tool } from 'ai';
 
-export function getFullWorkoutPlanTool(userId: string): Tool {
+export function getFullWorkoutPlanTool(userId: number): Tool {
     return {
         description:
             "Get the user's full workout plan — every training day with all exercises, sets, reps, rest times, and muscle groups. Call this when the user asks about their workout program, training split, all exercises, a specific workout day (e.g. 'what's my Pull day?'), or equipment being used.",

@@ -11,6 +11,7 @@ import { calculateXp, calculateNewStreak, checkAchievements, getLevel, getLevelL
 import { ensureUserProgress } from './progress';
 import { ok, fail } from '../lib/response';
 import { notFound, badRequest } from '../lib/errors';
+import { trackAiUsage, AI_FEATURE } from '../lib/aiUsageTracker';
 
 const router = new Hono();
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
@@ -373,13 +374,16 @@ STRICT RULES:
 - Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s
 - For Cable Machine exercises, only include them if "cable" appears in the equipment list${supersetNote}`;
 
-        const { object: planData } = await generateObject({
-            model: google('gemini-3.1-flash-lite-preview'),
+        const workoutModel = 'gemini-3.1-flash-lite-preview';
+        const { object: planData, usage: generateUsage } = await generateObject({
+            model: google(workoutModel),
             schema: WorkoutPlanSchema,
             system: systemPrompt,
             prompt: `Generate the workout plan. Available equipment: ${equipmentDisplay}. Split: ${cycleType}. Workout days needed: ${uniqueDayLabels.join(', ')}.`,
             maxOutputTokens: 6000,
         });
+
+        await trackAiUsage({ model: workoutModel, feature: AI_FEATURE.WORKOUT_GENERATION, userId, usage: generateUsage });
 
         // Deactivate all existing workout plans
         await db.update(workoutPlans).set({ isActive: false }).where(eq(workoutPlans.userId, userId));
@@ -513,12 +517,14 @@ Rules:
         } | null = null;
 
         try {
-            const { object } = await generateObject({
-                model: google('gemini-3.1-flash-lite-preview'),
+            const replaceModel = 'gemini-3.1-flash-lite-preview';
+            const { object, usage: replaceUsage } = await generateObject({
+                model: google(replaceModel),
                 schema: ExerciseReplacementResultSchema,
                 prompt,
                 maxOutputTokens: 500,
             });
+            await trackAiUsage({ model: replaceModel, feature: AI_FEATURE.EXERCISE_REPLACEMENT, userId, usage: replaceUsage });
             if (object.name.trim().length > 1 && !existingNames.has(normalizeExerciseName(object.name))) {
                 candidate = {
                     name: object.name.trim(),
@@ -1064,13 +1070,16 @@ STRICT RULES:
 - Vary rep ranges: include heavy compound (4-6 reps), moderate (8-12 reps), and higher rep (15-20 reps) work
 - Rest times: heavy compounds = 120-180s, moderate = 60-90s, isolation = 45-60s${constraintNote}`;
 
-        const { object: planData } = await generateObject({
-            model: google('gemini-3.1-flash-lite-preview'),
+        const regenModel = 'gemini-3.1-flash-lite-preview';
+        const { object: planData, usage: regenUsage } = await generateObject({
+            model: google(regenModel),
             schema: WorkoutPlanSchema,
             system: systemPrompt,
             prompt: `Regenerate the workout plan. Equipment: ${equipmentDisplay}. Split: ${cycleType}. Days: ${uniqueDayLabels.join(', ')}.${constraints ? ` User constraints: ${constraints}` : ''}`,
             maxOutputTokens: 6000,
         });
+
+        await trackAiUsage({ model: regenModel, feature: AI_FEATURE.WORKOUT_REGENERATION, userId, usage: regenUsage });
 
         // Deactivate existing plans
         await db.update(workoutPlans).set({ isActive: false }).where(eq(workoutPlans.userId, userId));

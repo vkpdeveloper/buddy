@@ -31,7 +31,7 @@ function withLogging(name: string, tool: Tool): Tool {
  * Creates all Buddy AI tools bound to a specific user.
  * Each tool is lazy — it only hits the DB when the model decides to call it.
  */
-export function createBuddyTools(userId: string): Record<string, Tool> {
+export function createBuddyTools(userId: number): Record<string, Tool> {
     const tools = {
         getUserProfile: getUserProfileTool(userId),
         getTodayDiet: getTodayDietTool(userId),

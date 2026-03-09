@@ -4,7 +4,7 @@ import { db } from '../../../db';
 import { workoutSessions, workoutDays } from '../../../db/schema';
 import { Tool } from 'ai';
 
-export function getRecentSessionsTool(userId: string): Tool {
+export function getRecentSessionsTool(userId: number): Tool {
     return {
         description:
             "Get the user's recent completed workout sessions — dates, which day they trained (Push/Pull/Legs/etc.), duration, exercise completion rate, and XP earned. Call this when the user asks about workout history, recent sessions, consistency, how they've been doing lately, or patterns in their training.",

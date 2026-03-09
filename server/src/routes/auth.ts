@@ -11,7 +11,7 @@ const router = new Hono();
 // The Firebase JWT (verified by middleware) provides the UID; the client
 // sends name, email, and photoUrl from the Google account.
 router.post('/register', async (c) => {
-    const userId = c.var.userId;
+    const firebaseUid = c.var.firebaseUid;
     const { email, name, photoUrl } = await c.req.json<{
         email: string;
         name: string;
@@ -21,7 +21,7 @@ router.post('/register', async (c) => {
     const [user] = await db
         .insert(users)
         .values({
-            firebaseUid: userId,
+            firebaseUid,
             email,
             name,
             photoUrl: photoUrl ?? '',
@@ -44,11 +44,11 @@ router.post('/register', async (c) => {
 // If no users row exists yet (e.g. register not yet called), returns onboarded: false
 // rather than 404 so the client can safely route to onboarding.
 router.get('/me', async (c) => {
-    const userId = c.var.userId;
+    const firebaseUid = c.var.firebaseUid;
     const [user] = await db
         .select()
         .from(users)
-        .where(eq(users.firebaseUid, userId))
+        .where(eq(users.firebaseUid, firebaseUid))
         .limit(1);
 
     if (!user) {
@@ -61,11 +61,11 @@ router.get('/me', async (c) => {
 // POST /api/auth/complete-onboarding — marks the user as fully onboarded.
 // Upserts so it works even if the users row was never created via /register.
 router.post('/complete-onboarding', async (c) => {
-    const userId = c.var.userId;
+    const firebaseUid = c.var.firebaseUid;
     const [user] = await db
         .insert(users)
         .values({
-            firebaseUid: userId,
+            firebaseUid,
             email: '',
             name: '',
             photoUrl: '',
