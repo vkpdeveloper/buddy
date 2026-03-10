@@ -2409,8 +2409,8 @@ class _BottomNavigation extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _NavItem(
-            icon: LucideIcons.flower_2,
-            label: 'CENTER',
+            icon: LucideIcons.house,
+            label: 'HOME',
             isActive: currentIndex == 0,
             onTap: () => onTap(0),
           ),
@@ -2478,7 +2478,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? AppTheme.primary : AppTheme.textSageMuted;
+    final color = isActive ? AppTheme.textMain : AppTheme.textSageMuted;
     return Semantics(
       button: true,
       selected: isActive,
@@ -2520,7 +2520,7 @@ class _NavItem extends StatelessWidget {
                           width: 14,
                           height: 3,
                           decoration: BoxDecoration(
-                            color: AppTheme.primary.withValues(alpha: 0.85),
+                            color: AppTheme.textMain,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),

@@ -328,11 +328,14 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                           const SizedBox(height: 20),
                           _MetricGrid(metrics: overview.metricCards),
                           const SizedBox(height: 20),
-                          _PhotoCompareCard(
-                            firstPhoto: overview.firstPhoto,
-                            latestPhoto: overview.latestPhoto,
-                          ),
-                          const SizedBox(height: 20),
+                          if (overview.firstPhoto != null &&
+                              overview.latestPhoto != null) ...[
+                            _PhotoCompareCard(
+                              firstPhoto: overview.firstPhoto,
+                              latestPhoto: overview.latestPhoto,
+                            ),
+                            const SizedBox(height: 20),
+                          ],
                           _AchievementsCard(items: overview.achievements),
                           const SizedBox(height: 20),
                           _CompositionCard(series: overview.compositionSeries),
@@ -637,20 +640,12 @@ class _MetricGrid extends StatelessWidget {
 
   const _MetricGrid({required this.metrics});
 
-  Color _deltaColor(GrowthMetricCard metric, double delta) {
-    final isPositive = delta >= 0;
-    final isHigherGood = metric.direction == 'higher';
-    final good = isHigherGood ? isPositive : !isPositive;
-    return good ? AppTheme.primary : AppTheme.error;
-  }
-
-  String _formatDelta(double v, String unit) {
-    final sign = v >= 0 ? '+' : '';
-    return '$sign${v.toStringAsFixed(1)}$unit';
-  }
-
   @override
   Widget build(BuildContext context) {
+    final activeMetrics =
+        metrics.where((m) => m.latestValue != null).toList();
+    if (activeMetrics.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -669,7 +664,7 @@ class _MetricGrid extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: metrics.length,
+            itemCount: activeMetrics.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 12,
@@ -677,7 +672,7 @@ class _MetricGrid extends StatelessWidget {
               childAspectRatio: 1.26,
             ),
             itemBuilder: (_, i) {
-              final metric = metrics[i];
+              final metric = activeMetrics[i];
               final metricValueStr = metric.latestValue == null
                   ? 'no data'
                   : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}';
@@ -707,45 +702,43 @@ class _MetricGrid extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          metric.latestValue == null
-                              ? '—'
-                              : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
                           children: [
-                            if (metric.deltaSinceLast != null)
-                              _DeltaBadge(
-                                label: 'vs last',
-                                value: _formatDelta(
-                                  metric.deltaSinceLast!,
-                                  metric.unit == '%' ? '%' : ' ${metric.unit}',
-                                ),
-                                color: _deltaColor(
-                                  metric,
-                                  metric.deltaSinceLast!,
-                                ),
-                              ),
-                            if (metric.deltaSinceStart != null)
-                              _DeltaBadge(
-                                label: 'vs start',
-                                value: _formatDelta(
-                                  metric.deltaSinceStart!,
-                                  metric.unit == '%' ? '%' : ' ${metric.unit}',
-                                ),
-                                color: _deltaColor(
-                                  metric,
-                                  metric.deltaSinceStart!,
+                            Flexible(
+                              child: Text(
+                                metric.latestValue == null
+                                    ? '—'
+                                    : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textCream,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
+                            ),
+                            if (metric.sparkline.length >= 2) ...[
+                              if (metric.deltaSinceLast != null) ...[
+                                const SizedBox(width: 6),
+                                _DeltaBadge(
+                                  label: 'vs last',
+                                  delta: metric.deltaSinceLast!,
+                                  unit: metric.unit == '%'
+                                      ? '%'
+                                      : ' ${metric.unit}',
+                                ),
+                              ] else if (metric.deltaSinceStart != null) ...[
+                                const SizedBox(width: 6),
+                                _DeltaBadge(
+                                  label: 'vs start',
+                                  delta: metric.deltaSinceStart!,
+                                  unit: metric.unit == '%'
+                                      ? '%'
+                                      : ' ${metric.unit}',
+                                ),
+                              ],
+                            ],
                           ],
                         ),
                         const Spacer(),
@@ -774,30 +767,42 @@ class _MetricGrid extends StatelessWidget {
 
 class _DeltaBadge extends StatelessWidget {
   final String label;
-  final String value;
-  final Color color;
+  final double delta;
+  final String unit;
 
   const _DeltaBadge({
     required this.label,
-    required this.value,
-    required this.color,
+    required this.delta,
+    required this.unit,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDown = delta < 0;
+    final color = isDown ? AppTheme.success : AppTheme.error;
+    final icon = isDown ? LucideIcons.trending_down : LucideIcons.trending_up;
+    final absValue = delta.abs().toStringAsFixed(1);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(
-        '$label $value',
-        style: GoogleFonts.plusJakartaSans(
-          color: color,
-          fontSize: 8,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 9, color: color),
+          const SizedBox(width: 3),
+          Text(
+            '$absValue$unit $label',
+            style: GoogleFonts.plusJakartaSans(
+              color: color,
+              fontSize: 8,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -983,13 +988,25 @@ class _HorizontalRevealClipper extends CustomClipper<Rect> {
       oldClipper.ratio != ratio;
 }
 
-class _AchievementsCard extends StatelessWidget {
+class _AchievementsCard extends StatefulWidget {
   final List<Map<String, dynamic>> items;
 
   const _AchievementsCard({required this.items});
 
   @override
+  State<_AchievementsCard> createState() => _AchievementsCardState();
+}
+
+class _AchievementsCardState extends State<_AchievementsCard> {
+  bool _showLocked = false;
+
+  @override
   Widget build(BuildContext context) {
+    final unlocked =
+        widget.items.where((e) => e['isUnlocked'] == true).toList();
+    final locked =
+        widget.items.where((e) => e['isUnlocked'] != true).toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
@@ -1002,114 +1019,175 @@ class _AchievementsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'ACHIEVEMENTS',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: items.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1.45,
-              ),
-              itemBuilder: (_, i) {
-                final item = items[i];
-                final unlocked = item['isUnlocked'] == true;
-                final achievementName =
-                    item['name']?.toString() ?? 'Achievement';
-                final xpReward = item['xpReward'] ?? 0;
-                final unlockedAt = unlocked
-                    ? (item['unlockedAt'] ?? '').toString().replaceAll(
-                        ' 00:00:00',
-                        '',
-                      )
-                    : '';
-                return Semantics(
-                  label:
-                      '$achievementName, ${unlocked ? 'unlocked${unlockedAt.isNotEmpty ? ' $unlockedAt' : ''}' : 'locked'}, +$xpReward XP reward',
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: unlocked
-                          ? AppTheme.xpGold.withValues(alpha: 0.08)
-                          : AppTheme.backgroundDark,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: unlocked
-                            ? AppTheme.xpGold.withValues(alpha: 0.35)
-                            : AppTheme.borderDark,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              unlocked ? LucideIcons.trophy : LucideIcons.lock,
-                              color: unlocked
-                                  ? AppTheme.xpGold
-                                  : AppTheme.textSageMuted,
-                              size: 14,
-                            ),
-                            const Spacer(),
-                            Text(
-                              '+${item['xpReward'] ?? 0} XP',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: unlocked
-                                    ? AppTheme.xpGold
-                                    : AppTheme.textSageMuted,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          item['name']?.toString() ?? 'Achievement',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: unlocked
-                                ? AppTheme.textCream
-                                : AppTheme.textSageMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          unlocked
-                              ? 'Unlocked ${item['unlockedAt'] ?? ''}'
-                                    .replaceAll(' 00:00:00', '')
-                              : 'Locked',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 9,
-                          ),
-                        ),
-                      ],
+            Row(
+              children: [
+                Text(
+                  'ACHIEVEMENTS',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const Spacer(),
+                if (unlocked.isNotEmpty)
+                  Text(
+                    '${unlocked.length} earned',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.xpGold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                );
-              },
+              ],
             ),
+            if (unlocked.isEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Complete workouts and log check-ins to earn achievements.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 11,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              _AchievementGrid(items: unlocked),
+            ],
+            if (locked.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => setState(() => _showLocked = !_showLocked),
+                child: Row(
+                  children: [
+                    Text(
+                      _showLocked
+                          ? 'Hide locked'
+                          : 'Show all (${locked.length} locked)',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      _showLocked
+                          ? LucideIcons.chevron_up
+                          : LucideIcons.chevron_down,
+                      size: 13,
+                      color: AppTheme.textSageMuted,
+                    ),
+                  ],
+                ),
+              ),
+              if (_showLocked) ...[
+                const SizedBox(height: 10),
+                _AchievementGrid(items: locked, muted: true),
+              ],
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AchievementGrid extends StatelessWidget {
+  final List<Map<String, dynamic>> items;
+  final bool muted;
+
+  const _AchievementGrid({required this.items, this.muted = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 1.45,
+      ),
+      itemBuilder: (_, i) {
+        final item = items[i];
+        final unlocked = item['isUnlocked'] == true;
+        final name = item['name']?.toString() ?? 'Achievement';
+        final unlockedAt = unlocked
+            ? (item['unlockedAt'] ?? '')
+                  .toString()
+                  .replaceAll(' 00:00:00', '')
+            : '';
+        return Semantics(
+          label:
+              '$name, ${unlocked ? 'unlocked${unlockedAt.isNotEmpty ? ' $unlockedAt' : ''}' : 'locked'}, +${item['xpReward'] ?? 0} XP',
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: unlocked
+                  ? AppTheme.xpGold.withValues(alpha: 0.08)
+                  : AppTheme.backgroundDark,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: unlocked
+                    ? AppTheme.xpGold.withValues(alpha: 0.35)
+                    : AppTheme.borderDark,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      unlocked ? LucideIcons.trophy : LucideIcons.lock,
+                      color:
+                          unlocked ? AppTheme.xpGold : AppTheme.textSageMuted,
+                      size: 14,
+                    ),
+                    const Spacer(),
+                    Text(
+                      '+${item['xpReward'] ?? 0} XP',
+                      style: GoogleFonts.plusJakartaSans(
+                        color:
+                            unlocked ? AppTheme.xpGold : AppTheme.textSageMuted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: unlocked
+                        ? AppTheme.textCream
+                        : AppTheme.textSageMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  unlocked ? 'Unlocked $unlockedAt' : 'Locked',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
