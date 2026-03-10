@@ -1340,6 +1340,27 @@ class _MealCardState extends State<_MealCard> {
     final newValue = !_isCompleted;
     setState(() => _isCompleted = newValue);
     await widget.onToggle(newValue);
+    if (newValue) {
+      final meal = widget.meal;
+      final calories = (meal['calories'] as num?)?.toDouble() ?? 0;
+      final proteinG =
+          ((meal['proteinG'] ?? meal['protein_g']) as num?)?.toDouble() ?? 0;
+      final carbsG =
+          ((meal['carbsG'] ?? meal['carbs_g']) as num?)?.toDouble() ?? 0;
+      final fatG =
+          ((meal['fatG'] ?? meal['fat_g']) as num?)?.toDouble() ?? 0;
+      final name =
+          (meal['mealName'] ?? meal['meal_name'] ?? 'Meal').toString();
+      if (calories > 0) {
+        writeNutritionToHC(
+          calories: calories,
+          proteinG: proteinG,
+          carbsG: carbsG,
+          fatG: fatG,
+          name: name,
+        );
+      }
+    }
   }
 
   void _showLogActualSheet() {

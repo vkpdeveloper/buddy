@@ -52,6 +52,7 @@ const _writeTypes = [
   HealthDataType.NUTRITION,
   HealthDataType.WORKOUT,
   HealthDataType.BODY_FAT_PERCENTAGE,
+  HealthDataType.LEAN_BODY_MASS,
 ];
 
 Future<bool> requestHealthPermissions(WidgetRef ref) async {
@@ -82,6 +83,7 @@ Future<bool> requestHealthPermissions(WidgetRef ref) async {
       HealthDataAccess.WRITE, // NUTRITION
       HealthDataAccess.WRITE, // WORKOUT
       HealthDataAccess.WRITE, // BODY_FAT_PERCENTAGE
+      HealthDataAccess.WRITE, // LEAN_BODY_MASS
     ];
     final granted = await health.requestAuthorization(
       allTypes,
@@ -311,33 +313,24 @@ final sleepDurationProvider = FutureProvider<Duration>((ref) async {
 // permission or unavailable HC installation never interrupts the main flow.
 
 Future<void> writeHydrationToHC({required double ml}) async {
-  // Health Connect caps each HydrationRecord at 100ml, and startTime must
-  // not be in the future. Pre-compute all chunks, then write them with
-  // backwards-offset timestamps so every record is safely in the past.
-  const double maxChunk = 100.0;
+  // Health Connect stores HydrationRecord in liters (Volume.liters(value)).
+  // Pass the value in liters; no chunking needed since 0.25 L << 100 L limit.
+  print('[HC] writeHydrationToHC: ${ml}ml (${ml / 1000.0}L)');
   try {
     final health = Health();
-    final chunks = <double>[];
-    double remaining = ml;
-    while (remaining > 0) {
-      chunks.add(remaining > maxChunk ? maxChunk : remaining);
-      remaining -= chunks.last;
-    }
-    // Offset each chunk 2 s apart, ending just before now.
-    // e.g. 250 ml (3 chunks): -6s..-5s, -4s..-3s, -2s..-1s
-    final base = DateTime.now();
-    for (int i = 0; i < chunks.length; i++) {
-      final offsetSeconds = (chunks.length - i) * 2;
-      final start = base.subtract(Duration(seconds: offsetSeconds));
-      await health.writeHealthData(
-        value: chunks[i],
-        type: HealthDataType.WATER,
-        startTime: start,
-        endTime: start.add(const Duration(seconds: 1)),
-        unit: HealthDataUnit.MILLILITER,
-      );
-    }
-  } catch (_) {}
+    final now = DateTime.now();
+    final start = now.subtract(const Duration(seconds: 2));
+    await health.writeHealthData(
+      value: ml / 1000.0,
+      type: HealthDataType.WATER,
+      startTime: start,
+      endTime: start.add(const Duration(seconds: 1)),
+      unit: HealthDataUnit.LITER,
+    );
+    print('[HC] writeHydrationToHC: success');
+  } catch (e) {
+    print('[HC] writeHydrationToHC: ERROR $e');
+  }
 }
 
 Future<void> writeNutritionToHC({
@@ -347,6 +340,9 @@ Future<void> writeNutritionToHC({
   required double fatG,
   String name = 'Meal',
 }) async {
+  print(
+    '[HC] writeNutritionToHC: $name — ${calories}kcal, protein=${proteinG}g, carbs=${carbsG}g, fat=${fatG}g',
+  );
   try {
     final health = Health();
     final now = DateTime.now();
@@ -360,7 +356,10 @@ Future<void> writeNutritionToHC({
       fatTotal: fatG,
       name: name,
     );
-  } catch (_) {}
+    print('[HC] writeNutritionToHC: success');
+  } catch (e) {
+    print('[HC] writeNutritionToHC: ERROR $e');
+  }
 }
 
 Future<void> writeWorkoutToHC({
@@ -368,6 +367,7 @@ Future<void> writeWorkoutToHC({
   required DateTime end,
   required String dayLabel,
 }) async {
+  print('[HC] writeWorkoutToHC: "$dayLabel" from $start to $end');
   try {
     final prefs = await SharedPreferences.getInstance();
     final weightKg = prefs.getDouble('user_weight') ?? 70.0;
@@ -379,6 +379,9 @@ Future<void> writeWorkoutToHC({
       durationSeconds,
       weightKg,
     );
+    print(
+      '[HC] writeWorkoutToHC: activityType=$activityType, duration=${durationSeconds}s, weightKg=$weightKg, kcal=$kcal',
+    );
     await health.writeWorkoutData(
       activityType: activityType,
       start: start,
@@ -386,10 +389,14 @@ Future<void> writeWorkoutToHC({
       totalEnergyBurned: kcal,
       title: dayLabel,
     );
-  } catch (_) {}
+    print('[HC] writeWorkoutToHC: success');
+  } catch (e) {
+    print('[HC] writeWorkoutToHC: ERROR $e');
+  }
 }
 
 Future<void> writeWeightToHC(double kg) async {
+  print('[HC] writeWeightToHC: ${kg}kg');
   try {
     final health = Health();
     final now = DateTime.now();
@@ -399,10 +406,14 @@ Future<void> writeWeightToHC(double kg) async {
       startTime: now,
       unit: HealthDataUnit.KILOGRAM,
     );
-  } catch (_) {}
+    print('[HC] writeWeightToHC: success');
+  } catch (e) {
+    print('[HC] writeWeightToHC: ERROR $e');
+  }
 }
 
 Future<void> writeBodyFatToHC(double percent) async {
+  print('[HC] writeBodyFatToHC: $percent%');
   try {
     final health = Health();
     final now = DateTime.now();
@@ -412,10 +423,37 @@ Future<void> writeBodyFatToHC(double percent) async {
       startTime: now,
       unit: HealthDataUnit.PERCENT,
     );
-  } catch (_) {}
+    print('[HC] writeBodyFatToHC: success');
+  } catch (e) {
+    print('[HC] writeBodyFatToHC: ERROR $e');
+  }
+}
+
+Future<void> writeLeanBodyMassToHC({
+  required double weightKg,
+  required double bodyFatPercent,
+}) async {
+  final leanKg = weightKg * (1 - bodyFatPercent / 100);
+  print(
+    '[HC] writeLeanBodyMassToHC: weightKg=$weightKg, bodyFat=$bodyFatPercent% → leanKg=${leanKg.toStringAsFixed(2)}',
+  );
+  try {
+    final health = Health();
+    final now = DateTime.now();
+    await health.writeHealthData(
+      value: leanKg,
+      type: HealthDataType.LEAN_BODY_MASS,
+      startTime: now,
+      unit: HealthDataUnit.KILOGRAM,
+    );
+    print('[HC] writeLeanBodyMassToHC: success');
+  } catch (e) {
+    print('[HC] writeLeanBodyMassToHC: ERROR $e');
+  }
 }
 
 Future<void> writeHeightToHC(double cm) async {
+  print('[HC] writeHeightToHC: ${cm}cm (${cm / 100.0}m)');
   try {
     final health = Health();
     final now = DateTime.now();
@@ -425,7 +463,10 @@ Future<void> writeHeightToHC(double cm) async {
       startTime: now,
       unit: HealthDataUnit.METER,
     );
-  } catch (_) {}
+    print('[HC] writeHeightToHC: success');
+  } catch (e) {
+    print('[HC] writeHeightToHC: ERROR $e');
+  }
 }
 
 HealthWorkoutActivityType _activityTypeFromLabel(String label) {
@@ -475,4 +516,3 @@ int _estimateWorkoutCalories(
   }
   return (met * weightKg * (durationSeconds / 3600)).round();
 }
-

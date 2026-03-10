@@ -2018,6 +2018,9 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
       final bodyFat = _values['bodyFatPercent'];
       if (weightKg != null && weightKg > 0) writeWeightToHC(weightKg);
       if (bodyFat != null && bodyFat > 0) writeBodyFatToHC(bodyFat);
+      if (weightKg != null && weightKg > 0 && bodyFat != null && bodyFat > 0) {
+        writeLeanBodyMassToHC(weightKg: weightKg, bodyFatPercent: bodyFat);
+      }
       if (_selectedPhoto != null && result.measurementId > 0) {
         final mimeType = _mimeFromName(_selectedPhoto!.name);
         if (mimeType != 'image/gif') {
