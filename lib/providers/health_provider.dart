@@ -1,7 +1,4 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -64,7 +61,9 @@ Future<bool> requestHealthPermissions(WidgetRef ref) async {
     // Request read permissions for existing types + write permissions for new types.
     // WEIGHT and HEIGHT get READ_WRITE so we can both read and write them.
     final allTypes = [
-      ...healthTypes.where((t) => t != HealthDataType.WEIGHT && t != HealthDataType.HEIGHT),
+      ...healthTypes.where(
+        (t) => t != HealthDataType.WEIGHT && t != HealthDataType.HEIGHT,
+      ),
       HealthDataType.WEIGHT,
       HealthDataType.HEIGHT,
       ..._writeTypes,
@@ -192,10 +191,6 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
       types: [HealthDataType.TOTAL_CALORIES_BURNED],
     );
     totalData = health.removeDuplicates(totalData);
-
-    // ── DEBUG: POST all raw records to inspection endpoint ───────────────────
-    _postCaloriesDebug(midnight, activeData, totalData);
-    // ── END DEBUG ─────────────────────────────────────────────────────────────
 
     double activeEnergy = 0.0;
     for (var point in activeData) {
@@ -379,7 +374,11 @@ Future<void> writeWorkoutToHC({
     final health = Health();
     final activityType = _activityTypeFromLabel(dayLabel);
     final durationSeconds = end.difference(start).inSeconds;
-    final kcal = _estimateWorkoutCalories(activityType, durationSeconds, weightKg);
+    final kcal = _estimateWorkoutCalories(
+      activityType,
+      durationSeconds,
+      weightKg,
+    );
     await health.writeWorkoutData(
       activityType: activityType,
       start: start,
@@ -434,7 +433,9 @@ HealthWorkoutActivityType _activityTypeFromLabel(String label) {
   if (l.contains('run') || l.contains('jog')) {
     return HealthWorkoutActivityType.RUNNING;
   }
-  if (l.contains('yoga') || l.contains('stretch') || l.contains('flexibility')) {
+  if (l.contains('yoga') ||
+      l.contains('stretch') ||
+      l.contains('flexibility')) {
     return HealthWorkoutActivityType.YOGA;
   }
   if (l.contains('hiit') || l.contains('circuit')) {
@@ -460,7 +461,8 @@ int _estimateWorkoutCalories(
   double met = 5.0;
   if (type == HealthWorkoutActivityType.RUNNING) {
     met = 9.0;
-  } else if (type == HealthWorkoutActivityType.HIGH_INTENSITY_INTERVAL_TRAINING) {
+  } else if (type ==
+      HealthWorkoutActivityType.HIGH_INTENSITY_INTERVAL_TRAINING) {
     met = 8.0;
   } else if (type == HealthWorkoutActivityType.BIKING) {
     met = 7.0;
@@ -474,42 +476,3 @@ int _estimateWorkoutCalories(
   return (met * weightKg * (durationSeconds / 3600)).round();
 }
 
-// ── Calories debug helper ─────────────────────────────────────────────────────
-
-List<Map<String, dynamic>> _pointsToJson(List<HealthDataPoint> points) =>
-    points.map((p) => {
-      'type': p.type.name,
-      'unit': p.unit.name,
-      'value': p.value is NumericHealthValue
-          ? (p.value as NumericHealthValue).numericValue
-          : p.value.toString(),
-      'from': p.dateFrom.toIso8601String(),
-      'to': p.dateTo.toIso8601String(),
-      'sourceName': p.sourceName,
-      'sourceId': p.sourceId,
-      'recordingMethod': p.recordingMethod.name,
-    }).toList();
-
-void _postCaloriesDebug(
-  DateTime date,
-  List<HealthDataPoint> activeData,
-  List<HealthDataPoint> totalData,
-) {
-  final payload = {
-    'date': date.toIso8601String(),
-    'capturedAt': DateTime.now().toIso8601String(),
-    'ACTIVE_ENERGY_BURNED': _pointsToJson(activeData),
-    'TOTAL_CALORIES_BURNED': _pointsToJson(totalData),
-  };
-  final body = jsonEncode(payload);
-  debugPrint('=== CALORIES DEBUG ===\n${const JsonEncoder.withIndent('  ').convert(payload)}\n=== END ===');
-  http.post(
-    Uri.parse('https://eobz1wi5cpdubyo.m.pipedream.net'),
-    headers: {'Content-Type': 'application/json'},
-    body: body,
-  ).then((res) {
-    debugPrint('[CaloriesDebug] POST ${res.statusCode}');
-  }).catchError((e) {
-    debugPrint('[CaloriesDebug] POST failed: $e');
-  });
-}
