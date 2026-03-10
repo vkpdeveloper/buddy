@@ -9,6 +9,7 @@ import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/body_service.dart';
 import 'package:buddy/services/progress_share_service.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
+import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:buddy/widgets/progress_share_cards.dart';
 import 'package:flutter/material.dart';
@@ -2012,6 +2013,11 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
       final result = BodyLogResult.fromJson(
         res['data'] as Map<String, dynamic>,
       );
+      // Write to Health Connect (fire-and-forget)
+      final weightKg = _values['weightKg'];
+      final bodyFat = _values['bodyFatPercent'];
+      if (weightKg != null && weightKg > 0) writeWeightToHC(weightKg);
+      if (bodyFat != null && bodyFat > 0) writeBodyFatToHC(bodyFat);
       if (_selectedPhoto != null && result.measurementId > 0) {
         final mimeType = _mimeFromName(_selectedPhoto!.name);
         if (mimeType != 'image/gif') {

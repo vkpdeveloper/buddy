@@ -778,7 +778,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
   Future<void> _completeSessionWithGamification() async {
     if (_sessionId == null) return;
     try {
-      final duration = DateTime.now().difference(_startTime).inSeconds;
+      final workoutEnd = DateTime.now();
+      final duration = workoutEnd.difference(_startTime).inSeconds;
       final totalExercises = widget.exercises.length;
       final completedExercises = totalExercises - _skippedExercises;
 
@@ -807,6 +808,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
       ref.invalidate(homeDashboardProvider);
       ref.invalidate(weeklyWorkoutSummaryProvider);
       ref.invalidate(prMapProvider);
+      writeWorkoutToHC(start: _startTime, end: workoutEnd, dayLabel: widget.dayLabel);
 
       if (mounted) {
         setState(() {

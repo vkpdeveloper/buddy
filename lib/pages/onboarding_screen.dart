@@ -438,6 +438,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await prefs.setInt('water_target_ml', _waterTargetMl.toInt());
       await prefs.setDouble('user_height', _height);
       await prefs.setDouble('user_weight', _weight);
+      // Write initial measurements to Health Connect (fire-and-forget)
+      writeHeightToHC(_height);
+      writeWeightToHC(_weight);
       await prefs.setString('user_sex', _sex.toLowerCase());
       await prefs.setString('user_birth_date', _birthDate.toIso8601String());
 

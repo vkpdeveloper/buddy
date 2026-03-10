@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:health/health.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final healthProvider = Provider<Health>((ref) {
   final health = Health();
@@ -45,13 +46,44 @@ final healthPermissionProvider = FutureProvider<bool>((ref) async {
   }
 });
 
+// Write-only types added to the authorization request.
+const _writeTypes = [
+  HealthDataType.WATER,
+  HealthDataType.NUTRITION,
+  HealthDataType.WORKOUT,
+  HealthDataType.BODY_FAT_PERCENTAGE,
+];
+
 Future<bool> requestHealthPermissions(WidgetRef ref) async {
   final health = ref.read(healthProvider);
 
   try {
+    // Request read permissions for existing types + write permissions for new types.
+    // WEIGHT and HEIGHT get READ_WRITE so we can both read and write them.
+    final allTypes = [
+      ...healthTypes.where((t) => t != HealthDataType.WEIGHT && t != HealthDataType.HEIGHT),
+      HealthDataType.WEIGHT,
+      HealthDataType.HEIGHT,
+      ..._writeTypes,
+    ];
+    final allPermissions = [
+      HealthDataAccess.READ, // STEPS
+      HealthDataAccess.READ, // HEART_RATE
+      HealthDataAccess.READ, // RESTING_HEART_RATE
+      HealthDataAccess.READ, // SLEEP_SESSION
+      HealthDataAccess.READ, // SLEEP_ASLEEP
+      HealthDataAccess.READ, // ACTIVE_ENERGY_BURNED
+      HealthDataAccess.READ, // TOTAL_CALORIES_BURNED
+      HealthDataAccess.READ_WRITE, // WEIGHT
+      HealthDataAccess.READ_WRITE, // HEIGHT
+      HealthDataAccess.WRITE, // WATER
+      HealthDataAccess.WRITE, // NUTRITION
+      HealthDataAccess.WRITE, // WORKOUT
+      HealthDataAccess.WRITE, // BODY_FAT_PERCENTAGE
+    ];
     final granted = await health.requestAuthorization(
-      healthTypes,
-      permissions: healthPermissionsList,
+      allTypes,
+      permissions: allPermissions,
     );
     invalidateAllHealthProviders(ref);
     return granted;
@@ -274,3 +306,149 @@ final sleepDurationProvider = FutureProvider<Duration>((ref) async {
     return Duration.zero;
   }
 });
+
+// ── Health Connect write helpers ─────────────────────────────────────────────
+// All helpers are fire-and-forget: they silently swallow errors so a missing
+// permission or unavailable HC installation never interrupts the main flow.
+
+Future<void> writeHydrationToHC({double ml = 250}) async {
+  try {
+    final health = Health();
+    final now = DateTime.now();
+    await health.writeHealthData(
+      value: ml,
+      type: HealthDataType.WATER,
+      startTime: now,
+      unit: HealthDataUnit.MILLILITER,
+    );
+  } catch (_) {}
+}
+
+Future<void> writeNutritionToHC({
+  required double calories,
+  required double proteinG,
+  required double carbsG,
+  required double fatG,
+  String name = 'Meal',
+}) async {
+  try {
+    final health = Health();
+    final now = DateTime.now();
+    await health.writeMeal(
+      mealType: MealType.UNKNOWN,
+      startTime: now,
+      endTime: now,
+      caloriesConsumed: calories,
+      carbohydrates: carbsG,
+      protein: proteinG,
+      fatTotal: fatG,
+      name: name,
+    );
+  } catch (_) {}
+}
+
+Future<void> writeWorkoutToHC({
+  required DateTime start,
+  required DateTime end,
+  required String dayLabel,
+}) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final weightKg = prefs.getDouble('user_weight') ?? 70.0;
+    final health = Health();
+    final activityType = _activityTypeFromLabel(dayLabel);
+    final durationSeconds = end.difference(start).inSeconds;
+    final kcal = _estimateWorkoutCalories(activityType, durationSeconds, weightKg);
+    await health.writeWorkoutData(
+      activityType: activityType,
+      start: start,
+      end: end,
+      totalEnergyBurned: kcal,
+      title: dayLabel,
+    );
+  } catch (_) {}
+}
+
+Future<void> writeWeightToHC(double kg) async {
+  try {
+    final health = Health();
+    final now = DateTime.now();
+    await health.writeHealthData(
+      value: kg,
+      type: HealthDataType.WEIGHT,
+      startTime: now,
+      unit: HealthDataUnit.KILOGRAM,
+    );
+  } catch (_) {}
+}
+
+Future<void> writeBodyFatToHC(double percent) async {
+  try {
+    final health = Health();
+    final now = DateTime.now();
+    await health.writeHealthData(
+      value: percent,
+      type: HealthDataType.BODY_FAT_PERCENTAGE,
+      startTime: now,
+      unit: HealthDataUnit.PERCENT,
+    );
+  } catch (_) {}
+}
+
+Future<void> writeHeightToHC(double cm) async {
+  try {
+    final health = Health();
+    final now = DateTime.now();
+    await health.writeHealthData(
+      value: cm / 100.0,
+      type: HealthDataType.HEIGHT,
+      startTime: now,
+      unit: HealthDataUnit.METER,
+    );
+  } catch (_) {}
+}
+
+HealthWorkoutActivityType _activityTypeFromLabel(String label) {
+  final l = label.toLowerCase();
+  if (l.contains('run') || l.contains('jog')) {
+    return HealthWorkoutActivityType.RUNNING;
+  }
+  if (l.contains('yoga') || l.contains('stretch') || l.contains('flexibility')) {
+    return HealthWorkoutActivityType.YOGA;
+  }
+  if (l.contains('hiit') || l.contains('circuit')) {
+    return HealthWorkoutActivityType.HIGH_INTENSITY_INTERVAL_TRAINING;
+  }
+  if (l.contains('cycling') || l.contains('bike') || l.contains('spin')) {
+    return HealthWorkoutActivityType.BIKING;
+  }
+  if (l.contains('swim')) {
+    return HealthWorkoutActivityType.SWIMMING;
+  }
+  if (l.contains('walk') || l.contains('hike')) {
+    return HealthWorkoutActivityType.WALKING;
+  }
+  return HealthWorkoutActivityType.STRENGTH_TRAINING;
+}
+
+int _estimateWorkoutCalories(
+  HealthWorkoutActivityType type,
+  int durationSeconds,
+  double weightKg,
+) {
+  double met = 5.0;
+  if (type == HealthWorkoutActivityType.RUNNING) {
+    met = 9.0;
+  } else if (type == HealthWorkoutActivityType.HIGH_INTENSITY_INTERVAL_TRAINING) {
+    met = 8.0;
+  } else if (type == HealthWorkoutActivityType.BIKING) {
+    met = 7.0;
+  } else if (type == HealthWorkoutActivityType.SWIMMING) {
+    met = 6.0;
+  } else if (type == HealthWorkoutActivityType.WALKING) {
+    met = 3.5;
+  } else if (type == HealthWorkoutActivityType.YOGA) {
+    met = 2.5;
+  }
+  return (met * weightKg * (durationSeconds / 3600)).round();
+}

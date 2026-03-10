@@ -10,6 +10,7 @@ import 'package:buddy/services/logs_service.dart';
 import 'package:buddy/pages/active_workout_page.dart';
 import 'package:buddy/pages/workout_sessions_page.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
+import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/providers/pr_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
@@ -185,6 +186,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           (data['waterMl'] as num?)?.toInt() ?? _todayHydrationMl + 250;
       setState(() => _todayHydrationMl = updated);
       ref.invalidate(homeDashboardProvider);
+      writeHydrationToHC();
       AppSnackbar.success(
         context,
         '+250 ml logged ($_todayHydrationMl ml today)',

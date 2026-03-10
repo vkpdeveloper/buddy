@@ -1549,6 +1549,7 @@ class _HydrationCardState extends ConsumerState<_HydrationCard> {
     try {
       await LogsService.incrementHydration(_todayDate, amountMl: 250);
       ref.invalidate(homeDashboardProvider);
+      writeHydrationToHC();
     } catch (_) {
       if (mounted) setState(() => _waterMl = previous);
     }

@@ -9,6 +9,7 @@ import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
+import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -198,6 +199,20 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   Future<void> _logActualMeal(int mealId, Map<String, dynamic> payload) async {
     await DietService.logActualMeal(_todayDate, {'mealId': mealId, ...payload});
     await _loadPlanDetail(_activePlanId!);
+    // Write nutrition to Health Connect (fire-and-forget)
+    final calories = (payload['calories'] as num?)?.toDouble() ?? 0;
+    final proteinG = (payload['proteinG'] as num?)?.toDouble() ?? 0;
+    final carbsG = (payload['carbsG'] as num?)?.toDouble() ?? 0;
+    final fatG = (payload['fatG'] as num?)?.toDouble() ?? 0;
+    if (calories > 0) {
+      writeNutritionToHC(
+        calories: calories,
+        proteinG: proteinG,
+        carbsG: carbsG,
+        fatG: fatG,
+        name: payload['name'] as String? ?? 'Meal',
+      );
+    }
   }
 
   Future<void> _quickPhotoLog() async {
