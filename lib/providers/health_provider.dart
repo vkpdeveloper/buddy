@@ -340,7 +340,7 @@ final sleepDurationProvider = FutureProvider<Duration>((ref) async {
 // All helpers are fire-and-forget: they silently swallow errors so a missing
 // permission or unavailable HC installation never interrupts the main flow.
 
-Future<void> writeHydrationToHC({double ml = 250}) async {
+Future<void> writeHydrationToHC({required double ml}) async {
   try {
     final health = Health();
     final now = DateTime.now();

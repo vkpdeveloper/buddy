@@ -186,7 +186,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           (data['waterMl'] as num?)?.toInt() ?? _todayHydrationMl + 250;
       setState(() => _todayHydrationMl = updated);
       ref.invalidate(homeDashboardProvider);
-      writeHydrationToHC();
+      writeHydrationToHC(ml: 250);
       AppSnackbar.success(
         context,
         '+250 ml logged ($_todayHydrationMl ml today)',
