@@ -316,25 +316,31 @@ final sleepDurationProvider = FutureProvider<Duration>((ref) async {
 // permission or unavailable HC installation never interrupts the main flow.
 
 Future<void> writeHydrationToHC({required double ml}) async {
-  // Health Connect caps each HydrationRecord at 100ml.
-  // Split into chunks: e.g. 250ml → 100 + 100 + 50.
+  // Health Connect caps each HydrationRecord at 100ml, and startTime must
+  // not be in the future. Pre-compute all chunks, then write them with
+  // backwards-offset timestamps so every record is safely in the past.
   const double maxChunk = 100.0;
   try {
     final health = Health();
+    final chunks = <double>[];
     double remaining = ml;
-    int i = 0;
     while (remaining > 0) {
-      final chunk = remaining > maxChunk ? maxChunk : remaining;
-      final start = DateTime.now().add(Duration(seconds: i));
+      chunks.add(remaining > maxChunk ? maxChunk : remaining);
+      remaining -= chunks.last;
+    }
+    // Offset each chunk 2 s apart, ending just before now.
+    // e.g. 250 ml (3 chunks): -6s..-5s, -4s..-3s, -2s..-1s
+    final base = DateTime.now();
+    for (int i = 0; i < chunks.length; i++) {
+      final offsetSeconds = (chunks.length - i) * 2;
+      final start = base.subtract(Duration(seconds: offsetSeconds));
       await health.writeHealthData(
-        value: chunk,
+        value: chunks[i],
         type: HealthDataType.WATER,
         startTime: start,
         endTime: start.add(const Duration(seconds: 1)),
         unit: HealthDataUnit.MILLILITER,
       );
-      remaining -= chunk;
-      i++;
     }
   } catch (_) {}
 }
