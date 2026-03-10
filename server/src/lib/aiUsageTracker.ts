@@ -27,25 +27,7 @@ interface ModelPrice {
 }
 
 const MODEL_PRICES: Record<string, ModelPrice> = {
-    // Gemini 3.1 Flash Lite Preview
     'gemini-3.1-flash-lite-preview': { inputPerMillion: 0.25, outputPerMillion: 1.50 },
-
-    // Gemini 2.0 Flash Lite
-    'gemini-2.0-flash-lite': { inputPerMillion: 0.075, outputPerMillion: 0.30 },
-
-    // Gemini 2.0 Flash
-    'gemini-2.0-flash': { inputPerMillion: 0.10, outputPerMillion: 0.40 },
-
-    // Gemini 2.5 Flash (preview)
-    'gemini-2.5-flash': { inputPerMillion: 0.15, outputPerMillion: 0.60 },
-    'gemini-2.5-flash-preview': { inputPerMillion: 0.15, outputPerMillion: 0.60 },
-
-    // Gemini 1.5 Flash
-    'gemini-1.5-flash': { inputPerMillion: 0.075, outputPerMillion: 0.30 },
-    'gemini-1.5-flash-8b': { inputPerMillion: 0.0375, outputPerMillion: 0.15 },
-
-    // Gemini 1.5 Pro
-    'gemini-1.5-pro': { inputPerMillion: 1.25, outputPerMillion: 5.00 },
 };
 
 // Fallback price if the exact model ID is unknown

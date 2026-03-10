@@ -38,6 +38,18 @@ const DietPlanSchema = z.object({
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+const PROTEIN_POWDER_KEYWORDS = [
+    'protein powder',
+    'whey protein',
+    'whey isolate',
+    'whey concentrate',
+    'casein',
+    'mass gainer',
+    'pea protein',
+    'plant protein',
+    'soy protein isolate',
+];
+
 export const HIGH_PROTEIN_FOODS = {
     vegetarian: [
         'Paneer', 'Tofu', 'Moong Dal', 'Masoor Dal', 'Chana Dal',
@@ -91,6 +103,15 @@ const DEFAULT_MEAL_TIMES: Record<string, string> = {
     evening_snack: '22:00',
 };
 
+function normalizeFoodName(value: string): string {
+    return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function isProteinPowderFood(food: string): boolean {
+    const normalizedFood = normalizeFoodName(food);
+    return PROTEIN_POWDER_KEYWORDS.some(keyword => normalizedFood.includes(keyword));
+}
+
 function normalizeMealTime(value: string | undefined, mealType: string): string {
     if (!value) return DEFAULT_MEAL_TIMES[mealType] ?? '12:00';
     if (/^\d{2}:\d{2}$/.test(value)) return value;
@@ -140,6 +161,10 @@ BODY COMPOSITION CONTEXT:
     const cookingBy = profile.cookingBy ?? 'myself';
     const preferredFoods: string[] = profile.preferredFoods;
     const preferredFoodsLower = new Set(preferredFoods.map(f => f.toLowerCase()));
+    const selectedProteinPowders = Array.from(
+        new Set(preferredFoods.filter(food => isProteinPowderFood(food)))
+    );
+    const canUseProteinPowder = useProteinPowder && selectedProteinPowders.length > 0;
 
     const dietLabels: Record<string, string> = {
         vegetarian: 'Indian vegetarian',
@@ -149,9 +174,9 @@ BODY COMPOSITION CONTEXT:
     const dietLabel = dietLabels[dietType];
 
     const allowedProteinFoods = HIGH_PROTEIN_FOODS[dietType].filter(
-        food => !NICHE_FOODS.has(food.toLowerCase()) || preferredFoodsLower.has(food.toLowerCase())
+        food => !isProteinPowderFood(food) && (!NICHE_FOODS.has(food.toLowerCase()) || preferredFoodsLower.has(food.toLowerCase()))
     );
-    const proteinFoods = allowedProteinFoods.join(', ');
+    const proteinFoods = [...allowedProteinFoods, ...selectedProteinPowders].join(', ');
 
     const excludedNicheFoods = HIGH_PROTEIN_FOODS[dietType]
         .filter(food => NICHE_FOODS.has(food.toLowerCase()) && !preferredFoodsLower.has(food.toLowerCase()));
@@ -204,7 +229,11 @@ These are foods the user loves and eats regularly. Feature them prominently in b
 IMPORTANT RULES:
 - ONLY Indian foods and flavors — dal, roti, rice, sabzi, Indian spices, etc.
 - HIGH PROTEIN focus — at least ${Math.round(macros.proteinG * 0.85)}g protein per day, featuring the listed protein staples prominently
-${useProteinPowder ? '- Include protein powder shakes: once post-workout (if post_workout is in the list) and once as evening_snack (if evening_snack is in the list). Each shake = 25g protein, 120 kcal' : '- No protein powder, use whole food proteins only'}
+${canUseProteinPowder
+        ? `- Protein powder is allowed only because the user explicitly selected it in favourite foods: ${selectedProteinPowders.join(', ')}
+- If you use it, only use it as a standalone shake in post_workout and/or evening_snack when those meal types exist. Each shake = 25g protein, 120 kcal
+- Do NOT mix protein powder into regular meals such as oats, cheela, pancakes, roti, sabzi, curries, or bowls`
+        : '- Do NOT include whey protein, protein powder, mass gainer, or any other powdered protein supplement anywhere in the plan unless it was explicitly selected in favourite foods. Use whole-food proteins only'}
 - CRITICAL: Keep each day's total EXACTLY at ${macros.calories} kcal ±50 kcal
 - Protein target: ${macros.proteinG}g | Carbs: ${macros.carbsG}g | Fat: ${macros.fatG}g
 - Indian portion sizes — realistic quantities (e.g., "2 medium rotis (60g)", "1 bowl dal (150ml)", "100g paneer")
@@ -221,6 +250,7 @@ INGREDIENT RULES:
 - Chickpeas, rajma, chole, chana, lentils, beans, and any legume must always use raw dry quantity before soaking or boiling.
 - Cooked weights are misleading and cause users to over- or under-estimate prep amounts. For example, 250g boiled chickpeas is only about 80-90g raw.
 - Raw weights are the only actionable prep reference, so never write cooked rice, boiled chickpeas, steamed oats, or any other post-preparation quantity.
+- Do NOT add whey protein or any other protein powder as an ingredient unless it was explicitly selected in favourite foods. Even when allowed, use it only for standalone shake meals.
 - Do NOT include a "description" field
 
 RECIPE RULES:
