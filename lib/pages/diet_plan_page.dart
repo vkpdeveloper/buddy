@@ -1303,6 +1303,9 @@ class _MealCard extends StatefulWidget {
 }
 
 class _MealCardState extends State<_MealCard> {
+  static const String _rawMeasurementsNote =
+      'All measurements are in raw/uncooked quantities';
+
   late bool _isCompleted;
 
   @override
@@ -1347,10 +1350,8 @@ class _MealCardState extends State<_MealCard> {
           ((meal['proteinG'] ?? meal['protein_g']) as num?)?.toDouble() ?? 0;
       final carbsG =
           ((meal['carbsG'] ?? meal['carbs_g']) as num?)?.toDouble() ?? 0;
-      final fatG =
-          ((meal['fatG'] ?? meal['fat_g']) as num?)?.toDouble() ?? 0;
-      final name =
-          (meal['mealName'] ?? meal['meal_name'] ?? 'Meal').toString();
+      final fatG = ((meal['fatG'] ?? meal['fat_g']) as num?)?.toDouble() ?? 0;
+      final name = (meal['mealName'] ?? meal['meal_name'] ?? 'Meal').toString();
       if (calories > 0) {
         writeNutritionToHC(
           calories: calories,
@@ -1822,6 +1823,39 @@ class _MealCardState extends State<_MealCard> {
               ),
             ),
             const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.primary.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    LucideIcons.scale,
+                    size: 14,
+                    color: AppTheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _rawMeasurementsNote,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textCream,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
             if (ingredients.isEmpty)
               Text(
                 'No ingredient details available.',
@@ -1833,13 +1867,64 @@ class _MealCardState extends State<_MealCard> {
             else
               ...ingredients.map(
                 (ing) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    '• ${ing['name']} — ${ing['quantity']}',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
-                      fontSize: 13,
-                    ),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Icon(
+                          LucideIcons.circle_dot,
+                          size: 10,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            Text(
+                              ing['name'] ?? '',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textCream,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'RAW',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.primary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        ing['quantity'] ?? '',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

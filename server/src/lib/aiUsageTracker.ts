@@ -68,8 +68,10 @@ export type AiFeature = (typeof AI_FEATURE)[keyof typeof AI_FEATURE];
 // ─── Usage shape accepted from the AI SDK ────────────────────────────────────
 
 export interface AiTokenUsage {
-    promptTokens: number;
-    completionTokens: number;
+    promptTokens?: number;
+    completionTokens?: number;
+    inputTokens?: number;
+    outputTokens?: number;
     totalTokens?: number;
 }
 
@@ -89,8 +91,8 @@ export async function trackAiUsage({
     usage,
 }: TrackAiUsageParams): Promise<void> {
     try {
-        const inputTokens = usage.promptTokens ?? 0;
-        const outputTokens = usage.completionTokens ?? 0;
+        const inputTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
+        const outputTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
         const totalTokens = usage.totalTokens ?? inputTokens + outputTokens;
 
         const price = resolvePrice(model);

@@ -18,14 +18,6 @@ final class DietService extends ApiBase {
     return ApiBase.decode(res);
   }
 
-  static Future<Map<String, dynamic>> generateDietPlan() async {
-    final res = await ApiBase.client.post(
-      Uri.parse('${ApiBase.baseUrl}/api/diet/generate'),
-      headers: await ApiBase.authHeaders(),
-    );
-    return ApiBase.decode(res);
-  }
-
   static Future<Map<String, dynamic>> getDietFoods() async {
     final res = await ApiBase.client.get(
       Uri.parse('${ApiBase.baseUrl}/api/diet/foods'),

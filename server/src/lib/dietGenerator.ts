@@ -24,8 +24,8 @@ const DietPlanSchema = z.object({
             mealName: z.string().describe('Name of the meal or dish'),
             ingredients: z.array(z.object({
                 name: z.string().describe('Raw ingredient name without quality adjectives'),
-                quantity: z.string().describe('Exact quantity with unit (e.g. "100g", "2 medium pieces", "1 tbsp", "200ml")'),
-            })).describe('All ingredients used in the meal with exact quantities'),
+                quantity: z.string().describe('Exact raw or uncooked quantity with unit measured before cooking (e.g. "100g", "2 medium pieces", "1 tbsp", "200ml")'),
+            })).describe('All ingredients used in the meal with exact raw or uncooked quantities measured before cooking'),
             calories: z.number().describe('Total calories of this meal in kcal'),
             proteinG: z.number().describe('Protein content of this meal in grams'),
             carbsG: z.number().describe('Carbohydrate content of this meal in grams'),
@@ -80,6 +80,22 @@ const MEAL_LABELS: Record<string, string> = {
     pre_workout: 'Pre-Workout', post_workout: 'Post-Workout',
     dinner: 'Dinner', evening_snack: 'Evening Snack',
 };
+
+const DEFAULT_MEAL_TIMES: Record<string, string> = {
+    breakfast: '08:00',
+    morning_snack: '11:00',
+    lunch: '13:30',
+    pre_workout: '17:00',
+    post_workout: '19:00',
+    dinner: '20:30',
+    evening_snack: '22:00',
+};
+
+function normalizeMealTime(value: string | undefined, mealType: string): string {
+    if (!value) return DEFAULT_MEAL_TIMES[mealType] ?? '12:00';
+    if (/^\d{2}:\d{2}$/.test(value)) return value;
+    return DEFAULT_MEAL_TIMES[mealType] ?? '12:00';
+}
 
 export async function runDietGeneration(userId: number): Promise<{ planId: number }> {
     const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
@@ -198,16 +214,24 @@ ${useProteinPowder ? '- Include protein powder shakes: once post-workout (if pos
 - Meals must be feasible within the ${mealPrepLabel} prep time limit
 
 INGREDIENT RULES:
-- Each ingredient must have a RAW "name" and an exact "quantity"
+- Each ingredient must have a RAW "name" (no quality adjectives like "fresh", "good quality") and an exact "quantity" (e.g., "100g", "2 medium pieces", "1 tbsp", "200ml")
+- All ingredient quantities must be in raw, uncooked form. Never use post-cooking weights.
+- List every ingredient by its raw weight/volume as it would be measured before cooking.
+- Rice, oats, quinoa, dal, poha, and similar grains/cereals must always use dry uncooked quantity.
+- Chickpeas, rajma, chole, chana, lentils, beans, and any legume must always use raw dry quantity before soaking or boiling.
+- Cooked weights are misleading and cause users to over- or under-estimate prep amounts. For example, 250g boiled chickpeas is only about 80-90g raw.
+- Raw weights are the only actionable prep reference, so never write cooked rice, boiled chickpeas, steamed oats, or any other post-preparation quantity.
 - Do NOT include a "description" field
 
 RECIPE RULES:
-- Include a "recipe" field for every meal written in markdown
-- Start with 2–3 sentences introducing the dish
-- Then add a blank line, followed by the full cooking method as a markdown bullet list
-- Total length: 150–250 words
+- Include a "recipe" field for every meal written in markdown, formatted like a proper recipe book entry
+- Start with 2–3 sentences introducing the dish: what it is, its flavour/texture, and why it fits the plan
+- Then add a blank line, followed by the full cooking method as a markdown bullet list (use "- " prefix)
+- Cover every meaningful step: soaking/marinating, prep work, cooking sequence, heat levels, timing cues, and how to plate or serve
+- Total length: 150–250 words; do NOT exceed 300 words
+- Use plain language; bold (**word**) only key technique words or timing cues if helpful
 
-STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
+STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not add any other meal types.`;
 
     const model = 'gemini-3.1-flash-lite-preview';
     const { object: planData, usage } = await generateObject({
@@ -220,7 +244,7 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
 
     await trackAiUsage({ model, feature: AI_FEATURE.DIET_GENERATION, userId, usage });
 
-    await db.update(dietPlans).set({ isActive: false });
+    await db.update(dietPlans).set({ isActive: false }).where(eq(dietPlans.userId, userId));
 
     const [insertedPlan] = await db.insert(dietPlans).values({
         userId,
@@ -243,10 +267,19 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}.`;
             fatG: day.fatG ?? macros.fatG,
         }).returning();
 
-        for (const meal of day.meals) {
+        const sortedMeals = [...day.meals].sort((a, b) => {
+            const left = MEAL_ORDER[a.mealType] ?? 99;
+            const right = MEAL_ORDER[b.mealType] ?? 99;
+            return left - right;
+        });
+        let index = 0;
+        for (const meal of sortedMeals) {
+            index += 1;
             await db.insert(dietMeals).values({
                 dayId: insertedDay.id,
+                orderIndex: index,
                 mealType: meal.mealType as any,
+                mealTime: normalizeMealTime(undefined, meal.mealType),
                 mealName: meal.mealName,
                 description: '',
                 ingredients: JSON.stringify(meal.ingredients),
