@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -176,15 +178,50 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
   final midnight = DateTime(now.year, now.month, now.day);
 
   try {
-    // Prefer ACTIVE_ENERGY_BURNED — matches what Google Fit shows as "active calories"
-    // (movement/exercise only, no BMR). Fall back to TOTAL_CALORIES_BURNED only when
-    // the device hasn't written any active energy records yet today.
     List<HealthDataPoint> activeData = await health.getHealthDataFromTypes(
       startTime: midnight,
       endTime: now,
       types: [HealthDataType.ACTIVE_ENERGY_BURNED],
     );
     activeData = health.removeDuplicates(activeData);
+
+    List<HealthDataPoint> totalData = await health.getHealthDataFromTypes(
+      startTime: midnight,
+      endTime: now,
+      types: [HealthDataType.TOTAL_CALORIES_BURNED],
+    );
+    totalData = health.removeDuplicates(totalData);
+
+    // ── DEBUG LOG ────────────────────────────────────────────────────────────
+    debugPrint('=== CALORIES DEBUG ===');
+    debugPrint(const JsonEncoder.withIndent('  ').convert({
+      'date': midnight.toIso8601String(),
+      'ACTIVE_ENERGY_BURNED': activeData.map((p) => {
+        'type': p.type.name,
+        'unit': p.unit.name,
+        'value': (p.value is NumericHealthValue)
+            ? (p.value as NumericHealthValue).numericValue
+            : p.value.toString(),
+        'from': p.dateFrom.toIso8601String(),
+        'to': p.dateTo.toIso8601String(),
+        'sourceName': p.sourceName,
+        'sourceId': p.sourceId,
+      }).toList(),
+      'TOTAL_CALORIES_BURNED': totalData.map((p) => {
+        'type': p.type.name,
+        'unit': p.unit.name,
+        'value': (p.value is NumericHealthValue)
+            ? (p.value as NumericHealthValue).numericValue
+            : p.value.toString(),
+        'from': p.dateFrom.toIso8601String(),
+        'to': p.dateTo.toIso8601String(),
+        'sourceName': p.sourceName,
+        'sourceId': p.sourceId,
+      }).toList(),
+    }));
+    debugPrint('=== END CALORIES DEBUG ===');
+    // ── END DEBUG LOG ────────────────────────────────────────────────────────
+
     double activeEnergy = 0.0;
     for (var point in activeData) {
       final value = point.value;
@@ -194,13 +231,6 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
     }
     if (activeEnergy > 0) return activeEnergy;
 
-    // Fallback: some devices only write TOTAL_CALORIES_BURNED.
-    List<HealthDataPoint> totalData = await health.getHealthDataFromTypes(
-      startTime: midnight,
-      endTime: now,
-      types: [HealthDataType.TOTAL_CALORIES_BURNED],
-    );
-    totalData = health.removeDuplicates(totalData);
     double totalEnergy = 0.0;
     for (var point in totalData) {
       final value = point.value;
