@@ -316,17 +316,26 @@ final sleepDurationProvider = FutureProvider<Duration>((ref) async {
 // permission or unavailable HC installation never interrupts the main flow.
 
 Future<void> writeHydrationToHC({required double ml}) async {
+  // Health Connect caps each HydrationRecord at 100ml.
+  // Split into chunks: e.g. 250ml → 100 + 100 + 50.
+  const double maxChunk = 100.0;
   try {
     final health = Health();
-    final now = DateTime.now();
-    // HydrationRecord requires startTime < endTime (strictly before).
-    await health.writeHealthData(
-      value: ml,
-      type: HealthDataType.WATER,
-      startTime: now,
-      endTime: now.add(const Duration(seconds: 1)),
-      unit: HealthDataUnit.MILLILITER,
-    );
+    double remaining = ml;
+    int i = 0;
+    while (remaining > 0) {
+      final chunk = remaining > maxChunk ? maxChunk : remaining;
+      final start = DateTime.now().add(Duration(seconds: i));
+      await health.writeHealthData(
+        value: chunk,
+        type: HealthDataType.WATER,
+        startTime: start,
+        endTime: start.add(const Duration(seconds: 1)),
+        unit: HealthDataUnit.MILLILITER,
+      );
+      remaining -= chunk;
+      i++;
+    }
   } catch (_) {}
 }
 
