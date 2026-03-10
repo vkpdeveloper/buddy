@@ -11,6 +11,7 @@ import 'package:buddy/pages/login_page.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/profile_service.dart';
+import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
@@ -23,6 +24,9 @@ class ProfilePage extends ConsumerStatefulWidget {
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   Map<String, dynamic>? _profileData;
   bool _profileLoading = true;
+
+  // Health Connect state
+  bool _isConnectingHealth = false;
 
   // Notification state
   bool _reminderEnabled = false;
@@ -97,8 +101,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         await SharedPreferences.getInstance().then(
           (p) => p.setBool('pre_workout_reminder_enabled', false),
         );
-        AppSnackbar.error(context, 'Notification permission denied.');
         setState(() {});
+        if (!mounted) return;
+        AppSnackbar.error(context, 'Notification permission denied.');
         return;
       }
       try {
@@ -234,6 +239,185 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
+  Future<void> _reconnectHealth() async {
+    setState(() => _isConnectingHealth = true);
+    try {
+      final granted = await requestHealthPermissions(ref);
+      if (!mounted) return;
+      if (granted) {
+        AppSnackbar.success(context, 'Health Connect connected.');
+      } else {
+        AppSnackbar.error(
+          context,
+          'Permission not granted. Please allow access in Health Connect settings.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isConnectingHealth = false);
+    }
+  }
+
+  // ── Health Connect card ────────────────────────────────────────────────────
+
+  Widget _buildHealthConnectCard() {
+    final permissionAsync = ref.watch(healthPermissionProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    LucideIcons.heart_pulse,
+                    color: AppTheme.primary,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Health Connect',
+                    style: GoogleFonts.sora(
+                      color: AppTheme.textCream,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  permissionAsync.when(
+                    data: (granted) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: granted
+                            ? AppTheme.primary.withValues(alpha: 0.12)
+                            : AppTheme.error.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: granted
+                              ? AppTheme.primary.withValues(alpha: 0.4)
+                              : AppTheme.error.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            granted
+                                ? LucideIcons.circle_check
+                                : LucideIcons.circle_x,
+                            color: granted ? AppTheme.primary : AppTheme.error,
+                            size: 12,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            granted ? 'Connected' : 'Disconnected',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: granted
+                                  ? AppTheme.primary
+                                  : AppTheme.error,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    loading: () => const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: AppTheme.borderDark, height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: permissionAsync.when(
+                data: (granted) => Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        granted
+                            ? 'Steps, heart rate, sleep, calories & more are syncing.'
+                            : 'Connect to sync health data like steps, sleep, and calories.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _isConnectingHealth
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : TextButton(
+                            onPressed: _reconnectHealth,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              backgroundColor: AppTheme.primary.withValues(
+                                alpha: 0.1,
+                              ),
+                              foregroundColor: AppTheme.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(
+                                  color: AppTheme.primary.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            child: Text(
+                              granted ? 'Reconnect' : 'Connect',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                  ],
+                ),
+                loading: () => const SizedBox(
+                  height: 20,
+                  child: Center(child: LinearProgressIndicator()),
+                ),
+                error: (_, __) => Text(
+                  'Could not check Health Connect status.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -311,6 +495,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             _buildGoalsCard(),
             const SizedBox(height: 12),
             _buildNotificationsCard(),
+            const SizedBox(height: 12),
+            _buildHealthConnectCard(),
             const SizedBox(height: 12),
             _buildAccountCard(),
             const SizedBox(height: 24),

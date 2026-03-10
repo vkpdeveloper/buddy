@@ -49,11 +49,21 @@ Future<bool> requestHealthPermissions(WidgetRef ref) async {
       healthTypes,
       permissions: healthPermissionsList,
     );
-    ref.invalidate(healthPermissionProvider);
+    invalidateAllHealthProviders(ref);
     return granted;
   } catch (_) {
     return false;
   }
+}
+
+void invalidateAllHealthProviders(WidgetRef ref) {
+  ref.invalidate(healthPermissionProvider);
+  ref.invalidate(todayStepsProvider);
+  ref.invalidate(latestHeartRateProvider);
+  ref.invalidate(todayActiveEnergyProvider);
+  ref.invalidate(latestWeightProvider);
+  ref.invalidate(latestHeightProvider);
+  ref.invalidate(sleepDurationProvider);
 }
 
 final todayStepsProvider = FutureProvider<int>((ref) async {
