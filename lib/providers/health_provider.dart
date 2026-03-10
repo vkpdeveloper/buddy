@@ -176,40 +176,23 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
   final midnight = DateTime(now.year, now.month, now.day);
 
   try {
-    // Prefer TOTAL_CALORIES_BURNED (BMR + activity) — this gives a meaningful
-    // number at any time of day, not just when exercising.
-    List<HealthDataPoint> totalData = await health.getHealthDataFromTypes(
+    // Use ACTIVE_ENERGY_BURNED — calories burned through movement/exercise,
+    // matching what Google Fit and most health apps display as "active calories".
+    // TOTAL_CALORIES_BURNED includes BMR (~1500+ kcal) which inflates the number.
+    List<HealthDataPoint> activeData = await health.getHealthDataFromTypes(
       startTime: midnight,
       endTime: now,
-      types: [HealthDataType.TOTAL_CALORIES_BURNED],
+      types: [HealthDataType.ACTIVE_ENERGY_BURNED],
     );
-    totalData = health.removeDuplicates(totalData);
-    double totalEnergy = 0.0;
-    for (var point in totalData) {
+    activeData = health.removeDuplicates(activeData);
+    double activeEnergy = 0.0;
+    for (var point in activeData) {
       final value = point.value;
       if (value is NumericHealthValue) {
-        totalEnergy += value.numericValue.toDouble();
+        activeEnergy += value.numericValue.toDouble();
       }
     }
-
-    // Fall back to ACTIVE_ENERGY_BURNED if total is unavailable.
-    // Some devices only record active (exercise) calories.
-    if (totalEnergy == 0.0) {
-      List<HealthDataPoint> activeData = await health.getHealthDataFromTypes(
-        startTime: midnight,
-        endTime: now,
-        types: [HealthDataType.ACTIVE_ENERGY_BURNED],
-      );
-      activeData = health.removeDuplicates(activeData);
-      for (var point in activeData) {
-        final value = point.value;
-        if (value is NumericHealthValue) {
-          totalEnergy += value.numericValue.toDouble();
-        }
-      }
-    }
-
-    return totalEnergy;
+    return activeEnergy;
   } catch (e) {
     return 0.0;
   }
