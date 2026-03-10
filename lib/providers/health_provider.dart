@@ -176,9 +176,9 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
   final midnight = DateTime(now.year, now.month, now.day);
 
   try {
-    // Use ACTIVE_ENERGY_BURNED — calories burned through movement/exercise,
-    // matching what Google Fit and most health apps display as "active calories".
-    // TOTAL_CALORIES_BURNED includes BMR (~1500+ kcal) which inflates the number.
+    // Prefer ACTIVE_ENERGY_BURNED — matches what Google Fit shows as "active calories"
+    // (movement/exercise only, no BMR). Fall back to TOTAL_CALORIES_BURNED only when
+    // the device hasn't written any active energy records yet today.
     List<HealthDataPoint> activeData = await health.getHealthDataFromTypes(
       startTime: midnight,
       endTime: now,
@@ -192,7 +192,23 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
         activeEnergy += value.numericValue.toDouble();
       }
     }
-    return activeEnergy;
+    if (activeEnergy > 0) return activeEnergy;
+
+    // Fallback: some devices only write TOTAL_CALORIES_BURNED.
+    List<HealthDataPoint> totalData = await health.getHealthDataFromTypes(
+      startTime: midnight,
+      endTime: now,
+      types: [HealthDataType.TOTAL_CALORIES_BURNED],
+    );
+    totalData = health.removeDuplicates(totalData);
+    double totalEnergy = 0.0;
+    for (var point in totalData) {
+      final value = point.value;
+      if (value is NumericHealthValue) {
+        totalEnergy += value.numericValue.toDouble();
+      }
+    }
+    return totalEnergy;
   } catch (e) {
     return 0.0;
   }
