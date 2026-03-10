@@ -316,7 +316,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                             granted
                                 ? LucideIcons.circle_check
                                 : LucideIcons.circle_x,
-                            color: granted ? AppTheme.primary : AppTheme.error,
+                            color: granted ? AppTheme.success : AppTheme.error,
                             size: 12,
                           ),
                           const SizedBox(width: 4),
@@ -324,7 +324,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                             granted ? 'Connected' : 'Disconnected',
                             style: GoogleFonts.plusJakartaSans(
                               color: granted
-                                  ? AppTheme.primary
+                                  ? AppTheme.success
                                   : AppTheme.error,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
