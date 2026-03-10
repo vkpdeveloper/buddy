@@ -298,10 +298,12 @@ Future<void> writeHydrationToHC({double ml = 250}) async {
   try {
     final health = Health();
     final now = DateTime.now();
+    // HydrationRecord requires startTime < endTime (strictly before).
     await health.writeHealthData(
       value: ml,
       type: HealthDataType.WATER,
       startTime: now,
+      endTime: now.add(const Duration(seconds: 1)),
       unit: HealthDataUnit.MILLILITER,
     );
   } catch (_) {}
@@ -320,7 +322,7 @@ Future<void> writeNutritionToHC({
     await health.writeMeal(
       mealType: MealType.UNKNOWN,
       startTime: now,
-      endTime: now,
+      endTime: now.add(const Duration(seconds: 1)),
       caloriesConsumed: calories,
       carbohydrates: carbsG,
       protein: proteinG,
