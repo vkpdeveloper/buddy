@@ -71,56 +71,57 @@ class GrowthShareCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Container(
-            height: 132,
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.backgroundDark.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.borderDark),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Weight Trend',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.borderDark),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Weight Trend',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textCream,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      trendDelta == null
-                          ? 'No trend yet'
-                          : '${trendDelta >= 0 ? '+' : ''}${trendDelta.toStringAsFixed(1)} kg',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: trendDelta == null
-                            ? AppTheme.textSageMuted
-                            : trendDelta <= 0
-                            ? AppTheme.primary
-                            : AppTheme.warning,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                      const Spacer(),
+                      Text(
+                        trendDelta == null
+                            ? 'No trend yet'
+                            : '${trendDelta >= 0 ? '+' : ''}${trendDelta.toStringAsFixed(1)} kg',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: trendDelta == null
+                              ? AppTheme.textSageMuted
+                              : trendDelta <= 0
+                              ? AppTheme.primary
+                              : AppTheme.warning,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: CustomPaint(
-                    painter: _SparklinePainter(
-                      points: trend.map((point) => point.value).toList(),
-                      lineColor: AppTheme.primary,
-                    ),
-                    child: const SizedBox.expand(),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: CustomPaint(
+                      painter: _SparklinePainter(
+                        points: trend.map((point) => point.value).toList(),
+                        lineColor: AppTheme.primary,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

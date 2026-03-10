@@ -707,18 +707,34 @@ class _MetricGrid extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Flexible(
-                              child: Text(
-                                metric.latestValue == null
-                                    ? '—'
-                                    : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}',
+                            if (metric.latestValue == null)
+                              Text(
+                                '—',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textCream,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )
+                            else ...[
+                              Text(
+                                metric.latestValue!.toStringAsFixed(1),
                                 style: GoogleFonts.plusJakartaSans(
                                   color: AppTheme.textCream,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
+                              const SizedBox(width: 3),
+                              Text(
+                                metric.unit,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textSageMuted,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                             if (metric.sparkline.length >= 2) ...[
                               if (metric.deltaSinceLast != null) ...[
                                 const SizedBox(width: 6),

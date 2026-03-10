@@ -744,7 +744,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                                 ),
                               )
                             : const Icon(
-                                LucideIcons.camera,
+                                LucideIcons.scan_line,
                                 color: AppTheme.actionForeground,
                                 size: 22,
                               ),
