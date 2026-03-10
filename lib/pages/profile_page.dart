@@ -107,7 +107,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           leadMinutes: _reminderLeadMinutes,
         );
       } catch (e) {
-        print(e);
         if (!mounted) return;
         AppSnackbar.error(context, 'Could not schedule reminder right now.');
       }
