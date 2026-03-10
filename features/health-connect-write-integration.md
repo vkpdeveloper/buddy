@@ -7,6 +7,7 @@ Everything we can write from Buddy into Health Connect, organized by category an
 ## Why Write to Health Connect?
 
 Writing data into Health Connect makes Buddy a first-class health citizen on Android:
+
 - Data logged in Buddy (food, water, workouts) appears in Google Fit, Samsung Health, etc.
 - Other apps that read from Health Connect (e.g., Withings, Garmin Connect) pick up our data automatically.
 - Users get a unified health history even if they switch apps.
@@ -16,11 +17,13 @@ Writing data into Health Connect makes Buddy a first-class health citizen on And
 ## Category 1 — Nutrition (Highest Priority)
 
 ### 1.1 Hydration
+
 **HC Type:** `HydrationRecord`
 **Unit:** millilitres (ml)
 **What we log:** Buddy already shows a hydration target. We can write each water intake event as a `HydrationRecord`.
 
 **Data shape:**
+
 ```
 startTime / endTime: timestamp of the drink
 volume: WaterMass in litres (e.g., 250ml glass → 0.25)
@@ -31,11 +34,13 @@ volume: WaterMass in litres (e.g., 250ml glass → 0.25)
 ---
 
 ### 1.2 Nutrition (Meals / Macro Tracking)
+
 **HC Type:** `NutritionRecord`
 **Unit:** various (grams, kcal)
 **What we log:** Every meal logged in Buddy's diet tracker has macros (calories, protein, carbs, fat). We can write these directly.
 
 **Data shape:**
+
 ```
 startTime / endTime: meal time
 energy: Energy in kcal
@@ -55,11 +60,13 @@ name: meal name (e.g., "Breakfast — Oats & Banana")
 ## Category 2 — Activity (High Priority)
 
 ### 2.1 Exercise Sessions
+
 **HC Type:** `ExerciseSessionRecord`
 **Unit:** n/a (structured record)
 **What we log:** Every completed workout session in Buddy — type, duration, sets/reps.
 
 **Data shape:**
+
 ```
 startTime / endTime: session start and end
 exerciseType: maps from our discipline (e.g., STRENGTH_TRAINING, RUNNING, YOGA, HIKING)
@@ -68,6 +75,7 @@ notes: optional summary
 ```
 
 **Supporting records to write alongside:**
+
 - `ActiveCaloriesBurnedRecord` — XP-estimated or MET-estimated kcal burned
 - `ExerciseLapRecord` — one lap per exercise set (optional, advanced)
 
@@ -76,11 +84,13 @@ notes: optional summary
 ---
 
 ### 2.2 Active Calories Burned
+
 **HC Type:** `ActiveCaloriesBurnedRecord`
 **Unit:** kcal
 **What we log:** Calories burned during a workout (estimated from MET values or our XP system).
 
 **Data shape:**
+
 ```
 startTime / endTime: workout window
 energy: Energy in kcal
@@ -93,11 +103,13 @@ energy: Energy in kcal
 ## Category 3 — Body Measurements (Medium Priority)
 
 ### 3.1 Weight
+
 **HC Type:** `WeightRecord`
 **Unit:** kilograms
 **What we log:** Buddy's Growth tab allows body weight logging. We should write these to HC.
 
 **Data shape:**
+
 ```
 time: measurement timestamp
 weight: Mass in kg
@@ -108,11 +120,13 @@ weight: Mass in kg
 ---
 
 ### 3.2 Body Fat Percentage
+
 **HC Type:** `BodyFatRecord`
 **Unit:** percentage (0.0–1.0)
 **What we log:** If user enters body fat % in their profile or measurement log.
 
 **Data shape:**
+
 ```
 time: measurement timestamp
 percentage: Percentage (e.g., 0.18 for 18%)
@@ -123,11 +137,13 @@ percentage: Percentage (e.g., 0.18 for 18%)
 ---
 
 ### 3.3 Height
+
 **HC Type:** `HeightRecord`
 **Unit:** metres
 **What we log:** Set once during onboarding or profile update. No need to write repeatedly.
 
 **Data shape:**
+
 ```
 time: profile update timestamp
 height: Length in metres (e.g., 1.75)
@@ -138,11 +154,13 @@ height: Length in metres (e.g., 1.75)
 ---
 
 ### 3.4 Lean Body Mass
+
 **HC Type:** `LeanBodyMassRecord`
 **Unit:** kilograms
 **What we log:** Can be derived from weight + body fat %. Write when both are available.
 
 **Data shape:**
+
 ```
 time: measurement timestamp
 mass: Mass in kg (weight × (1 - bodyFatFraction))
@@ -152,32 +170,10 @@ mass: Mass in kg (weight × (1 - bodyFatFraction))
 
 ---
 
-## Category 4 — Vitals (Lower Priority / Future)
-
-### 4.1 Resting Heart Rate
-**HC Type:** `RestingHeartRateRecord`
-**Unit:** beats per minute
-**What we log:** If we ever add a manual resting HR entry or integrate with a connected device.
-
----
-
-### 4.2 Blood Pressure
-**HC Type:** `BloodPressureRecord`
-**Unit:** mmHg (systolic / diastolic)
-**What we log:** Manual entry if user wants to track cardiovascular health alongside fitness.
-
----
-
-### 4.3 Blood Glucose
-**HC Type:** `BloodGlucoseRecord`
-**Unit:** mmol/L
-**What we log:** For users managing diabetes who track alongside diet.
-
----
-
 ## Implementation Notes
 
 ### Permissions Required (AndroidManifest.xml)
+
 ```xml
 <!-- Nutrition -->
 <uses-permission android:name="android.permission.health.WRITE_HYDRATION"/>
@@ -195,6 +191,7 @@ mass: Mass in kg (weight × (1 - bodyFatFraction))
 ```
 
 ### Flutter health package — write API
+
 ```dart
 // Example: write hydration
 await health.writeHealthData(
@@ -216,22 +213,23 @@ await health.writeWorkoutData(
 ```
 
 ### Idempotency
+
 Health Connect does not deduplicate writes automatically. Before writing, check if a record for the same time window already exists to avoid duplicate entries (e.g., if the user re-completes or re-syncs a workout).
 
 ### User Consent
+
 Write permissions are separate from read permissions. The Health Connect permissions dialog will show both. Users must explicitly grant write access. Add a toggle in Profile → Health Connect to let users opt out of writes without losing read access.
 
 ---
 
 ## Priority Roadmap
 
-| Priority | Data Type | Trigger |
-|----------|-----------|---------|
-| P0 | Hydration | Water intake log |
-| P0 | Nutrition (meal macros) | Meal log save |
-| P0 | Exercise Session + Active Calories | Workout complete |
-| P1 | Weight | Body measurement save |
-| P1 | Body Fat % | Body measurement save |
-| P2 | Height | Onboarding / profile update |
-| P2 | Lean Body Mass | Derived from weight + fat |
-| P3 | Resting HR, Blood Pressure, Blood Glucose | Manual entry (future) |
+| Priority | Data Type                          | Trigger                     |
+| -------- | ---------------------------------- | --------------------------- |
+| P0       | Hydration                          | Water intake log            |
+| P0       | Nutrition (meal macros)            | Meal log save               |
+| P0       | Exercise Session + Active Calories | Workout complete            |
+| P1       | Weight                             | Body measurement save       |
+| P1       | Body Fat %                         | Body measurement save       |
+| P2       | Height                             | Onboarding / profile update |
+| P2       | Lean Body Mass                     | Derived from weight + fat   |
