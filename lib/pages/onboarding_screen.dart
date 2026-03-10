@@ -2545,7 +2545,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         ),
                       ),
                       Text(
-                        '$burnTarget kcal',
+                        '$burnTarget cal',
                         style: GoogleFonts.plusJakartaSans(
                           color: AppTheme.textCream,
                           fontSize: 14,

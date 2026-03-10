@@ -353,7 +353,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
             Row(
               children: [
                 _MacroPill(
-                  label: 'KCAL',
+                  label: 'CAL',
                   value: '$calories',
                   color: AppTheme.primary,
                 ),
@@ -1109,7 +1109,7 @@ class _MacroProgressCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '${consumedCalories.toInt()} / ${targetCalories.toInt()} kcal',
+                '${consumedCalories.toInt()} / ${targetCalories.toInt()} cal',
                 style: GoogleFonts.plusJakartaSans(
                   color: AppTheme.primary,
                   fontSize: 12,
