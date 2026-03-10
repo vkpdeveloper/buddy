@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -192,35 +193,9 @@ final todayActiveEnergyProvider = FutureProvider<double>((ref) async {
     );
     totalData = health.removeDuplicates(totalData);
 
-    // ── DEBUG LOG ────────────────────────────────────────────────────────────
-    debugPrint('=== CALORIES DEBUG ===');
-    debugPrint(const JsonEncoder.withIndent('  ').convert({
-      'date': midnight.toIso8601String(),
-      'ACTIVE_ENERGY_BURNED': activeData.map((p) => {
-        'type': p.type.name,
-        'unit': p.unit.name,
-        'value': (p.value is NumericHealthValue)
-            ? (p.value as NumericHealthValue).numericValue
-            : p.value.toString(),
-        'from': p.dateFrom.toIso8601String(),
-        'to': p.dateTo.toIso8601String(),
-        'sourceName': p.sourceName,
-        'sourceId': p.sourceId,
-      }).toList(),
-      'TOTAL_CALORIES_BURNED': totalData.map((p) => {
-        'type': p.type.name,
-        'unit': p.unit.name,
-        'value': (p.value is NumericHealthValue)
-            ? (p.value as NumericHealthValue).numericValue
-            : p.value.toString(),
-        'from': p.dateFrom.toIso8601String(),
-        'to': p.dateTo.toIso8601String(),
-        'sourceName': p.sourceName,
-        'sourceId': p.sourceId,
-      }).toList(),
-    }));
-    debugPrint('=== END CALORIES DEBUG ===');
-    // ── END DEBUG LOG ────────────────────────────────────────────────────────
+    // ── DEBUG: POST all raw records to inspection endpoint ───────────────────
+    _postCaloriesDebug(midnight, activeData, totalData);
+    // ── END DEBUG ─────────────────────────────────────────────────────────────
 
     double activeEnergy = 0.0;
     for (var point in activeData) {
@@ -482,4 +457,44 @@ int _estimateWorkoutCalories(
     met = 2.5;
   }
   return (met * weightKg * (durationSeconds / 3600)).round();
+}
+
+// ── Calories debug helper ─────────────────────────────────────────────────────
+
+List<Map<String, dynamic>> _pointsToJson(List<HealthDataPoint> points) =>
+    points.map((p) => {
+      'type': p.type.name,
+      'unit': p.unit.name,
+      'value': p.value is NumericHealthValue
+          ? (p.value as NumericHealthValue).numericValue
+          : p.value.toString(),
+      'from': p.dateFrom.toIso8601String(),
+      'to': p.dateTo.toIso8601String(),
+      'sourceName': p.sourceName,
+      'sourceId': p.sourceId,
+      'recordingMethod': p.recordingMethod.name,
+    }).toList();
+
+void _postCaloriesDebug(
+  DateTime date,
+  List<HealthDataPoint> activeData,
+  List<HealthDataPoint> totalData,
+) {
+  final payload = {
+    'date': date.toIso8601String(),
+    'capturedAt': DateTime.now().toIso8601String(),
+    'ACTIVE_ENERGY_BURNED': _pointsToJson(activeData),
+    'TOTAL_CALORIES_BURNED': _pointsToJson(totalData),
+  };
+  final body = jsonEncode(payload);
+  debugPrint('=== CALORIES DEBUG ===\n${const JsonEncoder.withIndent('  ').convert(payload)}\n=== END ===');
+  http.post(
+    Uri.parse('https://www.postb.in/1773132225738-5446426442358'),
+    headers: {'Content-Type': 'application/json'},
+    body: body,
+  ).then((res) {
+    debugPrint('[CaloriesDebug] POST ${res.statusCode}');
+  }).catchError((e) {
+    debugPrint('[CaloriesDebug] POST failed: $e');
+  });
 }
