@@ -485,6 +485,17 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     }
 
     if (_reminderEnabled) {
+      final granted = await NotificationService.requestPermission();
+      if (!mounted) return;
+      if (!granted) {
+        _reminderEnabled = false;
+        await SharedPreferences.getInstance().then(
+          (p) => p.setBool('pre_workout_reminder_enabled', false),
+        );
+        AppSnackbar.error(context, 'Notification permission denied.');
+        setState(() {});
+        return;
+      }
       try {
         await NotificationService.scheduleDailyPreWorkoutReminder(
           workoutTime: _workoutTime,

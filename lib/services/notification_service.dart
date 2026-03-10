@@ -17,25 +17,36 @@ class NotificationService {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
-    const iosSettings = DarwinInitializationSettings();
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
     const settings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
 
     await _plugin.initialize(settings);
-    await _plugin
+    _initialized = true;
+  }
+
+  /// Request notification permission — call this only when the user explicitly
+  /// enables reminders, not at app startup.
+  static Future<bool> requestPermission() async {
+    await initialize();
+    final iosGranted = await _plugin
         .resolvePlatformSpecificImplementation<
           IOSFlutterLocalNotificationsPlugin
         >()
         ?.requestPermissions(alert: true, badge: true, sound: true);
-    await _plugin
+    final androidGranted = await _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.requestNotificationsPermission();
-
-    _initialized = true;
+    // On platforms where neither impl is present (e.g. macOS desktop), assume granted.
+    return (iosGranted ?? androidGranted) ?? true;
   }
 
   static Future<void> cancelPreWorkoutReminder() async {

@@ -90,12 +90,24 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
 
     if (_reminderEnabled) {
+      final granted = await NotificationService.requestPermission();
+      if (!mounted) return;
+      if (!granted) {
+        _reminderEnabled = false;
+        await SharedPreferences.getInstance().then(
+          (p) => p.setBool('pre_workout_reminder_enabled', false),
+        );
+        AppSnackbar.error(context, 'Notification permission denied.');
+        setState(() {});
+        return;
+      }
       try {
         await NotificationService.scheduleDailyPreWorkoutReminder(
           workoutTime: _workoutTime,
           leadMinutes: _reminderLeadMinutes,
         );
-      } catch (_) {
+      } catch (e) {
+        print(e);
         if (!mounted) return;
         AppSnackbar.error(context, 'Could not schedule reminder right now.');
       }
@@ -249,9 +261,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-              ),
+              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
             ),
           ),
           TextButton(
@@ -325,8 +335,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final displayName = user?.displayName ?? 'Athlete';
     final email = user?.email ?? '';
     final creationTime = user?.metadata.creationTime;
-    final memberSince =
-        creationTime != null ? _formatMemberSince(creationTime) : null;
+    final memberSince = creationTime != null
+        ? _formatMemberSince(creationTime)
+        : null;
     final levelFraction = progress?.levelProgressFraction ?? 0.0;
     final level = progress?.currentLevel ?? 1;
 
@@ -419,8 +430,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 bottom: 2,
                 right: 2,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.oledBlack,
                     borderRadius: BorderRadius.circular(10),
@@ -649,7 +662,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final hasGoalShape = _profileData!['goalBodyShape'] != null;
     final hasWater = _profileData!['waterTargetMl'] != null;
 
-    if (!hasWeight && !hasBodyFat && !hasCurrent && !hasGoalShape && !hasWater) {
+    if (!hasWeight &&
+        !hasBodyFat &&
+        !hasCurrent &&
+        !hasGoalShape &&
+        !hasWater) {
       return const SizedBox.shrink();
     }
 
@@ -710,9 +727,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               child: Row(
                 children: [
                   Icon(
-                    _reminderEnabled
-                        ? LucideIcons.bell_ring
-                        : LucideIcons.bell,
+                    _reminderEnabled ? LucideIcons.bell_ring : LucideIcons.bell,
                     color: AppTheme.primary,
                     size: 16,
                   ),
@@ -976,16 +991,34 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   String _formatMemberSince(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return 'Member since ${months[dt.month - 1]} ${dt.year}';
   }
 
   String _nextLevelLabel(int currentLevel) {
     const names = [
-      'Beginner', 'Rookie', 'Novice', 'Apprentice', 'Warrior',
-      'Champion', 'Elite', 'Master', 'Grand Master', 'Legend',
+      'Beginner',
+      'Rookie',
+      'Novice',
+      'Apprentice',
+      'Warrior',
+      'Champion',
+      'Elite',
+      'Master',
+      'Grand Master',
+      'Legend',
     ];
     if (currentLevel >= names.length) return 'Max';
     return names[currentLevel];
@@ -1051,7 +1084,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       'ppl_upper': 'PPL+Upper',
       'full_body': 'Full Body',
     }[d['workoutCycle']];
-    if (days != null && cycleLabel != null) return '${days}x/week · $cycleLabel';
+    if (days != null && cycleLabel != null)
+      return '${days}x/week · $cycleLabel';
     if (days != null) return '${days}x/week';
     return '-';
   }
@@ -1063,9 +1097,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         .take(3)
         .map((e) {
           final s = e.toString().replaceAll('_', ' ');
-          return s.isNotEmpty
-              ? s[0].toUpperCase() + s.substring(1)
-              : '';
+          return s.isNotEmpty ? s[0].toUpperCase() + s.substring(1) : '';
         })
         .where((s) => s.isNotEmpty)
         .join(', ');
