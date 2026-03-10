@@ -15,7 +15,7 @@ class NotificationService {
     if (_initialized) return;
     tz.initializeTimeZones();
     final localTz = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(localTz.identifier));
+    tz.setLocalLocation(tz.getLocation(_normalizeTimezone(localTz.identifier)));
 
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
@@ -111,4 +111,21 @@ class NotificationService {
       rethrow;
     }
   }
+}
+
+// Maps legacy IANA timezone identifiers (still returned by some Android devices)
+// to their current canonical names used by the timezone package.
+String _normalizeTimezone(String id) {
+  const aliases = {
+    'Asia/Calcutta': 'Asia/Kolkata',
+    'Asia/Katmandu': 'Asia/Kathmandu',
+    'Asia/Rangoon': 'Asia/Yangon',
+    'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+    'Asia/Dacca': 'Asia/Dhaka',
+    'Asia/Ulaanbaatar': 'Asia/Ulaanbaatar',
+    'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+    'Pacific/Ponape': 'Pacific/Pohnpei',
+    'Atlantic/Faeroe': 'Atlantic/Faroe',
+  };
+  return aliases[id] ?? id;
 }
