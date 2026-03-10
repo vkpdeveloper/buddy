@@ -50,31 +50,74 @@ const PROTEIN_POWDER_KEYWORDS = [
     'soy protein isolate',
 ];
 
-export const HIGH_PROTEIN_FOODS = {
-    vegetarian: [
-        'Paneer', 'Tofu', 'Moong Dal', 'Masoor Dal', 'Chana Dal',
-        'Toor Dal', 'Urad Dal', 'Rajma', 'Chole (Chickpeas)',
-        'Dahi (Curd)', 'Greek Yogurt', 'Moong Sprouts',
-        'Sattu', 'Soya Chunks', 'Skimmed Milk',
-        'Peanut Butter', 'Makhana', 'Whey Protein',
-    ],
-    non_vegetarian: [
-        'Chicken Breast', 'Whole Eggs', 'Egg Whites',
-        'Tuna', 'Salmon', 'Prawn/Shrimp',
-        'Fish (Rohu/Catla)', 'Lean Mutton Keema', 'Turkey',
-        'Paneer', 'Moong Dal', 'Dahi (Curd)',
-        'Greek Yogurt', 'Chicken Liver', 'Whey Protein',
-        'Soya Chunks', 'Rajma', 'Chole (Chickpeas)',
-    ],
-    vegan: [
-        'Tofu', 'Tempeh', 'Seitan', 'Edamame',
-        'Moong Dal', 'Masoor Dal', 'Chole (Chickpeas)',
-        'Rajma', 'Quinoa', 'Hemp Seeds',
-        'Soya Chunks', 'Sattu', 'Peanut Butter',
-        'Lentil Sprouts', 'Black Beans',
-        'Pumpkin Seeds', 'Chia Seeds', 'Mung Bean Sprouts',
-    ],
+export const DIET_FOOD_GUIDANCE = {
+    vegetarian: {
+        proteins: [
+            'Paneer', 'Tofu', 'Moong Dal', 'Masoor Dal', 'Chana Dal',
+            'Toor Dal', 'Urad Dal', 'Rajma', 'Chole (Chickpeas)',
+            'Dahi (Curd)', 'Greek Yogurt', 'Moong Sprouts',
+            'Sattu', 'Soya Chunks', 'Skimmed Milk', 'Peanut Butter',
+        ],
+        staples: [
+            'Roti', 'Rice', 'Oats', 'Poha', 'Upma', 'Idli',
+            'Dosa', 'Vegetable Khichdi',
+        ],
+        fiberFoods: [
+            'Green Vegetables', 'Palak', 'Methi', 'Cabbage',
+            'Beans', 'Bhindi', 'Lauki', 'Tori', 'Carrot',
+            'Cucumber', 'Salad',
+        ],
+    },
+    non_vegetarian: {
+        proteins: [
+            'Chicken Breast', 'Whole Eggs', 'Egg Whites',
+            'Tuna', 'Salmon', 'Prawn/Shrimp',
+            'Fish (Rohu/Catla)', 'Lean Mutton Keema', 'Turkey',
+            'Paneer', 'Moong Dal', 'Dahi (Curd)',
+            'Greek Yogurt', 'Chicken Liver', 'Soya Chunks',
+            'Rajma', 'Chole (Chickpeas)',
+        ],
+        staples: [
+            'Roti', 'Rice', 'Oats', 'Poha', 'Upma', 'Idli',
+            'Dosa', 'Vegetable Khichdi',
+        ],
+        fiberFoods: [
+            'Green Vegetables', 'Palak', 'Methi', 'Cabbage',
+            'Beans', 'Bhindi', 'Lauki', 'Tori', 'Carrot',
+            'Cucumber', 'Salad',
+        ],
+    },
+    vegan: {
+        proteins: [
+            'Tofu', 'Tempeh', 'Seitan', 'Edamame',
+            'Moong Dal', 'Masoor Dal', 'Chole (Chickpeas)',
+            'Rajma', 'Quinoa', 'Hemp Seeds',
+            'Soya Chunks', 'Sattu', 'Peanut Butter',
+            'Lentil Sprouts', 'Black Beans',
+            'Pumpkin Seeds', 'Chia Seeds', 'Mung Bean Sprouts',
+        ],
+        staples: [
+            'Roti', 'Rice', 'Oats', 'Poha', 'Upma',
+            'Idli', 'Dosa', 'Vegetable Khichdi',
+        ],
+        fiberFoods: [
+            'Green Vegetables', 'Palak', 'Methi', 'Cabbage',
+            'Beans', 'Bhindi', 'Lauki', 'Tori', 'Carrot',
+            'Cucumber', 'Salad',
+        ],
+    },
 } as const;
+
+export const DIET_FOOD_OPTIONS = Object.fromEntries(
+    Object.entries(DIET_FOOD_GUIDANCE).map(([dietType, groups]) => [
+        dietType,
+        Array.from(new Set([
+            ...groups.proteins,
+            ...groups.staples,
+            ...groups.fiberFoods,
+        ])),
+    ])
+) as Record<keyof typeof DIET_FOOD_GUIDANCE, string[]>;
 
 const NICHE_FOODS = new Set([
     'sattu', 'makhana', 'tempeh', 'seitan', 'quinoa', 'hemp seeds',
@@ -156,11 +199,11 @@ BODY COMPOSITION CONTEXT:
     const mealTypesList = preferredMeals.map(m => `${m} (${MEAL_LABELS[m] ?? m})`).join(', ');
     const mealCount = preferredMeals.length;
 
-    const dietType = (profile.dietType ?? 'vegetarian') as keyof typeof HIGH_PROTEIN_FOODS;
+    const dietType = (profile.dietType ?? 'vegetarian') as keyof typeof DIET_FOOD_GUIDANCE;
     const mealPrepTime = profile.mealPrepTime ?? '30min';
     const cookingBy = profile.cookingBy ?? 'myself';
     const preferredFoods: string[] = profile.preferredFoods;
-    const preferredFoodsLower = new Set(preferredFoods.map(f => f.toLowerCase()));
+    const preferredFoodsLower = new Set(preferredFoods.map(f => normalizeFoodName(f)));
     const selectedProteinPowders = Array.from(
         new Set(preferredFoods.filter(food => isProteinPowderFood(food)))
     );
@@ -173,13 +216,33 @@ BODY COMPOSITION CONTEXT:
     };
     const dietLabel = dietLabels[dietType];
 
-    const allowedProteinFoods = HIGH_PROTEIN_FOODS[dietType].filter(
-        food => !isProteinPowderFood(food) && (!NICHE_FOODS.has(food.toLowerCase()) || preferredFoodsLower.has(food.toLowerCase()))
-    );
-    const proteinFoods = [...allowedProteinFoods, ...selectedProteinPowders].join(', ');
+    const foodGuidance = DIET_FOOD_GUIDANCE[dietType];
+    const isAllowedFood = (food: string) => {
+        const normalizedFood = normalizeFoodName(food);
+        return !isProteinPowderFood(food) && (!NICHE_FOODS.has(normalizedFood) || preferredFoodsLower.has(normalizedFood));
+    };
 
-    const excludedNicheFoods = HIGH_PROTEIN_FOODS[dietType]
-        .filter(food => NICHE_FOODS.has(food.toLowerCase()) && !preferredFoodsLower.has(food.toLowerCase()));
+    const allowedProteinFoods = foodGuidance.proteins.filter(isAllowedFood);
+    const allowedStapleFoods = foodGuidance.staples.filter(isAllowedFood);
+    const allowedFiberFoods = foodGuidance.fiberFoods.filter(isAllowedFood);
+    const everydayFoodOptions = Array.from(new Set([
+        ...allowedProteinFoods,
+        ...allowedStapleFoods,
+        ...allowedFiberFoods,
+        ...selectedProteinPowders,
+    ]));
+    const proteinFoods = [...allowedProteinFoods, ...selectedProteinPowders].join(', ');
+    const stapleFoods = allowedStapleFoods.join(', ');
+    const fiberFoods = allowedFiberFoods.join(', ');
+    const allGuidanceFoods = [
+        ...foodGuidance.proteins,
+        ...foodGuidance.staples,
+        ...foodGuidance.fiberFoods,
+    ];
+
+    const excludedNicheFoods = allGuidanceFoods.filter(
+        food => NICHE_FOODS.has(normalizeFoodName(food)) && !preferredFoodsLower.has(normalizeFoodName(food))
+    );
 
     const mealPrepLabels: Record<string, string> = {
         '15min': '15 minutes or less per meal',
@@ -219,7 +282,10 @@ ${dietRule}
 MEAL PREPARATION CONSTRAINTS:
 - Maximum prep time: ${mealPrepLabel}
 - Cooking context: ${cookingContext}
-- High-protein staples available for this diet type: ${proteinFoods}
+- Protein-rich foods to use for this diet type: ${proteinFoods}
+- Everyday staple foods that should show up naturally in meals: ${stapleFoods}
+- Fiber-rich vegetables and foods to include often: ${fiberFoods}
+- Overall food options for this diet type: ${everydayFoodOptions.join(', ')}
 ${nicheFoodExclusionNote}${preferredFoods.length > 0 ? `
 FAVOURITE FOODS (treat these as the user's preferred ingredients — build meals around them as much as possible across the 7 days):
 ${preferredFoods.map(f => `  - ${f}`).join('\n')}
@@ -228,7 +294,11 @@ These are foods the user loves and eats regularly. Feature them prominently in b
 
 IMPORTANT RULES:
 - ONLY Indian foods and flavors — dal, roti, rice, sabzi, Indian spices, etc.
-- HIGH PROTEIN focus — at least ${Math.round(macros.proteinG * 0.85)}g protein per day, featuring the listed protein staples prominently
+- Build meals like real, complete Indian foods that people actually enjoy eating, not isolated ingredients on a plate. Prefer combinations such as dal-chawal, roti-sabzi with paneer/tofu/chicken/eggs, rice bowls, khichdi, poha with protein sides, stuffed cheela, idli/dosa with protein-rich accompaniments, and similar familiar meals.
+- HIGH PROTEIN focus — at least ${Math.round(macros.proteinG * 0.85)}g protein per day, featuring the listed protein foods prominently
+- DAILY FIBER target — every day must realistically reach at least 30g fiber, ideally 30-35g, using vegetables, legumes, fruits, oats, and whole-food staples
+- Include green vegetables, salad, or fiber-rich sabzi at least 2 times per day, especially with lunch and dinner
+- Include normal staple carbs like roti, rice, poha, oats, upma, idli, dosa, or khichdi wherever they fit best. Do not make the plan feel like a supplement-heavy bodybuilding diet.
 ${canUseProteinPowder
         ? `- Protein powder is allowed only because the user explicitly selected it in favourite foods: ${selectedProteinPowders.join(', ')}
 - If you use it, only use it as a standalone shake in post_workout and/or evening_snack when those meal types exist. Each shake = 25g protein, 120 kcal
@@ -250,6 +320,7 @@ INGREDIENT RULES:
 - Chickpeas, rajma, chole, chana, lentils, beans, and any legume must always use raw dry quantity before soaking or boiling.
 - Cooked weights are misleading and cause users to over- or under-estimate prep amounts. For example, 250g boiled chickpeas is only about 80-90g raw.
 - Raw weights are the only actionable prep reference, so never write cooked rice, boiled chickpeas, steamed oats, or any other post-preparation quantity.
+- Vegetables and greens are mandatory in the plan. Make them explicit in ingredients instead of implying them vaguely.
 - Do NOT add whey protein or any other protein powder as an ingredient unless it was explicitly selected in favourite foods. Even when allowed, use it only for standalone shake meals.
 - Do NOT include a "description" field
 

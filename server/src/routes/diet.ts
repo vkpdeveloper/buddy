@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { eq, and, asc, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import { dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs, dietQuickLogs, mealMediaAttachments } from '../db/schema';
-import { HIGH_PROTEIN_FOODS } from '../lib/dietGenerator';
+import { DIET_FOOD_OPTIONS } from '../lib/dietGenerator';
 import { ok, fail } from '../lib/response';
 import { notFound } from '../lib/errors';
 
@@ -12,7 +12,7 @@ const router = new Hono();
 
 // ─── GET /api/diet/foods ─────────────────────────────────────────────────────
 router.get('/foods', (c) => {
-    return ok(c, HIGH_PROTEIN_FOODS);
+    return ok(c, DIET_FOOD_OPTIONS);
 });
 
 // ─── GET /api/diet/plans ─────────────────────────────────────────────────────
