@@ -504,7 +504,7 @@ void _postCaloriesDebug(
   final body = jsonEncode(payload);
   debugPrint('=== CALORIES DEBUG ===\n${const JsonEncoder.withIndent('  ').convert(payload)}\n=== END ===');
   http.post(
-    Uri.parse('https://www.postb.in/1773132225738-5446426442358'),
+    Uri.parse('https://eobz1wi5cpdubyo.m.pipedream.net'),
     headers: {'Content-Type': 'application/json'},
     body: body,
   ).then((res) {
