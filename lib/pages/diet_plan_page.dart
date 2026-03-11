@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -36,6 +37,9 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
 
   bool _isPhotoLogging = false;
   List<Map<String, dynamic>> _quickLogs = [];
+  List<Map<String, dynamic>> _photoAnalyses = [];
+  Timer? _photoAnalysisPollTimer;
+  bool _isRefreshingPhotoAnalyses = false;
 
   bool _reminderEnabled = false;
   int _reminderLeadMinutes = 60;
@@ -51,6 +55,12 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   void initState() {
     super.initState();
     _loadPlans();
+  }
+
+  @override
+  void dispose() {
+    _photoAnalysisPollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadPlans() async {
@@ -143,6 +153,17 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
 
+      List<Map<String, dynamic>> recentAnalyses = _photoAnalyses;
+      try {
+        final analysesRes = await MediaService.listRecentMealAnalyses();
+        recentAnalyses = ((analysesRes['data'] as List?) ?? [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      } catch (_) {
+        // Keep the last known photo analysis state on transient failures.
+      }
+
       if (!mounted) return;
       setState(() {
         _planData = planRes;
@@ -150,6 +171,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         _todayLog = completionMap;
         _actualLogs = actualMap;
         _quickLogs = quickLogs;
+        _photoAnalyses = recentAnalyses;
         _selectedDayIndex = days.isEmpty
             ? 0
             : nowDayIndex.clamp(0, days.length - 1);
@@ -158,9 +180,115 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
           _workoutTime = inferredWorkoutTime;
         }
       });
+      _syncPhotoAnalysisPolling();
     } catch (_) {
       // Keep existing state on transient API failures.
     }
+  }
+
+  List<Map<String, dynamic>> get _visiblePhotoAnalyses {
+    final loggedAttachmentIds = <int>{};
+
+    for (final quickLog in _quickLogs) {
+      final attachmentId = (quickLog['attachmentId'] as num?)?.toInt();
+      if (attachmentId != null) {
+        loggedAttachmentIds.add(attachmentId);
+      }
+    }
+
+    for (final actualLog in _actualLogs.values) {
+      final rawPayload = actualLog['rawPayload'];
+      if (rawPayload is Map) {
+        final attachmentId = (rawPayload['attachmentId'] as num?)?.toInt();
+        if (attachmentId != null) {
+          loggedAttachmentIds.add(attachmentId);
+        }
+      }
+    }
+
+    final visible = _photoAnalyses.where((analysis) {
+      final attachmentId = (analysis['id'] as num?)?.toInt();
+      return attachmentId == null ||
+          !loggedAttachmentIds.contains(attachmentId);
+    }).toList();
+
+    visible.sort((a, b) {
+      final aCreatedAt =
+          DateTime.tryParse(a['createdAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bCreatedAt =
+          DateTime.tryParse(b['createdAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return bCreatedAt.compareTo(aCreatedAt);
+    });
+
+    return visible;
+  }
+
+  bool get _hasPendingPhotoAnalyses => _visiblePhotoAnalyses.any((analysis) {
+    final status = analysis['aiAnalysisStatus']?.toString() ?? '';
+    return status == 'pending' || status == 'analyzing';
+  });
+
+  void _syncPhotoAnalysisPolling() {
+    if (_hasPendingPhotoAnalyses) {
+      _photoAnalysisPollTimer ??= Timer.periodic(
+        const Duration(seconds: 4),
+        (_) => _refreshRecentPhotoAnalyses(silent: true),
+      );
+      return;
+    }
+
+    _photoAnalysisPollTimer?.cancel();
+    _photoAnalysisPollTimer = null;
+  }
+
+  Future<void> _refreshRecentPhotoAnalyses({bool silent = false}) async {
+    if (_isRefreshingPhotoAnalyses) return;
+    _isRefreshingPhotoAnalyses = true;
+
+    try {
+      final res = await MediaService.listRecentMealAnalyses();
+      final analyses = ((res['data'] as List?) ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      if (!mounted) return;
+      setState(() => _photoAnalyses = analyses);
+    } catch (_) {
+      if (!silent && mounted) {
+        AppSnackbar.error(context, 'Could not refresh photo analysis status.');
+      }
+    } finally {
+      _isRefreshingPhotoAnalyses = false;
+      if (mounted) {
+        _syncPhotoAnalysisPolling();
+      }
+    }
+  }
+
+  void _upsertPhotoAnalysis(Map<String, dynamic> analysis) {
+    if (!mounted) return;
+
+    setState(() {
+      _photoAnalyses = [
+        analysis,
+        ..._photoAnalyses.where((item) => item['id'] != analysis['id']),
+      ];
+    });
+    _syncPhotoAnalysisPolling();
+  }
+
+  void _openCompletedPhotoAnalysis(Map<String, dynamic> analysis) {
+    final result = analysis['analysisResult'];
+    if (result is! Map) return;
+
+    _showPhotoResultSheet(
+      attachmentId: (analysis['id'] as num).toInt(),
+      result: Map<String, dynamic>.from(result),
+      signedUrl: analysis['signedUrl'] as String?,
+    );
   }
 
   TimeOfDay _inferWorkoutTime(List days, int leadMinutes, int dayIndex) {
@@ -237,31 +365,40 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
 
       // Upload
       final uploadRes = await MediaService.uploadMealPhoto(file, mime);
-      final attachmentId =
-          (uploadRes['data'] as Map<String, dynamic>)['id'] as int;
+      final uploadData = uploadRes['data'] as Map<String, dynamic>;
+      final attachmentId = uploadData['id'] as int;
+      final signedUrl = uploadData['signedUrl'] as String?;
 
-      // Analyze
       final analyzeRes = await MediaService.analyzeMealPhoto(attachmentId);
-      final result =
-          (analyzeRes['data'] as Map<String, dynamic>)['analysisResult']
-              as Map<String, dynamic>;
+      final analyzeData = analyzeRes['data'] as Map<String, dynamic>;
 
       if (!mounted) return;
       setState(() => _isPhotoLogging = false);
-      _showPhotoResultSheet(
-        file: file,
-        attachmentId: attachmentId,
-        result: result,
+      _upsertPhotoAnalysis({
+        'id': attachmentId,
+        'signedUrl': signedUrl,
+        'analysisResult': analyzeData['analysisResult'],
+        'aiAnalysisStatus': analyzeData['status'] ?? 'analyzing',
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+      AppSnackbar.info(
+        context,
+        'Meal uploaded. Analysis is running in the background.',
       );
+      unawaited(_refreshRecentPhotoAnalyses(silent: true));
     } catch (e) {
-      if (mounted) setState(() => _isPhotoLogging = false);
+      if (mounted) {
+        setState(() => _isPhotoLogging = false);
+        AppSnackbar.error(context, 'Could not start meal analysis.');
+      }
     }
   }
 
   void _showPhotoResultSheet({
-    required File file,
     required int attachmentId,
     required Map<String, dynamic> result,
+    String? signedUrl,
+    File? file,
   }) {
     final macros = result['macros'] as Map<String, dynamic>;
     final ingredients =
@@ -340,12 +477,30 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
             // Photo thumbnail
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: Image.file(
-                file,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+              child: file != null
+                  ? Image.file(
+                      file,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : signedUrl != null
+                  ? Image.network(
+                      signedUrl,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      height: 180,
+                      color: AppTheme.primary.withValues(alpha: 0.08),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        LucideIcons.camera,
+                        color: AppTheme.primary,
+                        size: 28,
+                      ),
+                    ),
             ),
             const SizedBox(height: 20),
 
@@ -507,6 +662,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         await SharedPreferences.getInstance().then(
           (p) => p.setBool('pre_workout_reminder_enabled', false),
         );
+        if (!mounted) return;
         AppSnackbar.error(context, 'Notification permission denied.');
         setState(() {});
         return;
@@ -887,6 +1043,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     final targetProtein = (day['proteinG'] ?? day['protein_g'] ?? 0).toDouble();
     final targetCarbs = (day['carbsG'] ?? day['carbs_g'] ?? 0).toDouble();
     final targetFat = (day['fatG'] ?? day['fat_g'] ?? 0).toDouble();
+    final photoAnalyses = _visiblePhotoAnalyses;
 
     return Column(
       children: [
@@ -988,6 +1145,49 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     );
                   },
                 ),
+                if (photoAnalyses.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'PHOTO ANALYSIS',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...photoAnalyses.map(
+                    (analysis) => _PhotoAnalysisCard(
+                      analysis: analysis,
+                      onTap: () => _openCompletedPhotoAnalysis(analysis),
+                      onRetry: () async {
+                        final attachmentId = (analysis['id'] as num?)?.toInt();
+                        if (attachmentId == null) return;
+
+                        try {
+                          await MediaService.analyzeMealPhoto(attachmentId);
+                          if (!mounted) return;
+                          _upsertPhotoAnalysis({
+                            ...analysis,
+                            'aiAnalysisStatus': 'analyzing',
+                          });
+                          AppSnackbar.info(
+                            context,
+                            'Meal analysis restarted in the background.',
+                          );
+                          unawaited(_refreshRecentPhotoAnalyses(silent: true));
+                        } catch (_) {
+                          if (!mounted) return;
+                          AppSnackbar.error(
+                            context,
+                            'Could not restart photo analysis.',
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
                 if (_quickLogs.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -1407,6 +1607,8 @@ class _MealCardState extends State<_MealCard> {
     bool isAnalyzing = false;
     double? aiConfidence;
     String? uploadError;
+    String? analysisStatus;
+    Timer? analysisPollTimer;
 
     final picker = ImagePicker();
 
@@ -1419,6 +1621,53 @@ class _MealCardState extends State<_MealCard> {
       isScrollControlled: true,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSheetState) {
+          void applyAnalysisResult(Map<String, dynamic> result) {
+            final macros = result['macros'] as Map<String, dynamic>;
+            setSheetState(() {
+              calCtrl.text = (macros['calories'] as num).toInt().toString();
+              protCtrl.text = (macros['proteinG'] as num).toStringAsFixed(1);
+              carbsCtrl.text = (macros['carbsG'] as num).toStringAsFixed(1);
+              fatCtrl.text = (macros['fatG'] as num).toStringAsFixed(1);
+              aiConfidence = (result['confidence'] as num?)?.toDouble();
+              isAnalyzing = false;
+              analysisStatus = 'completed';
+            });
+          }
+
+          Future<void> pollAnalysisStatus() async {
+            if (attachmentId == null) return;
+
+            try {
+              final res = await MediaService.getMealAttachment(attachmentId!);
+              final data = res['data'] as Map<String, dynamic>;
+              final status = data['aiAnalysisStatus']?.toString() ?? '';
+
+              if (!ctx.mounted) return;
+
+              if (status == 'completed' && data['analysisResult'] is Map) {
+                analysisPollTimer?.cancel();
+                analysisPollTimer = null;
+                applyAnalysisResult(
+                  Map<String, dynamic>.from(data['analysisResult'] as Map),
+                );
+                return;
+              }
+
+              if (status == 'failed') {
+                analysisPollTimer?.cancel();
+                analysisPollTimer = null;
+                setSheetState(() {
+                  isAnalyzing = false;
+                  analysisStatus = 'failed';
+                });
+              }
+            } catch (_) {
+              // Keep polling on transient failures.
+            }
+          }
+
+          late Future<void> Function() runAnalysis;
+
           Future<void> pickAndUpload(ImageSource source) async {
             final picked = await picker.pickImage(
               source: source,
@@ -1440,7 +1689,10 @@ class _MealCardState extends State<_MealCard> {
               uploadError = null;
               attachmentId = null;
               aiConfidence = null;
+              analysisStatus = null;
             });
+            analysisPollTimer?.cancel();
+            analysisPollTimer = null;
 
             try {
               final res = await MediaService.uploadMealPhoto(file, mime);
@@ -1449,6 +1701,7 @@ class _MealCardState extends State<_MealCard> {
                 attachmentId = data['id'] as int;
                 isUploading = false;
               });
+              unawaited(runAnalysis());
             } catch (e) {
               setSheetState(() {
                 isUploading = false;
@@ -1457,27 +1710,36 @@ class _MealCardState extends State<_MealCard> {
             }
           }
 
-          Future<void> runAnalysis() async {
+          runAnalysis = () async {
             if (attachmentId == null) return;
-            setSheetState(() => isAnalyzing = true);
+            setSheetState(() {
+              isAnalyzing = true;
+              analysisStatus = 'analyzing';
+            });
             try {
               final res = await MediaService.analyzeMealPhoto(attachmentId!);
-              final result =
-                  (res['data'] as Map<String, dynamic>)['analysisResult']
-                      as Map<String, dynamic>;
-              final macros = result['macros'] as Map<String, dynamic>;
-              setSheetState(() {
-                calCtrl.text = (macros['calories'] as num).toInt().toString();
-                protCtrl.text = (macros['proteinG'] as num).toStringAsFixed(1);
-                carbsCtrl.text = (macros['carbsG'] as num).toStringAsFixed(1);
-                fatCtrl.text = (macros['fatG'] as num).toStringAsFixed(1);
-                aiConfidence = (result['confidence'] as num).toDouble();
-                isAnalyzing = false;
-              });
+              final data = res['data'] as Map<String, dynamic>;
+              if (data['status'] == 'completed' &&
+                  data['analysisResult'] is Map) {
+                applyAnalysisResult(
+                  Map<String, dynamic>.from(data['analysisResult'] as Map),
+                );
+                return;
+              }
+
+              analysisPollTimer?.cancel();
+              analysisPollTimer = Timer.periodic(
+                const Duration(seconds: 4),
+                (_) => pollAnalysisStatus(),
+              );
+              unawaited(pollAnalysisStatus());
             } catch (e) {
-              setSheetState(() => isAnalyzing = false);
+              setSheetState(() {
+                isAnalyzing = false;
+                analysisStatus = 'failed';
+              });
             }
-          }
+          };
 
           return Padding(
             padding: EdgeInsets.only(
@@ -1629,7 +1891,7 @@ class _MealCardState extends State<_MealCard> {
                                 color: AppTheme.actionForeground,
                               ),
                         label: Text(
-                          isAnalyzing ? 'Analyzing…' : 'Analyze',
+                          isAnalyzing ? 'Queued…' : 'Analyze',
                           style: GoogleFonts.plusJakartaSans(
                             color: AppTheme.actionForeground,
                             fontSize: 12,
@@ -1655,6 +1917,43 @@ class _MealCardState extends State<_MealCard> {
                   const SizedBox(height: 6),
                   Text(
                     uploadError!,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.error,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+
+                if (analysisStatus == 'analyzing') ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'AI analysis is running in the background. You can keep editing or close this sheet.',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                if (analysisStatus == 'failed') ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'AI analysis failed. You can retry or log the meal manually.',
                     style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.error,
                       fontSize: 11,
@@ -1779,7 +2078,10 @@ class _MealCardState extends State<_MealCard> {
           );
         },
       ),
-    );
+    ).whenComplete(() {
+      analysisPollTimer?.cancel();
+      analysisPollTimer = null;
+    });
   }
 
   void _showDetailSheet() {
@@ -2230,6 +2532,216 @@ class _EditField extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 10,
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoAnalysisCard extends StatelessWidget {
+  final Map<String, dynamic> analysis;
+  final VoidCallback onTap;
+  final VoidCallback onRetry;
+
+  const _PhotoAnalysisCard({
+    required this.analysis,
+    required this.onTap,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final signedUrl = analysis['signedUrl'] as String?;
+    final status = analysis['aiAnalysisStatus']?.toString() ?? 'pending';
+    final result = analysis['analysisResult'] is Map
+        ? Map<String, dynamic>.from(analysis['analysisResult'] as Map)
+        : null;
+    final macros = result?['macros'] is Map
+        ? Map<String, dynamic>.from(result!['macros'] as Map)
+        : null;
+    final calories = (macros?['calories'] as num?)?.toInt();
+    final protein = (macros?['proteinG'] as num?)?.toDouble();
+    final carbs = (macros?['carbsG'] as num?)?.toDouble();
+    final fat = (macros?['fatG'] as num?)?.toDouble();
+    final confidence = (result?['confidence'] as num?)?.toDouble();
+
+    final isReady = status == 'completed' && result != null;
+    final isFailed = status == 'failed';
+
+    final (badgeLabel, badgeColor, message) = switch (status) {
+      'completed' => (
+        'READY',
+        AppTheme.success,
+        confidence == null
+            ? 'Tap to review this meal.'
+            : 'Tap to review. ${(confidence * 100).toStringAsFixed(0)}% confident.',
+      ),
+      'failed' => (
+        'FAILED',
+        AppTheme.error,
+        'Analysis failed. Retry when you are ready.',
+      ),
+      _ => (
+        'ANALYZING',
+        AppTheme.primary,
+        'Processing in the background. You can keep using the app.',
+      ),
+    };
+
+    return GestureDetector(
+      onTap: isReady ? onTap : null,
+      child: Opacity(
+        opacity: isReady || isFailed ? 1 : 0.96,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: badgeColor.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (signedUrl != null)
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(15),
+                  ),
+                  child: Image.network(
+                    signedUrl,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : Container(
+                            height: 160,
+                            color: badgeColor.withValues(alpha: 0.06),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                    errorBuilder: (context, error, stack) =>
+                        const SizedBox.shrink(),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            badgeLabel,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: badgeColor,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isReady
+                                ? 'Photo analysis complete'
+                                : isFailed
+                                ? 'Photo analysis failed'
+                                : 'Photo analysis in progress',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (!isFailed && !isReady)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.primary,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (isReady &&
+                        calories != null &&
+                        protein != null &&
+                        carbs != null &&
+                        fat != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '$calories kcal  •  ${protein.toStringAsFixed(1)}g protein  •  ${carbs.toStringAsFixed(1)}g carbs  •  ${fat.toStringAsFixed(1)}g fat',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textCream,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    if (isFailed) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: onRetry,
+                          icon: const Icon(
+                            LucideIcons.rotate_cw,
+                            color: AppTheme.error,
+                            size: 14,
+                          ),
+                          label: Text(
+                            'Retry',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.error,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppTheme.error),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            minimumSize: const Size(0, 36),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

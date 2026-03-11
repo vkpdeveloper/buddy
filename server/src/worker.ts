@@ -1,3 +1,4 @@
 import './workers/plansWorker';
+import './workers/mealAnalysisWorker';
 
-console.log('Plans generation worker started. Waiting for jobs...');
+console.log('Background workers started. Waiting for jobs...');

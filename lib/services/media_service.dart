@@ -60,4 +60,12 @@ final class MediaService extends ApiBase {
     );
     return ApiBase.decode(res);
   }
+
+  static Future<Map<String, dynamic>> listRecentMealAnalyses() async {
+    final res = await ApiBase.client.get(
+      Uri.parse('${ApiBase.baseUrl}/api/diet/media/recent'),
+      headers: await ApiBase.authHeaders(),
+    );
+    return ApiBase.decode(res);
+  }
 }

@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { mealMediaAttachments } from '../db/schema';
 import { createMealPhotoObjectKey, signPrivateObjectUrl, uploadPrivateObject } from '../lib/r2';
-import { analyzeMealImage } from '../lib/mealAnalyzer';
+import { mealAnalysisQueue } from '../lib/queue';
 import { ok, fail } from '../lib/response';
 import { notFound, badRequest } from '../lib/errors';
 
@@ -58,6 +58,32 @@ router.post('/upload', async (c) => {
   return ok(c, { id: row.id, signedUrl });
 });
 
+// ─── GET /api/diet/media/recent ──────────────────────────────────────────────
+router.get('/recent', async (c) => {
+  const userId = c.var.userId;
+
+  const attachments = await db
+    .select()
+    .from(mealMediaAttachments)
+    .where(eq(mealMediaAttachments.userId, userId))
+    .orderBy(desc(mealMediaAttachments.createdAt))
+    .limit(12);
+
+  const items = await Promise.all(
+    attachments.map(async (attachment) => ({
+      id: attachment.id,
+      mimeType: attachment.mimeType,
+      sizeBytes: attachment.sizeBytes,
+      aiAnalysisStatus: attachment.aiAnalysisStatus,
+      analysisResult: attachment.aiAnalysisResult,
+      createdAt: attachment.createdAt,
+      signedUrl: await signPrivateObjectUrl(attachment.objectKey),
+    })),
+  );
+
+  return ok(c, items);
+});
+
 // ─── POST /api/diet/media/:id/analyze ────────────────────────────────────────
 router.post('/:id/analyze', async (c) => {
   const userId = c.var.userId;
@@ -76,27 +102,53 @@ router.post('/:id/analyze', async (c) => {
     throw notFound('Attachment not found');
   }
 
-  // Mark as analyzing
-  await db
-    .update(mealMediaAttachments)
-    .set({ aiAnalysisStatus: 'analyzing' })
-    .where(eq(mealMediaAttachments.id, id));
+  if (attachment.aiAnalysisStatus === 'completed' && attachment.aiAnalysisResult) {
+    return ok(c, {
+      status: 'completed',
+      analysisResult: attachment.aiAnalysisResult,
+    });
+  }
+
+  if (attachment.aiAnalysisStatus === 'analyzing') {
+    return ok(c, {
+      status: 'analyzing',
+      analysisResult: attachment.aiAnalysisResult,
+    });
+  }
 
   try {
-    const analysisResult = await analyzeMealImage(attachment.objectKey, attachment.mimeType);
-
     await db
       .update(mealMediaAttachments)
-      .set({ aiAnalysisStatus: 'completed', aiAnalysisResult: analysisResult })
+      .set({
+        aiAnalysisStatus: 'analyzing',
+        aiAnalysisResult: attachment.aiAnalysisStatus === 'failed'
+          ? null
+          : attachment.aiAnalysisResult,
+      })
       .where(eq(mealMediaAttachments.id, id));
 
-    return ok(c, { analysisResult });
-  } catch (analysisErr) {
+    const jobId = `meal-analysis:${attachment.id}`;
+    const existingJob = await mealAnalysisQueue.getJob(jobId);
+    if (existingJob) {
+      const state = await existingJob.getState();
+      if (state === 'failed') {
+        await existingJob.remove();
+      }
+    }
+
+    await mealAnalysisQueue.add(
+      'analyze-meal-photo',
+      { attachmentId: attachment.id },
+      { jobId },
+    );
+
+    return ok(c, { status: 'analyzing' });
+  } catch (queueErr) {
     await db
       .update(mealMediaAttachments)
-      .set({ aiAnalysisStatus: 'failed' })
+      .set({ aiAnalysisStatus: attachment.aiAnalysisStatus })
       .where(eq(mealMediaAttachments.id, id));
-    throw analysisErr;
+    throw queueErr;
   }
 });
 
@@ -116,7 +168,11 @@ router.get('/:id/url', async (c) => {
   }
 
   const signedUrl = await signPrivateObjectUrl(attachment.objectKey);
-  return ok(c, { signedUrl });
+  return ok(c, {
+    signedUrl,
+    aiAnalysisStatus: attachment.aiAnalysisStatus,
+    analysisResult: attachment.aiAnalysisResult,
+  });
 });
 
 // ─── GET /api/diet/media/:id ──────────────────────────────────────────────────
@@ -134,12 +190,15 @@ router.get('/:id', async (c) => {
     throw notFound('Attachment not found');
   }
 
+  const signedUrl = await signPrivateObjectUrl(attachment.objectKey);
+
   return ok(c, {
     id: attachment.id,
     mimeType: attachment.mimeType,
     sizeBytes: attachment.sizeBytes,
     aiAnalysisStatus: attachment.aiAnalysisStatus,
-    aiAnalysisResult: attachment.aiAnalysisResult,
+    analysisResult: attachment.aiAnalysisResult,
+    signedUrl,
     createdAt: attachment.createdAt,
   });
 });
