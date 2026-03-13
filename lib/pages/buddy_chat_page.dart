@@ -274,14 +274,20 @@ class _BuddyChatPageState extends State<BuddyChatPage>
                 ),
               ),
               if (_isStreaming)
-                Text(
-                  'Thinking…',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    color: _isStreaming
-                        ? AppTheme.textSageMuted
-                        : AppTheme.textSageMuted,
-                    fontWeight: FontWeight.w400,
+                FadeTransition(
+                  opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
+                    CurvedAnimation(
+                      parent: _dotAnimCtrl,
+                      curve: Curves.easeInOut,
+                    ),
+                  ),
+                  child: Text(
+                    'Thinking…',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      color: AppTheme.textSageMuted,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ),
             ],
@@ -338,9 +344,26 @@ class _BuddyChatPageState extends State<BuddyChatPage>
             width: 76,
             height: 76,
             decoration: BoxDecoration(
-              color: AppTheme.cardRaised,
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: AppTheme.borderDark),
+              border: Border.all(
+                color: AppTheme.borderDark.withValues(alpha: 0.95),
+              ),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1A151B),
+                  Color(0xFF14161A),
+                  AppTheme.cardDark,
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: const Icon(
               LucideIcons.brain,

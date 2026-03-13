@@ -1,3 +1,5 @@
+import 'package:buddy/utils/app_logger.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,9 +34,45 @@ const healthPermissionsList = [
   HealthDataAccess.READ,
 ];
 
-final healthPermissionProvider = FutureProvider<bool>((ref) async {
-  final health = ref.read(healthProvider);
+const _dashboardReadTypes = [
+  HealthDataType.STEPS,
+  HealthDataType.SLEEP_SESSION,
+  HealthDataType.SLEEP_ASLEEP,
+  HealthDataType.ACTIVE_ENERGY_BURNED,
+  HealthDataType.TOTAL_CALORIES_BURNED,
+];
+// Write-only types added to the authorization request.
+const _writeTypes = [
+  HealthDataType.WATER,
+  HealthDataType.NUTRITION,
+  HealthDataType.WORKOUT,
+  HealthDataType.BODY_FAT_PERCENTAGE,
+  HealthDataType.LEAN_BODY_MASS,
+];
+const _permissionRefreshAttempts = 6;
+const _permissionRefreshInterval = Duration(milliseconds: 350);
+const _iosHealthAuthorizationRequestedKey =
+    'ios_health_authorization_requested';
 
+bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+Future<bool> _hasAnyDashboardReadPermission(Health health) async {
+  for (final type in _dashboardReadTypes) {
+    try {
+      final has = await health.hasPermissions(
+        [type],
+        permissions: const [HealthDataAccess.READ],
+      );
+      if (has == true) return true;
+    } catch (_) {
+      // Keep checking other types; some permissions may be unsupported/unavailable.
+    }
+  }
+
+  return false;
+}
+
+Future<bool> _hasAllHealthReadPermissions(Health health) async {
   try {
     final has = await health.hasPermissions(
       healthTypes,
@@ -44,21 +82,102 @@ final healthPermissionProvider = FutureProvider<bool>((ref) async {
   } catch (_) {
     return false;
   }
+}
+
+Future<bool> _hasAnyWritePermission(Health health) async {
+  for (final type in _writeTypes) {
+    try {
+      final has = await health.hasPermissions(
+        [type],
+        permissions: const [HealthDataAccess.WRITE],
+      );
+      if (has == true) return true;
+    } catch (_) {
+      // Keep checking other types; some permissions may be unsupported/unavailable.
+    }
+  }
+
+  return false;
+}
+
+Future<bool> _getCachedIosAuthorizationRequestState() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(_iosHealthAuthorizationRequestedKey) ?? false;
+}
+
+Future<void> _setCachedIosAuthorizationRequestState(bool value) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_iosHealthAuthorizationRequestedKey, value);
+}
+
+Future<bool> _hasGrantedHealthAccess(Health health) async {
+  if (_isIOS) {
+    final hasWritePermission = await _hasAnyWritePermission(health);
+    if (hasWritePermission) {
+      await _setCachedIosAuthorizationRequestState(true);
+      return true;
+    }
+
+    // HealthKit does not disclose read authorization state on iOS, so the
+    // best available signal is whether this app has already completed an
+    // authorization request for Apple Health.
+    return _getCachedIosAuthorizationRequestState();
+  }
+
+  return await _hasAnyDashboardReadPermission(health) ||
+      await _hasAllHealthReadPermissions(health);
+}
+
+Future<bool> _waitForGrantedHealthAccess(Health health) async {
+  for (var attempt = 0; attempt < _permissionRefreshAttempts; attempt++) {
+    if (await _hasGrantedHealthAccess(health)) {
+      return true;
+    }
+
+    if (attempt < _permissionRefreshAttempts - 1) {
+      await Future<void>.delayed(_permissionRefreshInterval);
+    }
+  }
+
+  return false;
+}
+
+final healthPermissionProvider = FutureProvider<bool>((ref) async {
+  final health = ref.read(healthProvider);
+  return _hasGrantedHealthAccess(health);
 });
 
-// Write-only types added to the authorization request.
-const _writeTypes = [
-  HealthDataType.WATER,
-  HealthDataType.NUTRITION,
-  HealthDataType.WORKOUT,
-  HealthDataType.BODY_FAT_PERCENTAGE,
-  HealthDataType.LEAN_BODY_MASS,
-];
+Future<bool> refreshHealthPermissionState(
+  WidgetRef ref, {
+  bool waitForSettledState = false,
+}) async {
+  final health = ref.read(healthProvider);
+
+  if (waitForSettledState) {
+    await _waitForGrantedHealthAccess(health);
+  }
+
+  invalidateAllHealthProviders(ref);
+
+  try {
+    return await ref.read(healthPermissionProvider.future);
+  } catch (_) {
+    return false;
+  }
+}
 
 Future<bool> requestHealthPermissions(WidgetRef ref) async {
   final health = ref.read(healthProvider);
+  var requestCompleted = false;
 
   try {
+    if (!_isIOS) {
+      final alreadyGranted = await _hasGrantedHealthAccess(health);
+      if (alreadyGranted) {
+        return await refreshHealthPermissionState(ref);
+      }
+    }
+
     // Request read permissions for existing types + write permissions for new types.
     // WEIGHT and HEIGHT get READ_WRITE so we can both read and write them.
     final allTypes = [
@@ -85,13 +204,36 @@ Future<bool> requestHealthPermissions(WidgetRef ref) async {
       HealthDataAccess.WRITE, // BODY_FAT_PERCENTAGE
       HealthDataAccess.WRITE, // LEAN_BODY_MASS
     ];
-    final granted = await health.requestAuthorization(
+    requestCompleted = await health.requestAuthorization(
       allTypes,
       permissions: allPermissions,
     );
+
+    if (_isIOS && requestCompleted) {
+      await _setCachedIosAuthorizationRequestState(true);
+    }
+  } catch (error) {
+    AppLogger.error('Health permission request failed', error);
+    // Fall through to a final permission re-check below.
+  }
+
+  if (_isIOS && requestCompleted) {
     invalidateAllHealthProviders(ref);
-    return granted;
-  } catch (_) {
+    try {
+      return await ref.read(healthPermissionProvider.future);
+    } catch (error) {
+      AppLogger.error('Health permission refresh failed', error);
+      return true;
+    }
+  }
+
+  try {
+    return await refreshHealthPermissionState(ref, waitForSettledState: true);
+  } catch (error) {
+    AppLogger.error('Health permission state refresh failed', error);
+    if (_isIOS && await _getCachedIosAuthorizationRequestState()) {
+      return await refreshHealthPermissionState(ref);
+    }
     return false;
   }
 }

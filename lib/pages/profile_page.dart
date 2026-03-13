@@ -25,6 +25,7 @@ class ProfilePage extends ConsumerStatefulWidget {
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   Map<String, dynamic>? _profileData;
   bool _profileLoading = true;
+  late final AppLifecycleListener _healthLifecycleListener;
 
   // Health Connect state
   bool _isConnectingHealth = false;
@@ -37,8 +38,26 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    _healthLifecycleListener = AppLifecycleListener(
+      onResume: _handleHealthAppResume,
+    );
     _loadProfile();
     _loadNotificationSettings();
+  }
+
+  @override
+  void dispose() {
+    _healthLifecycleListener.dispose();
+    super.dispose();
+  }
+
+  void _handleHealthAppResume() {
+    if (!mounted) return;
+    refreshHealthPermissionState(ref);
+    Future<void>.delayed(const Duration(milliseconds: 700), () {
+      if (!mounted) return;
+      refreshHealthPermissionState(ref);
+    });
   }
 
   Future<void> _loadProfile() async {
@@ -916,7 +935,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                const Icon(LucideIcons.target, color: AppTheme.primary, size: 16),
+                const Icon(
+                  LucideIcons.target,
+                  color: AppTheme.primary,
+                  size: 16,
+                ),
                 const SizedBox(width: 10),
                 Text(
                   'Daily Goals',

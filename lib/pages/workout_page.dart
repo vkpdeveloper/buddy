@@ -17,6 +17,7 @@ import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/app_text_field.dart';
 import 'package:buddy/widgets/exercise_library_sheet.dart';
 import 'package:buddy/providers/generation_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -614,7 +615,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textCream,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -844,9 +845,26 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.cardDark,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.borderDark),
+                border: Border.all(
+                  color: AppTheme.borderDark.withValues(alpha: 0.95),
+                ),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF1A151B),
+                    Color(0xFF14161A),
+                    AppTheme.cardDark,
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
@@ -924,9 +942,26 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.borderDark),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.borderDark.withValues(alpha: 0.95),
+                  ),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF1A151B),
+                      Color(0xFF14161A),
+                      AppTheme.cardDark,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -948,8 +983,8 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                             tip.title,
                             style: GoogleFonts.plusJakartaSans(
                               color: AppTheme.textCream,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -1321,8 +1356,8 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   title,
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textCream,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1502,20 +1537,20 @@ class _ExerciseCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _Field(ctrl: setsCtrl, label: 'Sets'),
+                  child: AppTextField(controller: setsCtrl, label: 'Sets'),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _Field(ctrl: repsCtrl, label: 'Reps / Time'),
+                  child: AppTextField(controller: repsCtrl, label: 'Reps / Time'),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _Field(ctrl: restCtrl, label: 'Rest (seconds)'),
+                  child: AppTextField(controller: restCtrl, label: 'Rest (seconds)'),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            _Field(ctrl: notesCtrl, label: 'Notes (optional)', maxLines: 2),
+            AppTextField(controller: notesCtrl, label: 'Notes (optional)', maxLines: 2),
             const SizedBox(height: 20),
             GestureDetector(
               onTap: () async {
@@ -1639,9 +1674,20 @@ class _ExerciseCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: accentColor.withValues(alpha: 0.32)),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Material(
           color: AppTheme.transparent,
@@ -1848,9 +1894,20 @@ class _SupersetPairCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Column(
           children: [
@@ -2005,7 +2062,7 @@ class _SupersetExerciseRow extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         color: AppTheme.textCream,
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -2087,10 +2144,10 @@ class _StatBlock extends StatelessWidget {
         children: [
           Text(
             value,
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.sora(
               color: color,
               fontSize: 15,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               height: 1,
             ),
           ),
@@ -2110,48 +2167,3 @@ class _StatBlock extends StatelessWidget {
   }
 }
 
-class _Field extends StatelessWidget {
-  final TextEditingController ctrl;
-  final String label;
-  final int maxLines;
-
-  const _Field({required this.ctrl, required this.label, this.maxLines = 1});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: ctrl,
-      maxLines: maxLines,
-      keyboardType: maxLines > 1 ? TextInputType.multiline : TextInputType.text,
-      style: GoogleFonts.plusJakartaSans(
-        color: AppTheme.textCream,
-        fontSize: 14,
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textSageMuted,
-          fontSize: 11,
-        ),
-        filled: true,
-        fillColor: AppTheme.backgroundDark,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppTheme.borderDark),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppTheme.borderDark),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primary),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
-        ),
-      ),
-    );
-  }
-}

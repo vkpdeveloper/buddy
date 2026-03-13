@@ -13,6 +13,7 @@ import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/app_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:image_picker/image_picker.dart';
@@ -762,7 +763,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                         style: GoogleFonts.plusJakartaSans(
                           color: AppTheme.textCream,
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -1293,11 +1294,22 @@ class _MacroProgressCard extends StatelessWidget {
         : 0.0;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
+        border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.95)),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1989,12 +2001,12 @@ class _MealCardState extends State<_MealCard> {
                 ],
 
                 const SizedBox(height: 12),
-                _EditField(controller: mealNameCtrl, label: 'What you ate'),
+                AppTextField(controller: mealNameCtrl, label: 'What you ate'),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
-                      child: _EditField(
+                      child: AppTextField(
                         controller: calCtrl,
                         label: 'Calories',
                         keyboardType: TextInputType.number,
@@ -2002,7 +2014,7 @@ class _MealCardState extends State<_MealCard> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _EditField(
+                      child: AppTextField(
                         controller: protCtrl,
                         label: 'Protein (g)',
                         keyboardType: TextInputType.number,
@@ -2014,7 +2026,7 @@ class _MealCardState extends State<_MealCard> {
                 Row(
                   children: [
                     Expanded(
-                      child: _EditField(
+                      child: AppTextField(
                         controller: carbsCtrl,
                         label: 'Carbs (g)',
                         keyboardType: TextInputType.number,
@@ -2022,7 +2034,7 @@ class _MealCardState extends State<_MealCard> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _EditField(
+                      child: AppTextField(
                         controller: fatCtrl,
                         label: 'Fat (g)',
                         keyboardType: TextInputType.number,
@@ -2031,7 +2043,7 @@ class _MealCardState extends State<_MealCard> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _EditField(controller: notesCtrl, label: 'Notes', maxLines: 2),
+                AppTextField(controller: notesCtrl, label: 'Notes', maxLines: 2),
                 const SizedBox(height: 14),
                 Semantics(
                   label: 'Save actual meal log',
@@ -2290,17 +2302,28 @@ class _MealCardState extends State<_MealCard> {
       key: widget.key,
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: _isCompleted
-            ? AppTheme.primary.withValues(alpha: 0.08)
-            : AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: hasActual
               ? AppTheme.primary.withValues(alpha: 0.5)
-              : (_isCompleted
-                    ? AppTheme.primary.withValues(alpha: 0.25)
-                    : AppTheme.borderDark),
+              : _isCompleted
+              ? AppTheme.primary.withValues(alpha: 0.3)
+              : AppTheme.borderDark.withValues(alpha: 0.95),
         ),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _isCompleted
+              ? const [Color(0xFF1B1520), Color(0xFF151419), AppTheme.cardDark]
+              : const [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Semantics(
         label:
@@ -2422,7 +2445,7 @@ class _MealCardState extends State<_MealCard> {
                                     ? AppTheme.textSageMuted
                                     : AppTheme.textCream,
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
@@ -2491,57 +2514,6 @@ class _MealCardState extends State<_MealCard> {
   }
 }
 
-class _EditField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final int maxLines;
-  final TextInputType? keyboardType;
-
-  const _EditField({
-    required this.controller,
-    required this.label,
-    this.maxLines = 1,
-    this.keyboardType,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      style: GoogleFonts.plusJakartaSans(
-        color: AppTheme.textCream,
-        fontSize: 14,
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textSageMuted,
-          fontSize: 12,
-        ),
-        filled: true,
-        fillColor: AppTheme.backgroundDark,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppTheme.borderDark),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppTheme.borderDark),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primary),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 10,
-        ),
-      ),
-    );
-  }
-}
 
 class _PhotoAnalysisCard extends StatelessWidget {
   final Map<String, dynamic> analysis;
@@ -2600,9 +2572,20 @@ class _PhotoAnalysisCard extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(
-            color: AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: badgeColor.withValues(alpha: 0.25)),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2610,7 +2593,7 @@ class _PhotoAnalysisCard extends StatelessWidget {
               if (signedUrl != null)
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(15),
+                    top: Radius.circular(19),
                   ),
                   child: Image.network(
                     signedUrl,
@@ -2673,8 +2656,8 @@ class _PhotoAnalysisCard extends StatelessWidget {
                                 : 'Photo analysis in progress',
                             style: GoogleFonts.plusJakartaSans(
                               color: AppTheme.textCream,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -2769,9 +2752,20 @@ class _QuickLogCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2779,7 +2773,7 @@ class _QuickLogCard extends StatelessWidget {
           if (signedUrl != null)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(15),
+                top: Radius.circular(19),
               ),
               child: Image.network(
                 signedUrl,
@@ -2846,8 +2840,8 @@ class _QuickLogCard extends StatelessWidget {
                     name,
                     style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.textCream,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

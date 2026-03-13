@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -366,17 +367,36 @@ class _HealthDashboard extends ConsumerStatefulWidget {
 
 class _HealthDashboardState extends ConsumerState<_HealthDashboard> {
   DateTime _selectedDate = DateTime.now();
+  late final AppLifecycleListener _healthLifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _healthLifecycleListener = AppLifecycleListener(
+      onResume: _handleHealthAppResume,
+    );
+  }
+
+  @override
+  void dispose() {
+    _healthLifecycleListener.dispose();
+    super.dispose();
+  }
 
   String _dateKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  void _handleHealthAppResume() {
+    if (!mounted) return;
+    refreshHealthPermissionState(ref);
+    Future<void>.delayed(const Duration(milliseconds: 700), () {
+      if (!mounted) return;
+      refreshHealthPermissionState(ref);
+    });
+  }
+
   Future<void> _refresh() async {
-    ref.invalidate(todayStepsProvider);
-    ref.invalidate(latestHeartRateProvider);
-    ref.invalidate(todayActiveEnergyProvider);
-    ref.invalidate(sleepDurationProvider);
-    ref.invalidate(latestWeightProvider);
-    ref.invalidate(healthPermissionProvider);
+    invalidateAllHealthProviders(ref);
     ref.invalidate(progressProvider);
     ref.invalidate(homeDashboardProvider);
     ref.invalidate(weeklyWorkoutSummaryProvider);
@@ -401,7 +421,6 @@ class _HealthDashboardState extends ConsumerState<_HealthDashboard> {
           children: [
             const _HeaderSection(),
             const GeneratingBanner(),
-            const _PermissionBanner(),
             _WeekDatePicker(
               selected: _selectedDate,
               onDateSelected: (d) => setState(() => _selectedDate = d),
@@ -419,76 +438,6 @@ class _HealthDashboardState extends ConsumerState<_HealthDashboard> {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ─── Permission Banner ────────────────────────────────────────────────────────
-
-class _PermissionBanner extends ConsumerWidget {
-  const _PermissionBanner();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final permAsync = ref.watch(healthPermissionProvider);
-    return permAsync.when(
-      data: (granted) {
-        if (granted) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          child: Semantics(
-            button: true,
-            label:
-                'Connect Health data to see your steps, sleep, and calories. Tap to allow.',
-            child: GestureDetector(
-              onTap: () async {
-                await requestHealthPermissions(ref);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: AppTheme.primary.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      LucideIcons.heart_handshake,
-                      color: AppTheme.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Connect Health to see your steps, sleep, and calories',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'Allow →',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
     );
   }
 }
@@ -1189,18 +1138,20 @@ class _LiveStat extends StatelessWidget {
         value == null
             ? Text(
                 fallbackText,
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.sora(
                   color: AppTheme.textCream,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
+                  height: 1.0,
                 ),
               )
             : _CountUpIntText(
                 value: value!,
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.sora(
                   color: AppTheme.textCream,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
+                  height: 1.0,
                 ),
               ),
       ],
@@ -1757,176 +1708,6 @@ class _WeeklyTrendsCard extends StatelessWidget {
   }
 }
 
-class _HydrationCard extends ConsumerStatefulWidget {
-  const _HydrationCard();
-
-  @override
-  ConsumerState<_HydrationCard> createState() => _HydrationCardState();
-}
-
-class _HydrationCardState extends ConsumerState<_HydrationCard> {
-  int _waterMl = 0;
-  int _targetMl = 2500;
-  bool _loading = true;
-
-  String get _todayDate {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final target = prefs.getInt('water_target_ml') ?? 2500;
-      final res = await LogsService.getHomeSummary(_todayDate);
-      if (mounted) {
-        setState(() {
-          _targetMl = target;
-          _waterMl = res['data']?['hydrationMl'] ?? 0;
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _addWater() async {
-    if (_loading) return;
-    final previous = _waterMl;
-    final newValue = _waterMl + 250;
-    setState(() => _waterMl = newValue);
-    try {
-      await LogsService.incrementHydration(_todayDate, amountMl: 250);
-      ref.invalidate(homeDashboardProvider);
-      writeHydrationToHC(ml: 250);
-    } catch (_) {
-      if (mounted) setState(() => _waterMl = previous);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cups = (_waterMl / 250).floor();
-    final targetCups = (_targetMl / 250).floor();
-    final progress = _targetMl > 0
-        ? (_waterMl / _targetMl).clamp(0.0, 1.0)
-        : 0.0;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: const [
-                  Icon(LucideIcons.droplet, color: AppTheme.primary, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'HYDRATION',
-                    style: TextStyle(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-              Semantics(
-                button: true,
-                label: 'Add 250 ml of water',
-                child: GestureDetector(
-                  onTap: _loading ? null : _addWater,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppTheme.accent.withValues(alpha: 0.4),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      LucideIcons.plus,
-                      color: AppTheme.primary,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                _loading ? '—' : '$_waterMl',
-                style: const TextStyle(
-                  color: AppTheme.textCream,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '/ ${_targetMl}ml  ·  $cups / $targetCups cups',
-                style: const TextStyle(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              height: 10,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return Stack(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        color: AppTheme.borderDark,
-                      ),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 320),
-                        curve: Curves.easeOutCubic,
-                        width: constraints.maxWidth * progress,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _BodyMetricsCard extends StatelessWidget {
   const _BodyMetricsCard();
 
@@ -2223,10 +2004,11 @@ class _ProgressCard extends ConsumerWidget {
                               const SizedBox(height: 2),
                               Text(
                                 '${prog.totalXp} XP',
-                                style: GoogleFonts.plusJakartaSans(
+                                style: GoogleFonts.sora(
                                   color: AppTheme.textCream,
                                   fontSize: 18,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.0,
                                 ),
                               ),
                             ],
@@ -2669,8 +2451,7 @@ class _WeekDatePicker extends StatelessWidget {
           final day = sunday.add(Duration(days: i));
           final isToday = day == today;
           final isSelected =
-              day ==
-              DateTime(selected.year, selected.month, selected.day);
+              day == DateTime(selected.year, selected.month, selected.day);
           final isPast = day.isBefore(today);
 
           return Expanded(
@@ -2743,8 +2524,7 @@ class _NutritionCarousel extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_NutritionCarousel> createState() =>
-      _NutritionCarouselState();
+  ConsumerState<_NutritionCarousel> createState() => _NutritionCarouselState();
 }
 
 class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
@@ -2752,31 +2532,42 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
   int _page = 0;
 
   // Static so the value survives State recreation (e.g. PageView destroys/recreates widgets).
-  // Prevents the async prefs-load from flipping false→true and triggering a spurious count animation.
   static bool _persistedShowConsumed = false;
-  static bool _prefsLoadedOnce = false;
+  static int _persistedStepGoal = 10000;
+  static const int _defaultCalorieBurnGoal = 500;
 
   bool _showConsumed = _persistedShowConsumed;
+  int _stepGoal = _persistedStepGoal;
+  bool _requestingHealthAccess = false;
 
   // Keeps last-known nutrition data alive during provider re-fetch so _CountingNumber
   // stays mounted and can animate from old→new values when a meal is actually checked.
   TodayNutritionSummary? _lastNutrition;
+  bool? _lastHasHealthPermission;
+  int? _lastSteps;
+  double? _lastEnergy;
+  HomeDashboardData? _lastHomeData;
 
   static const _prefKey = 'calories_show_consumed';
 
   @override
   void initState() {
     super.initState();
-    if (!_prefsLoadedOnce) {
-      SharedPreferences.getInstance().then((prefs) {
-        if (mounted) {
-          final val = prefs.getBool(_prefKey) ?? false;
-          _persistedShowConsumed = val;
-          _prefsLoadedOnce = true;
-          setState(() => _showConsumed = val);
-        }
+    SharedPreferences.getInstance().then((prefs) {
+      final showConsumed = prefs.getBool(_prefKey) ?? _persistedShowConsumed;
+      final storedStepGoal =
+          (prefs.getDouble('step_goal') ?? _persistedStepGoal.toDouble())
+              .round();
+
+      _persistedShowConsumed = showConsumed;
+      _persistedStepGoal = storedStepGoal > 0 ? storedStepGoal : 10000;
+
+      if (!mounted) return;
+      setState(() {
+        _showConsumed = showConsumed;
+        _stepGoal = _persistedStepGoal;
       });
-    }
+    });
   }
 
   void _toggleCaloriesMode() async {
@@ -2785,6 +2576,25 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
     setState(() => _showConsumed = next);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefKey, next);
+  }
+
+  Future<void> _handleHealthAccessTap() async {
+    if (_requestingHealthAccess) return;
+
+    setState(() => _requestingHealthAccess = true);
+    try {
+      final granted = await requestHealthPermissions(ref);
+      if (!mounted || granted) return;
+
+      AppSnackbar.error(
+        context,
+        'Health access is still off. You can enable it from the profile screen if the prompt does not appear.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _requestingHealthAccess = false);
+      }
+    }
   }
 
   @override
@@ -2798,6 +2608,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
     final nutritionAsync = ref.watch(
       todayNutritionSummaryProvider(widget.dateKey),
     );
+    final permissionAsync = ref.watch(healthPermissionProvider);
     final stepsAsync = ref.watch(todayStepsProvider);
     final energyAsync = ref.watch(todayActiveEnergyProvider);
     final homeAsync = ref.watch(homeDashboardProvider);
@@ -2813,7 +2624,12 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
               // Page 1: Calories + Macros
               _buildCaloriesPage(nutritionAsync),
               // Page 2: Activity + Hydration
-              _buildActivityPage(stepsAsync, energyAsync, homeAsync),
+              _buildActivityPage(
+                permissionAsync,
+                stepsAsync,
+                energyAsync,
+                homeAsync,
+              ),
             ],
           ),
         ),
@@ -2827,9 +2643,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
               width: _page == i ? 18 : 6,
               height: 6,
               decoration: BoxDecoration(
-                color: _page == i
-                    ? AppTheme.primary
-                    : AppTheme.borderDark,
+                color: _page == i ? AppTheme.primary : AppTheme.borderDark,
                 borderRadius: BorderRadius.circular(3),
               ),
             );
@@ -2839,9 +2653,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
     );
   }
 
-  Widget _buildCaloriesPage(
-    AsyncValue<TodayNutritionSummary> nutritionAsync,
-  ) {
+  Widget _buildCaloriesPage(AsyncValue<TodayNutritionSummary> nutritionAsync) {
     // Cache last known data so widgets stay mounted during re-fetch.
     // This lets _CountingNumber animate from old→new when a meal is checked,
     // rather than unmounting (shimmer) and remounting without animation.
@@ -2851,209 +2663,309 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
 
     if (n == null) {
       if (nutritionAsync.hasError) return _CaloriesEmptyCard();
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: ShimmerBox(width: double.infinity, height: 308, borderRadius: 20),
-      );
+      return const _NutritionCarouselSkeleton();
     }
 
     return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            // ── Top: Calorie card ──────────────────────────────────────
-            GestureDetector(
-              onTap: _toggleCaloriesMode,
-              child: Container(
-                height: 136,
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardDark,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: AppTheme.borderDark),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: _CaloriesDisplay(
-                        showConsumed: _showConsumed,
-                        consumed: n.caloriesConsumed,
-                        remaining: n.caloriesRemaining,
-                        target: n.caloriesTarget,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    _CalorieRingIcon(
-                      fraction: n.calorieFraction,
-                      size: 86,
-                    ),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          // ── Top: Calorie card ──────────────────────────────────────
+          GestureDetector(
+            onTap: _toggleCaloriesMode,
+            child: Container(
+              height: 136,
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+              decoration: BoxDecoration(
+                color: AppTheme.cardDark,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppTheme.borderDark),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.xpGold.withValues(alpha: 0.06),
+                    AppTheme.primary.withValues(alpha: 0.03),
+                    AppTheme.cardDark,
                   ],
+                  stops: const [0.0, 0.26, 1.0],
                 ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            // ── Bottom: 3 Macro cards ──────────────────────────────────
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _MacroCard(
-                      label: 'Protein',
-                      value: _showConsumed
-                          ? n.proteinConsumedG.round()
-                          : n.proteinRemainingG.round(),
-                      target: _showConsumed
-                          ? n.proteinTargetG.round()
-                          : null,
-                      showConsumed: _showConsumed,
-                      unit: 'g',
-                      fraction: n.proteinFraction,
-                      icon: '🍗',
-                      iconColor: const Color(0xFFE87B6F),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _MacroCard(
-                      label: 'Carbs',
-                      value: _showConsumed
-                          ? n.carbsConsumedG.round()
-                          : n.carbsRemainingG.round(),
-                      target: _showConsumed
-                          ? n.carbsTargetG.round()
-                          : null,
-                      showConsumed: _showConsumed,
-                      unit: 'g',
-                      fraction: n.carbsFraction,
-                      icon: '🌾',
-                      iconColor: const Color(0xFFC89A4F),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _MacroCard(
-                      label: 'Fats',
-                      value: _showConsumed
-                          ? n.fatsConsumedG.round()
-                          : n.fatsRemainingG.round(),
-                      target: _showConsumed
-                          ? n.fatsTargetG.round()
-                          : null,
-                      showConsumed: _showConsumed,
-                      unit: 'g',
-                      fraction: n.fatsFraction,
-                      icon: '🥑',
-                      iconColor: const Color(0xFF6B94D4),
-                    ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppTheme.shadowSoft,
+                    blurRadius: 12,
+                    offset: Offset(0, 8),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-      );
-  }
-
-  Widget _buildActivityPage(
-    AsyncValue<int> stepsAsync,
-    AsyncValue<double> energyAsync,
-    AsyncValue<HomeDashboardData> homeAsync,
-  ) {
-    final steps = stepsAsync.asData?.value ?? 0;
-    final energy = energyAsync.asData?.value ?? 0.0;
-    final hydrationMl = homeAsync.asData?.value.hydrationMl ?? 0;
-    final targetMl = 2500;
-    final hydrationFraction =
-        (hydrationMl / targetMl).clamp(0.0, 1.0);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'ACTIVITY',
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _CaloriesDisplay(
+                      showConsumed: _showConsumed,
+                      consumed: n.caloriesConsumed,
+                      remaining: n.caloriesRemaining,
+                      target: n.caloriesTarget,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  _CalorieRingIcon(fraction: n.calorieFraction, size: 86),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
+          ),
+          const SizedBox(height: 10),
+          // ── Bottom: 3 Macro cards ──────────────────────────────────
+          Expanded(
+            child: Row(
               children: [
                 Expanded(
-                  child: _ActivityTile(
-                    icon: LucideIcons.footprints,
-                    label: 'Steps',
-                    value: '$steps',
-                    color: AppTheme.primary,
+                  child: _MacroCard(
+                    label: 'Protein',
+                    value: _showConsumed
+                        ? n.proteinConsumedG.round()
+                        : n.proteinRemainingG.round(),
+                    target: _showConsumed ? n.proteinTargetG.round() : null,
+                    showConsumed: _showConsumed,
+                    unit: 'g',
+                    fraction: n.proteinFraction,
+                    icon: '🍗',
+                    iconColor: const Color(0xFFE87B6F),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _ActivityTile(
-                    icon: LucideIcons.flame,
-                    label: 'Burned',
-                    value: '${energy.toInt()} kcal',
-                    color: AppTheme.error,
+                  child: _MacroCard(
+                    label: 'Carbs',
+                    value: _showConsumed
+                        ? n.carbsConsumedG.round()
+                        : n.carbsRemainingG.round(),
+                    target: _showConsumed ? n.carbsTargetG.round() : null,
+                    showConsumed: _showConsumed,
+                    unit: 'g',
+                    fraction: n.carbsFraction,
+                    icon: '🌾',
+                    iconColor: const Color(0xFFC89A4F),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MacroCard(
+                    label: 'Fats',
+                    value: _showConsumed
+                        ? n.fatsConsumedG.round()
+                        : n.fatsRemainingG.round(),
+                    target: _showConsumed ? n.fatsTargetG.round() : null,
+                    showConsumed: _showConsumed,
+                    unit: 'g',
+                    fraction: n.fatsFraction,
+                    icon: '🥑',
+                    iconColor: const Color(0xFF6B94D4),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            Row(
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivityPage(
+    AsyncValue<bool> permissionAsync,
+    AsyncValue<int> stepsAsync,
+    AsyncValue<double> energyAsync,
+    AsyncValue<HomeDashboardData> homeAsync,
+  ) {
+    final freshPermission = permissionAsync.hasError
+        ? false
+        : permissionAsync.asData?.value;
+    if (freshPermission != null) {
+      _lastHasHealthPermission = freshPermission;
+    }
+    final hasPermission = freshPermission ?? _lastHasHealthPermission;
+
+    final freshSteps = freshPermission == true
+        ? stepsAsync.asData?.value
+        : null;
+    if (freshSteps != null) {
+      _lastSteps = freshSteps;
+    }
+    final steps = hasPermission == true ? freshSteps ?? _lastSteps : null;
+
+    final freshEnergy = freshPermission == true
+        ? energyAsync.asData?.value
+        : null;
+    if (freshEnergy != null) {
+      _lastEnergy = freshEnergy;
+    }
+    final energy = hasPermission == true ? freshEnergy ?? _lastEnergy : null;
+
+    final freshHomeData = homeAsync.asData?.value;
+    if (freshHomeData != null) {
+      _lastHomeData = freshHomeData;
+    }
+    final homeData = freshHomeData ?? _lastHomeData;
+
+    final isWaitingForPermission =
+        hasPermission == null && !permissionAsync.hasError;
+    final isWaitingForActivityData =
+        hasPermission == true &&
+        ((steps == null && !stepsAsync.hasError) ||
+            (energy == null && !energyAsync.hasError));
+    final isWaitingForHomeData = homeData == null && !homeAsync.hasError;
+
+    if (isWaitingForPermission ||
+        isWaitingForActivityData ||
+        isWaitingForHomeData) {
+      return const _ActivityCarouselSkeleton();
+    }
+
+    final hydrationMl = homeData?.hydrationMl ?? 0;
+    final targetMl = 2500;
+    final hydrationFraction = (hydrationMl / targetMl).clamp(0.0, 1.0);
+    final stepGoal = _stepGoal > 0 ? _stepGoal : _persistedStepGoal;
+    final burnedCalories = hasPermission == true ? energy?.toInt() ?? 0 : 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 144,
+            child: Row(
               children: [
-                const Icon(
-                  LucideIcons.droplet,
-                  color: AppTheme.primary,
-                  size: 14,
+                Expanded(
+                  child: hasPermission == false
+                      ? _HealthConnectActivityCard(
+                          onTap: _handleHealthAccessTap,
+                          loading: _requestingHealthAccess,
+                        )
+                      : _ActivityMetricCard(
+                          accentColor: AppTheme.primary,
+                          icon: LucideIcons.footprints,
+                          label: '',
+                          value: hasPermission == true ? steps ?? 0 : 0,
+                          targetValue: stepGoal,
+                          subtitle: 'Walking today',
+                        ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  'HYDRATION',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '$hydrationMl / ${targetMl}ml',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ActivityMetricCard(
+                    accentColor: AppTheme.error,
+                    icon: LucideIcons.flame,
+                    label: '',
+                    value: burnedCalories,
+                    targetValue: _defaultCalorieBurnGoal,
+                    unit: 'kcal',
+                    subtitle: 'Calories burned',
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: hydrationFraction,
-                minHeight: 6,
-                backgroundColor: AppTheme.borderDark,
-                valueColor:
-                    const AlwaysStoppedAnimation(AppTheme.primary),
-              ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: _HydrationOverviewCard(
+              hydrationMl: hydrationMl,
+              targetMl: targetMl,
+              hydrationFraction: hydrationFraction,
             ),
-            const SizedBox(height: 12),
-            _HydrationIncrementRow(),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NutritionCarouselSkeleton extends StatelessWidget {
+  const _NutritionCarouselSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          ShimmerBox(width: double.infinity, height: 136, borderRadius: 22),
+          SizedBox(height: 10),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: ShimmerBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    borderRadius: 20,
+                  ),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: ShimmerBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    borderRadius: 20,
+                  ),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: ShimmerBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    borderRadius: 20,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityCarouselSkeleton extends StatelessWidget {
+  const _ActivityCarouselSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 144,
+            child: Row(
+              children: [
+                Expanded(
+                  child: ShimmerBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    borderRadius: 22,
+                  ),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: ShimmerBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    borderRadius: 22,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 10),
+          Expanded(
+            child: ShimmerBox(
+              width: double.infinity,
+              height: double.infinity,
+              borderRadius: 22,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3154,8 +3066,10 @@ class _CountingNumberState extends State<_CountingNumber>
     super.didUpdateWidget(old);
     if (old.value != widget.value) {
       final from = _anim.value;
-      _anim = Tween<double>(begin: from, end: widget.value.toDouble())
-          .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      _anim = Tween<double>(
+        begin: from,
+        end: widget.value.toDouble(),
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
       _ctrl.forward(from: 0);
     }
   }
@@ -3170,8 +3084,7 @@ class _CountingNumberState extends State<_CountingNumber>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) =>
-          Text('${_anim.value.round()}', style: widget.style),
+      builder: (_, __) => Text('${_anim.value.round()}', style: widget.style),
     );
   }
 }
@@ -3194,10 +3107,10 @@ class _CaloriesDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     final mainValue = showConsumed ? consumed : remaining;
     final keyword = showConsumed ? 'eaten' : 'left';
-    final numStyle = GoogleFonts.plusJakartaSans(
+    final numStyle = GoogleFonts.sora(
       color: AppTheme.textCream,
       fontSize: 52,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
       height: 1.0,
     );
 
@@ -3214,10 +3127,10 @@ class _CaloriesDisplay extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 '/$target',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.sora(
                   color: AppTheme.textSageMuted,
                   fontSize: 22,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                   height: 1.0,
                 ),
               ),
@@ -3266,7 +3179,7 @@ class _CalorieRingIcon extends StatelessWidget {
             strokeWidth: 8,
             backgroundColor: AppTheme.borderDark.withValues(alpha: 0.6),
             valueColor: AlwaysStoppedAnimation(
-              AppTheme.borderDark.withValues(alpha: 1.0),
+              AppTheme.xpGold.withValues(alpha: 0.75),
             ),
             strokeCap: StrokeCap.round,
           ),
@@ -3274,15 +3187,14 @@ class _CalorieRingIcon extends StatelessWidget {
             width: innerSize,
             height: innerSize,
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1D26),
+              color: AppTheme.xpGold.withValues(alpha: 0.14),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.xpGold.withValues(alpha: 0.12),
+              ),
             ),
             child: const Center(
-              child: Icon(
-                LucideIcons.flame,
-                color: Colors.white,
-                size: 26,
-              ),
+              child: Icon(LucideIcons.flame, color: Colors.white, size: 26),
             ),
           ),
         ],
@@ -3323,6 +3235,19 @@ class _MacroCard extends StatelessWidget {
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.borderDark),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [iconColor.withValues(alpha: 0.08), AppTheme.cardDark],
+          stops: const [0.0, 0.34],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppTheme.shadowSoft,
+            blurRadius: 12,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       child: Column(
@@ -3335,19 +3260,19 @@ class _MacroCard extends StatelessWidget {
             children: [
               _CountingNumber(
                 value: value,
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.sora(
                   color: AppTheme.textCream,
                   fontSize: 22,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   height: 1.0,
                 ),
               ),
               Text(
                 unit,
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textSageMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                   height: 1.0,
                 ),
               ),
@@ -3366,24 +3291,15 @@ class _MacroCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          RichText(
-            text: TextSpan(
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-              children: [
-                TextSpan(text: '$label '),
-                TextSpan(
-                  text: keyword,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ],
+          Text(
+            '$label $keyword',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const Spacer(),
-          // Ring + icon
           Center(
             child: SizedBox(
               width: ringSize,
@@ -3394,19 +3310,23 @@ class _MacroCard extends StatelessWidget {
                   CircularProgressIndicator(
                     value: fraction.clamp(0.0, 1.0),
                     strokeWidth: 6,
-                    backgroundColor:
-                        AppTheme.borderDark.withValues(alpha: 0.6),
+                    backgroundColor: AppTheme.borderDark.withValues(
+                      alpha: 0.45,
+                    ),
                     valueColor: AlwaysStoppedAnimation(
-                      AppTheme.borderDark.withValues(alpha: 1.0),
+                      iconColor.withValues(alpha: 0.75),
                     ),
                     strokeCap: StrokeCap.round,
                   ),
                   Container(
                     width: innerSize,
                     height: innerSize,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1A1D26),
+                    decoration: BoxDecoration(
+                      color: iconColor.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: iconColor.withValues(alpha: 0.14),
+                      ),
                     ),
                     child: Center(
                       child: Text(
@@ -3425,54 +3345,497 @@ class _MacroCard extends StatelessWidget {
   }
 }
 
-class _ActivityTile extends StatelessWidget {
+class _ActivityMetricCard extends StatelessWidget {
   final IconData icon;
   final String label;
-  final String value;
-  final Color color;
+  final int value;
+  final int? targetValue;
+  final String subtitle;
+  final Color accentColor;
+  final String? unit;
 
-  const _ActivityTile({
+  const _ActivityMetricCard({
     required this.icon,
     required this.label,
     required this.value,
-    required this.color,
+    this.targetValue,
+    required this.subtitle,
+    required this.accentColor,
+    this.unit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accentBorder = accentColor.withValues(alpha: 0.22);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: accentBorder),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accentColor.withValues(alpha: 0.14),
+            AppTheme.cardDark,
+            AppTheme.cardDark,
+          ],
+          stops: const [0.0, 0.38, 1.0],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppTheme.shadowSoft,
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -14,
+            bottom: -18,
+            child: Container(
+              width: 74,
+              height: 74,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.12),
+                  width: 1.4,
+                ),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: accentColor,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Icon(icon, color: AppTheme.textCream, size: 16),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      _CountingNumber(
+                        value: value,
+                        style: GoogleFonts.sora(
+                          color: AppTheme.textCream,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w600,
+                          height: 1.0,
+                        ),
+                      ),
+                      if (targetValue != null) ...[
+                        const SizedBox(width: 5),
+                        Text(
+                          '/$targetValue',
+                          style: GoogleFonts.sora(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                      if (unit != null) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          unit!,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textMain,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthConnectActivityCard extends StatelessWidget {
+  final VoidCallback onTap;
+  final bool loading;
+
+  const _HealthConnectActivityCard({
+    required this.onTap,
+    required this.loading,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.22)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primary.withValues(alpha: 0.14),
+            AppTheme.cardDark,
+            AppTheme.cardDark,
+          ],
+          stops: const [0.0, 0.34, 1.0],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppTheme.shadowSoft,
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: color,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                  ),
+          Positioned(
+            right: -12,
+            bottom: -18,
+            child: Container(
+              width: 82,
+              height: 82,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.primary.withValues(alpha: 0.12),
+                  width: 1.4,
                 ),
-                Text(
-                  value,
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: AppTheme.oledBlack.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: const Icon(
+                      LucideIcons.heart_handshake,
+                      color: AppTheme.primary,
+                      size: 15,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'ACTIVITY',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                'Connect Health',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.sora(
+                  color: AppTheme.textCream,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Steps and calories stay here once connected.',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textMain,
+                  fontSize: 10,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _HealthConnectInlinePrompt(onTap: onTap, loading: loading),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthConnectInlinePrompt extends StatelessWidget {
+  final VoidCallback onTap;
+  final bool loading;
+
+  const _HealthConnectInlinePrompt({
+    required this.onTap,
+    required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Connect Health access',
+      child: GestureDetector(
+        onTap: loading ? null : onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.oledBlack.withValues(alpha: 0.34),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.primary.withValues(alpha: 0.18)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  LucideIcons.footprints,
+                  color: AppTheme.textCream,
+                  size: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Allow access',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textCream,
-                    fontSize: 13,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-              ],
+              ),
+              loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.textCream,
+                      ),
+                    )
+                  : const Icon(
+                      LucideIcons.arrow_right,
+                      color: AppTheme.textCream,
+                      size: 14,
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HydrationOverviewCard extends StatelessWidget {
+  final int hydrationMl;
+  final int targetMl;
+  final double hydrationFraction;
+
+  const _HydrationOverviewCard({
+    required this.hydrationMl,
+    required this.targetMl,
+    required this.hydrationFraction,
+  });
+
+  String get _statusLine {
+    final remainingMl = math.max(targetMl - hydrationMl, 0);
+    if (hydrationMl <= 0) return 'Start with a quick 250 ml check-in.';
+    if (remainingMl == 0) return 'Target reached for today.';
+    return '$remainingMl ml to go.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.borderDark),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.info.withValues(alpha: 0.06),
+            AppTheme.primary.withValues(alpha: 0.03),
+            AppTheme.cardDark,
+          ],
+          stops: const [0.0, 0.26, 1.0],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppTheme.shadowSoft,
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: Image.asset('assets/icons/water_drop.png'),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '$hydrationMl',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.sora(
+                              color: AppTheme.textCream,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w600,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            'ml',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _statusLine,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '+250 ml',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const _HydrationQuickAddButton(),
+                ],
+              ),
+            ],
+          ),
+          const Spacer(),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: hydrationFraction,
+              minHeight: 8,
+              backgroundColor: AppTheme.borderDark,
+              valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
             ),
           ),
         ],
@@ -3481,14 +3844,16 @@ class _ActivityTile extends StatelessWidget {
   }
 }
 
-class _HydrationIncrementRow extends ConsumerStatefulWidget {
+class _HydrationQuickAddButton extends ConsumerStatefulWidget {
+  const _HydrationQuickAddButton();
+
   @override
-  ConsumerState<_HydrationIncrementRow> createState() =>
-      _HydrationIncrementRowState();
+  ConsumerState<_HydrationQuickAddButton> createState() =>
+      _HydrationQuickAddButtonState();
 }
 
-class _HydrationIncrementRowState
-    extends ConsumerState<_HydrationIncrementRow> {
+class _HydrationQuickAddButtonState
+    extends ConsumerState<_HydrationQuickAddButton> {
   bool _loading = false;
 
   String get _todayDate {
@@ -3502,6 +3867,7 @@ class _HydrationIncrementRowState
     try {
       await LogsService.incrementHydration(_todayDate, amountMl: 250);
       ref.invalidate(homeDashboardProvider);
+      writeHydrationToHC(ml: 250);
     } catch (_) {
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -3510,46 +3876,43 @@ class _HydrationIncrementRowState
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(
-          '+250 ml',
-          style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
-            fontSize: 11,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Semantics(
-          button: true,
-          label: 'Add 250 ml of water',
-          child: GestureDetector(
-            onTap: _loading ? null : _addWater,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: _loading
-                  ? const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppTheme.primary,
-                      ),
-                    )
-                  : const Icon(
-                      LucideIcons.plus,
-                      color: AppTheme.primary,
-                      size: 18,
-                    ),
+    return Semantics(
+      button: true,
+      label: 'Add 250 ml of water',
+      child: GestureDetector(
+        onTap: _loading ? null : _addWater,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppTheme.actionSurface.withValues(
+              alpha: _loading ? 0.72 : 0.96,
             ),
+            shape: BoxShape.circle,
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.shadowSoft,
+                blurRadius: 14,
+                offset: Offset(0, 8),
+              ),
+            ],
           ),
+          child: _loading
+              ? const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: AppTheme.actionForeground,
+                  ),
+                )
+              : const Icon(
+                  LucideIcons.plus,
+                  color: AppTheme.actionForeground,
+                  size: 18,
+                ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -3671,49 +4034,548 @@ class _TodayMealsFeed extends ConsumerStatefulWidget {
 }
 
 class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
-    with TickerProviderStateMixin {
-  final Map<int, AnimationController> _exitControllers = {};
-  final Set<int> _exiting = {};
+    with SingleTickerProviderStateMixin {
+  static const Duration _transitionDuration = Duration(milliseconds: 420);
+  static const Duration _rollbackDuration = Duration(milliseconds: 220);
+  static const double _mealCardHeight = 64;
+  static const double _mealCardGap = 8;
+
+  late final AnimationController _transitionController;
+  _MealFeedTransition? _activeTransition;
+  List<TodayMealItem>? _optimisticPendingMeals;
+  TodayNutritionSummary? _lastNutrition;
+  bool _mealMutationInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _transitionController = AnimationController(vsync: this);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TodayMealsFeed oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.dateKey == widget.dateKey) return;
+
+    _transitionController.stop();
+    _transitionController.value = 0;
+    _activeTransition = null;
+    _optimisticPendingMeals = null;
+    _lastNutrition = null;
+    _mealMutationInFlight = false;
+  }
 
   @override
   void dispose() {
-    for (final c in _exitControllers.values) {
-      c.dispose();
-    }
+    _transitionController.dispose();
     super.dispose();
   }
 
-  Future<void> _checkMeal(TodayMealItem meal) async {
-    if (_exiting.contains(meal.id)) return;
+  List<TodayMealItem> _pendingMealsFor(TodayNutritionSummary summary) {
+    return summary.meals.where((meal) => !meal.isCompleted).toList();
+  }
 
-    final controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 350),
-    );
-    if (!mounted) return;
-    setState(() {
-      _exitControllers[meal.id] = controller;
-      _exiting.add(meal.id);
+  bool _sameMealIds(List<TodayMealItem> a, List<TodayMealItem> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
+  }
+
+  double _slotTop(int index) => index * (_mealCardHeight + _mealCardGap);
+
+  double _stageHeightForCount(int count) {
+    if (count <= 0) return 0;
+    return (count * _mealCardHeight) + ((count - 1) * _mealCardGap);
+  }
+
+  void _scheduleOptimisticClearIfSynced(
+    List<TodayMealItem> actualPendingMeals,
+  ) {
+    final optimisticPendingMeals = _optimisticPendingMeals;
+    if (_activeTransition != null || optimisticPendingMeals == null) return;
+    if (!_sameMealIds(optimisticPendingMeals, actualPendingMeals)) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _activeTransition != null) return;
+
+      final freshPendingMeals = _lastNutrition == null
+          ? const <TodayMealItem>[]
+          : _pendingMealsFor(_lastNutrition!);
+
+      if (_optimisticPendingMeals == null ||
+          !_sameMealIds(_optimisticPendingMeals!, freshPendingMeals)) {
+        return;
+      }
+
+      setState(() => _optimisticPendingMeals = null);
     });
+  }
 
-    await controller.forward();
+  Future<void> _playTransition(_MealFeedTransition transition) async {
+    _transitionController
+      ..stop()
+      ..duration = transition.duration
+      ..value = 0;
+    await _transitionController.forward();
+  }
 
-    try {
-      await DietService.logMealCompletion(widget.dateKey, meal.id, true);
-    } catch (_) {}
+  Future<void> _checkMeal(
+    TodayMealItem meal,
+    List<TodayMealItem> pendingMeals,
+    bool reduceMotion,
+  ) async {
+    if (_mealMutationInFlight || _activeTransition != null) return;
 
-    controller.dispose();
-    _exitControllers.remove(meal.id);
-    _exiting.remove(meal.id);
+    final currentPendingMeals = List<TodayMealItem>.from(pendingMeals);
+    final previousVisibleMeals = currentPendingMeals.take(2).toList();
+    final tappedSlotIndex = previousVisibleMeals.indexWhere(
+      (item) => item.id == meal.id,
+    );
+    if (tappedSlotIndex == -1) return;
+
+    final nextPendingMeals = currentPendingMeals
+        .where((item) => item.id != meal.id)
+        .toList();
+    final nextVisibleMeals = nextPendingMeals.take(2).toList();
 
     if (mounted) {
-      ref.invalidate(todayNutritionSummaryProvider(widget.dateKey));
+      setState(() => _mealMutationInFlight = true);
     }
+
+    try {
+      if (reduceMotion) {
+        if (mounted) {
+          setState(() => _optimisticPendingMeals = nextPendingMeals);
+        }
+
+        try {
+          await DietService.logMealCompletion(widget.dateKey, meal.id, true);
+          if (mounted) {
+            ref.invalidate(todayNutritionSummaryProvider(widget.dateKey));
+          }
+        } catch (_) {
+          if (mounted) {
+            setState(() => _optimisticPendingMeals = currentPendingMeals);
+            AppSnackbar.error(context, 'Could not log this meal right now.');
+          }
+        }
+        return;
+      }
+
+      final forwardTransition = _MealFeedTransition(
+        direction: _MealFeedTransitionDirection.forward,
+        duration: _transitionDuration,
+        tappedMealId: meal.id,
+        tappedSlotIndex: tappedSlotIndex,
+        fromVisibleMeals: previousVisibleMeals,
+        toVisibleMeals: nextVisibleMeals,
+      );
+
+      if (mounted) {
+        setState(() => _activeTransition = forwardTransition);
+      }
+
+      final requestFuture = DietService.logMealCompletion(
+        widget.dateKey,
+        meal.id,
+        true,
+      );
+
+      await _playTransition(forwardTransition);
+      if (!mounted) return;
+
+      setState(() {
+        _activeTransition = null;
+        _optimisticPendingMeals = nextPendingMeals;
+      });
+
+      Object? requestError;
+      try {
+        await requestFuture;
+      } catch (error) {
+        requestError = error;
+      }
+
+      if (!mounted) return;
+
+      if (requestError == null) {
+        ref.invalidate(todayNutritionSummaryProvider(widget.dateKey));
+        return;
+      }
+
+      final rollbackTransition = _MealFeedTransition(
+        direction: _MealFeedTransitionDirection.rollback,
+        duration: _rollbackDuration,
+        tappedMealId: meal.id,
+        tappedSlotIndex: tappedSlotIndex,
+        fromVisibleMeals: nextVisibleMeals,
+        toVisibleMeals: previousVisibleMeals,
+      );
+
+      setState(() => _activeTransition = rollbackTransition);
+      await _playTransition(rollbackTransition);
+      if (!mounted) return;
+
+      setState(() {
+        _activeTransition = null;
+        _optimisticPendingMeals = currentPendingMeals;
+      });
+      AppSnackbar.error(context, 'Could not log this meal right now.');
+    } finally {
+      if (mounted) {
+        setState(() => _mealMutationInFlight = false);
+      }
+    }
+  }
+
+  Widget _buildStateCard({
+    required IconData icon,
+    required Color iconColor,
+    required String message,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(width: 10),
+          Text(
+            message,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMealCard({
+    required TodayMealItem meal,
+    required bool enabled,
+    required bool showChecked,
+    required bool reduceMotion,
+    required List<TodayMealItem> pendingMeals,
+  }) {
+    return Container(
+      height: _mealCardHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: enabled
+                ? () => _checkMeal(meal, pendingMeals, reduceMotion)
+                : null,
+            child: Container(
+              width: 24,
+              height: 24,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: showChecked ? AppTheme.success : Colors.transparent,
+                border: Border.all(
+                  color: showChecked ? AppTheme.success : AppTheme.borderDark,
+                  width: 1.5,
+                ),
+              ),
+              child: showChecked
+                  ? const Icon(LucideIcons.check, size: 14, color: Colors.black)
+                  : null,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  meal.label.isNotEmpty ? meal.label : meal.type,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  meal.name.isNotEmpty ? meal.name : 'Meal',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '${meal.calories} kcal',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<_MealCardVisual> _transitionVisuals(_MealFeedTransition transition) {
+    final mealsById = <int, TodayMealItem>{
+      for (final meal in transition.fromVisibleMeals) meal.id: meal,
+      for (final meal in transition.toVisibleMeals) meal.id: meal,
+    };
+    final visuals = <_MealCardVisual>[];
+    final ids = <int>{
+      ...transition.fromVisibleMeals.map((meal) => meal.id),
+      ...transition.toVisibleMeals.map((meal) => meal.id),
+    };
+
+    for (final id in ids) {
+      final fromIndex = transition.fromVisibleMeals.indexWhere(
+        (meal) => meal.id == id,
+      );
+      final toIndex = transition.toVisibleMeals.indexWhere(
+        (meal) => meal.id == id,
+      );
+      visuals.add(
+        _MealCardVisual(
+          meal: mealsById[id]!,
+          fromIndex: fromIndex == -1 ? null : fromIndex,
+          toIndex: toIndex == -1 ? null : toIndex,
+        ),
+      );
+    }
+
+    visuals.sort((a, b) {
+      final priorityCompare = _visualPriority(b).compareTo(_visualPriority(a));
+      if (priorityCompare != 0) return priorityCompare;
+
+      final aTapped = a.fromIndex == transition.tappedSlotIndex ? 1 : 0;
+      final bTapped = b.fromIndex == transition.tappedSlotIndex ? 1 : 0;
+      return bTapped.compareTo(aTapped);
+    });
+    return visuals;
+  }
+
+  int _visualPriority(_MealCardVisual visual) {
+    final fromIndex = visual.fromIndex;
+    final toIndex = visual.toIndex;
+
+    if (fromIndex != null && toIndex == null) return 3;
+    if (fromIndex != null && toIndex != null && fromIndex != toIndex) return 2;
+    if (fromIndex == null && toIndex != null) return 0;
+    return 1;
+  }
+
+  Widget _buildAnimatedStage(
+    _MealFeedTransition transition,
+    List<TodayMealItem> pendingMeals,
+    bool reduceMotion,
+  ) {
+    final visuals = _transitionVisuals(transition);
+    final stageCount = math.max(
+      transition.fromVisibleMeals.length,
+      transition.toVisibleMeals.length,
+    );
+
+    return ClipRect(
+      child: SizedBox(
+        height: _stageHeightForCount(stageCount),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final travelDistance = constraints.maxWidth + 40;
+            return AnimatedBuilder(
+              animation: _transitionController,
+              builder: (context, _) {
+                final progress = _transitionController.value;
+                final exitSlide = Curves.easeInCubic.transform(progress);
+                final moveSlide = const Interval(
+                  0.12,
+                  0.88,
+                  curve: Curves.easeOutCubic,
+                ).transform(progress);
+                final enterSlide =
+                    transition.direction == _MealFeedTransitionDirection.forward
+                    ? const Interval(
+                        0.28,
+                        1,
+                        curve: Curves.easeOutCubic,
+                      ).transform(progress)
+                    : const Interval(
+                        0.04,
+                        0.8,
+                        curve: Curves.easeOutCubic,
+                      ).transform(progress);
+                final exitFade =
+                    1 -
+                    const Interval(
+                      0.38,
+                      1,
+                      curve: Curves.easeOutCubic,
+                    ).transform(progress);
+
+                return Stack(
+                  children: [
+                    for (final visual in visuals)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: _animatedTopForVisual(visual, moveSlide),
+                        child: Transform.translate(
+                          offset: Offset(
+                            _animatedXForVisual(
+                              visual,
+                              transition.direction,
+                              exitSlide,
+                              enterSlide,
+                              travelDistance,
+                            ),
+                            0,
+                          ),
+                          child: Opacity(
+                            opacity: _animatedOpacityForVisual(
+                              visual,
+                              enterSlide,
+                              exitFade,
+                            ),
+                            child: _buildMealCard(
+                              meal: visual.meal,
+                              enabled: false,
+                              showChecked:
+                                  transition.direction ==
+                                      _MealFeedTransitionDirection.forward &&
+                                  visual.meal.id == transition.tappedMealId &&
+                                  visual.toIndex == null,
+                              reduceMotion: reduceMotion,
+                              pendingMeals: pendingMeals,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  double _animatedTopForVisual(_MealCardVisual visual, double moveSlide) {
+    final fromIndex = visual.fromIndex;
+    final toIndex = visual.toIndex;
+
+    if (fromIndex != null && toIndex != null && fromIndex != toIndex) {
+      final fromTop = _slotTop(fromIndex);
+      final toTop = _slotTop(toIndex);
+      return fromTop + ((toTop - fromTop) * moveSlide);
+    }
+
+    return _slotTop(toIndex ?? fromIndex ?? 0);
+  }
+
+  double _animatedXForVisual(
+    _MealCardVisual visual,
+    _MealFeedTransitionDirection direction,
+    double exitSlide,
+    double enterSlide,
+    double travelDistance,
+  ) {
+    if (visual.fromIndex != null && visual.toIndex == null) {
+      final multiplier = direction == _MealFeedTransitionDirection.forward
+          ? -1.0
+          : 1.0;
+      return travelDistance * exitSlide * multiplier;
+    }
+
+    if (visual.fromIndex == null && visual.toIndex != null) {
+      final startX = direction == _MealFeedTransitionDirection.forward
+          ? travelDistance
+          : -travelDistance * 0.65;
+      return startX * (1 - enterSlide);
+    }
+
+    return 0;
+  }
+
+  double _animatedOpacityForVisual(
+    _MealCardVisual visual,
+    double enterSlide,
+    double exitFade,
+  ) {
+    if (visual.fromIndex != null && visual.toIndex == null) {
+      return exitFade.clamp(0.0, 1.0).toDouble();
+    }
+    if (visual.fromIndex == null && visual.toIndex != null) {
+      return enterSlide.clamp(0.0, 1.0).toDouble();
+    }
+    return 1;
+  }
+
+  Widget _buildIdleStage(
+    List<TodayMealItem> visibleMeals,
+    List<TodayMealItem> pendingMeals,
+    bool reduceMotion,
+  ) {
+    return SizedBox(
+      height: _stageHeightForCount(visibleMeals.length),
+      child: Stack(
+        children: [
+          for (var index = 0; index < visibleMeals.length; index++)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: _slotTop(index),
+              child: _buildMealCard(
+                meal: visibleMeals[index],
+                enabled: !_mealMutationInFlight,
+                showChecked: false,
+                reduceMotion: reduceMotion,
+                pendingMeals: pendingMeals,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final nutritionAsync = ref.watch(todayNutritionSummaryProvider(widget.dateKey));
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final reduceMotion =
+        (mediaQuery?.disableAnimations ?? false) ||
+        (mediaQuery?.accessibleNavigation ?? false);
+    final nutritionAsync = ref.watch(
+      todayNutritionSummaryProvider(widget.dateKey),
+    );
+    final freshNutrition = nutritionAsync.asData?.value;
+    if (freshNutrition != null) {
+      _lastNutrition = freshNutrition;
+    }
+
+    final nutrition = freshNutrition ?? _lastNutrition;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -3732,191 +4594,100 @@ class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
               ),
             ),
           ),
-          nutritionAsync.when(
-            loading: () => const ShimmerBox(
-              width: double.infinity,
-              height: 80,
-              borderRadius: 14,
-            ),
-            error: (_, _) => const SizedBox.shrink(),
-            data: (n) {
-              if (n.meals.isEmpty) {
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.borderDark),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        LucideIcons.utensils,
-                        color: AppTheme.textSageMuted,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'No meals logged yet — tap Diet to log.',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
+          if (nutrition == null)
+            if (nutritionAsync.hasError)
+              const SizedBox.shrink()
+            else
+              const ShimmerBox(
+                width: double.infinity,
+                height: 80,
+                borderRadius: 14,
+              )
+          else ...[
+            Builder(
+              builder: (context) {
+                final actualPendingMeals = _pendingMealsFor(nutrition);
+                _scheduleOptimisticClearIfSynced(actualPendingMeals);
 
-              final firstUnloggedIndex =
-                  n.meals.indexWhere((m) => !m.isCompleted);
+                final optimisticPendingMeals = _optimisticPendingMeals;
+                final effectivePendingMeals =
+                    optimisticPendingMeals != null &&
+                        !_sameMealIds(
+                          optimisticPendingMeals,
+                          actualPendingMeals,
+                        )
+                    ? optimisticPendingMeals
+                    : actualPendingMeals;
 
-              if (firstUnloggedIndex == -1) {
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.borderDark),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        LucideIcons.circle_check,
-                        color: AppTheme.success,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'All meals logged for today!',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              final end = (firstUnloggedIndex + 2).clamp(0, n.meals.length);
-              final mealsToShow = n.meals.sublist(firstUnloggedIndex, end);
-
-              return Column(
-                children: mealsToShow.map((meal) {
-                  final exitController = _exitControllers[meal.id];
-                  final isExiting = _exiting.contains(meal.id);
-
-                  Widget card = Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardDark,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.borderDark),
-                    ),
-                    child: Row(
-                      children: [
-                        // Tappable check circle
-                        GestureDetector(
-                          onTap: () => _checkMeal(meal),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 24,
-                            height: 24,
-                            margin: const EdgeInsets.only(right: 12),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isExiting
-                                  ? AppTheme.success
-                                  : Colors.transparent,
-                              border: Border.all(
-                                color: isExiting
-                                    ? AppTheme.success
-                                    : AppTheme.borderDark,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: isExiting
-                                ? const Icon(
-                                    LucideIcons.check,
-                                    size: 14,
-                                    color: Colors.black,
-                                  )
-                                : null,
-                          ),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                meal.label.isNotEmpty
-                                    ? meal.label
-                                    : meal.type,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textSageMuted,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                              Text(
-                                meal.name.isNotEmpty ? meal.name : 'Meal',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textCream,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          '${meal.calories} kcal',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                if (_activeTransition != null) {
+                  return _buildAnimatedStage(
+                    _activeTransition!,
+                    effectivePendingMeals,
+                    reduceMotion,
                   );
+                }
 
-                  // Wrap in exit animation when being checked off
-                  if (exitController != null) {
-                    final slide = Tween<Offset>(
-                      begin: Offset.zero,
-                      end: const Offset(-1.2, 0),
-                    ).animate(CurvedAnimation(
-                      parent: exitController,
-                      curve: Curves.easeInCubic,
-                    ));
-                    final fade = Tween<double>(begin: 1.0, end: 0.0).animate(
-                      CurvedAnimation(
-                        parent: exitController,
-                        curve: const Interval(0.4, 1.0),
-                      ),
-                    );
-                    card = FadeTransition(
-                      opacity: fade,
-                      child: SlideTransition(position: slide, child: card),
-                    );
-                  }
+                if (nutrition.meals.isEmpty) {
+                  return _buildStateCard(
+                    icon: LucideIcons.utensils,
+                    iconColor: AppTheme.textSageMuted,
+                    message: 'No meals logged yet — tap Diet to log.',
+                  );
+                }
 
-                  return card;
-                }).toList(),
-              );
-            },
-          ),
+                if (effectivePendingMeals.isEmpty) {
+                  return _buildStateCard(
+                    icon: LucideIcons.circle_check,
+                    iconColor: AppTheme.success,
+                    message: 'All meals logged for today!',
+                  );
+                }
+
+                final visibleMeals = effectivePendingMeals.take(2).toList();
+                return _buildIdleStage(
+                  visibleMeals,
+                  effectivePendingMeals,
+                  reduceMotion,
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+enum _MealFeedTransitionDirection { forward, rollback }
+
+class _MealFeedTransition {
+  final _MealFeedTransitionDirection direction;
+  final Duration duration;
+  final int tappedMealId;
+  final int tappedSlotIndex;
+  final List<TodayMealItem> fromVisibleMeals;
+  final List<TodayMealItem> toVisibleMeals;
+
+  const _MealFeedTransition({
+    required this.direction,
+    required this.duration,
+    required this.tappedMealId,
+    required this.tappedSlotIndex,
+    required this.fromVisibleMeals,
+    required this.toVisibleMeals,
+  });
+}
+
+class _MealCardVisual {
+  final TodayMealItem meal;
+  final int? fromIndex;
+  final int? toIndex;
+
+  const _MealCardVisual({
+    required this.meal,
+    required this.fromIndex,
+    required this.toIndex,
+  });
 }
 
 // ─── Bottom Navigation ────────────────────────────────────────────────────────
