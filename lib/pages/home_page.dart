@@ -565,81 +565,86 @@ class _ProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final photoURL = user?.photoURL;
-    return AppPressable(
-      onPressed: onTap,
-      semanticsLabel: 'Open profile, level $level',
-      minHeight: 50,
-      minWidth: 50,
-      borderRadius: BorderRadius.circular(25),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 50,
-            height: 50,
-            child: CircularProgressIndicator(
-              value: levelFraction,
-              strokeWidth: 2.5,
-              backgroundColor: AppTheme.borderDark,
-              valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppTheme.cardDark,
-              border: Border.all(color: AppTheme.borderDark, width: 1.5),
-            ),
-            child: ClipOval(
-              child: photoURL != null && photoURL.isNotEmpty
-                  ? Image.network(
-                      photoURL,
-                      fit: BoxFit.cover,
-                      errorBuilder: (ctx, err, st) => const Center(
-                        child: Icon(
-                          LucideIcons.user,
-                          color: AppTheme.textSageMuted,
-                          size: 18,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AppPressable(
+          onPressed: onTap,
+          semanticsLabel: 'Open profile, level $level',
+          minHeight: 50,
+          minWidth: 50,
+          borderRadius: BorderRadius.circular(25),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: CircularProgressIndicator(
+                  value: levelFraction,
+                  strokeWidth: 2.5,
+                  backgroundColor: AppTheme.borderDark,
+                  valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
+                  strokeCap: StrokeCap.round,
+                ),
+              ),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.cardDark,
+                  border: Border.all(color: AppTheme.borderDark, width: 1.5),
+                ),
+                child: ClipOval(
+                  child: photoURL != null && photoURL.isNotEmpty
+                      ? Image.network(
+                          photoURL,
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, err, st) => const Center(
+                            child: Icon(
+                              LucideIcons.user,
+                              color: AppTheme.textSageMuted,
+                              size: 18,
+                            ),
+                          ),
+                        )
+                      : const Center(
+                          child: Icon(
+                            LucideIcons.user,
+                            color: AppTheme.textSageMuted,
+                            size: 18,
+                          ),
                         ),
-                      ),
-                    )
-                  : const Center(
-                      child: Icon(
-                        LucideIcons.user,
-                        color: AppTheme.textSageMuted,
-                        size: 18,
-                      ),
-                    ),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.oledBlack,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppTheme.xpGold.withValues(alpha: 0.7),
                 ),
               ),
-              child: Text(
-                'LVL $level',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.xpGold,
-                  fontSize: 7,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                ),
+            ],
+          ),
+        ),
+        Positioned(
+          bottom: -4,
+          right: -4,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.oledBlack,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: AppTheme.xpGold.withValues(alpha: 0.7),
+              ),
+            ),
+            child: Text(
+              'LVL $level',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.xpGold,
+                fontSize: 7,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
