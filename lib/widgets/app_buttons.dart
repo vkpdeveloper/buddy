@@ -167,15 +167,17 @@ class AppBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPressable(
-      onPressed: onPressed,
-      semanticsLabel: 'Go back',
-      minHeight: AppTheme.minimumTouchTarget,
-      minWidth: AppTheme.minimumTouchTarget,
-      child: Icon(
-        icon,
-        color: color ?? AppTheme.textCream,
-        size: iconSize,
+    return SizedBox(
+      width: AppTheme.minimumTouchTarget,
+      height: AppTheme.minimumTouchTarget,
+      child: AppPressable(
+        onPressed: onPressed,
+        semanticsLabel: 'Go back',
+        child: Icon(
+          icon,
+          color: color ?? AppTheme.textCream,
+          size: iconSize,
+        ),
       ),
     );
   }

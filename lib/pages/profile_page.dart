@@ -620,6 +620,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
           // Avatar with animated XP ring
           Stack(
             alignment: Alignment.center,
+            clipBehavior: Clip.none,
             children: [
               SizedBox(
                 width: 116,
