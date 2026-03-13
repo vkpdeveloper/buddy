@@ -172,3 +172,31 @@ final todayNutritionSummaryProvider =
         meals: meals,
       );
     });
+
+class _TodayNutritionOptimisticSummaryNotifier
+    extends Notifier<TodayNutritionSummary?> {
+  _TodayNutritionOptimisticSummaryNotifier(String _);
+
+  @override
+  TodayNutritionSummary? build() => null;
+
+  void set(TodayNutritionSummary? summary) => state = summary;
+}
+
+final todayNutritionOptimisticSummaryProvider = NotifierProvider.autoDispose
+    .family<
+      _TodayNutritionOptimisticSummaryNotifier,
+      TodayNutritionSummary?,
+      String
+    >(_TodayNutritionOptimisticSummaryNotifier.new);
+
+final effectiveTodayNutritionSummaryProvider =
+    Provider.family<AsyncValue<TodayNutritionSummary>, String>((ref, date) {
+      final optimistic = ref.watch(
+        todayNutritionOptimisticSummaryProvider(date),
+      );
+      if (optimistic != null) {
+        return AsyncValue.data(optimistic);
+      }
+      return ref.watch(todayNutritionSummaryProvider(date));
+    });

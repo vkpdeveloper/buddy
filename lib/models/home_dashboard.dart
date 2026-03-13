@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 class HomeDashboardData {
   final String date;
   final int sleepMinutes;
@@ -146,6 +148,30 @@ class TodayMealItem {
     required this.isCompleted,
   });
 
+  TodayMealItem copyWith({
+    int? id,
+    String? type,
+    String? label,
+    String? name,
+    int? calories,
+    double? proteinG,
+    double? carbsG,
+    double? fatsG,
+    bool? isCompleted,
+  }) {
+    return TodayMealItem(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      label: label ?? this.label,
+      name: name ?? this.name,
+      calories: calories ?? this.calories,
+      proteinG: proteinG ?? this.proteinG,
+      carbsG: carbsG ?? this.carbsG,
+      fatsG: fatsG ?? this.fatsG,
+      isCompleted: isCompleted ?? this.isCompleted,
+    );
+  }
+
   factory TodayMealItem.fromJson(Map<String, dynamic> j) => TodayMealItem(
     id: (j['id'] as num?)?.toInt() ?? 0,
     type: j['type'] as String? ?? '',
@@ -182,6 +208,66 @@ class TodayNutritionSummary {
     required this.meals,
   });
 
+  TodayNutritionSummary copyWith({
+    int? caloriesTarget,
+    int? caloriesConsumed,
+    double? proteinTargetG,
+    double? proteinConsumedG,
+    double? carbsTargetG,
+    double? carbsConsumedG,
+    double? fatsTargetG,
+    double? fatsConsumedG,
+    List<TodayMealItem>? meals,
+  }) {
+    return TodayNutritionSummary(
+      caloriesTarget: caloriesTarget ?? this.caloriesTarget,
+      caloriesConsumed: caloriesConsumed ?? this.caloriesConsumed,
+      proteinTargetG: proteinTargetG ?? this.proteinTargetG,
+      proteinConsumedG: proteinConsumedG ?? this.proteinConsumedG,
+      carbsTargetG: carbsTargetG ?? this.carbsTargetG,
+      carbsConsumedG: carbsConsumedG ?? this.carbsConsumedG,
+      fatsTargetG: fatsTargetG ?? this.fatsTargetG,
+      fatsConsumedG: fatsConsumedG ?? this.fatsConsumedG,
+      meals: meals ?? this.meals,
+    );
+  }
+
+  TodayNutritionSummary withMealCompletion(
+    int mealId, {
+    required bool isCompleted,
+  }) {
+    TodayMealItem? previousMeal;
+    final updatedMeals = meals
+        .map((meal) {
+          if (meal.id != mealId) return meal;
+          previousMeal = meal;
+          return meal.copyWith(isCompleted: isCompleted);
+        })
+        .toList(growable: false);
+
+    final targetMeal = previousMeal;
+    if (targetMeal == null || targetMeal.isCompleted == isCompleted) {
+      return this;
+    }
+
+    final calorieDelta = isCompleted
+        ? targetMeal.calories
+        : -targetMeal.calories;
+    final proteinDelta = isCompleted
+        ? targetMeal.proteinG
+        : -targetMeal.proteinG;
+    final carbsDelta = isCompleted ? targetMeal.carbsG : -targetMeal.carbsG;
+    final fatsDelta = isCompleted ? targetMeal.fatsG : -targetMeal.fatsG;
+
+    return copyWith(
+      caloriesConsumed: math.max(0, caloriesConsumed + calorieDelta),
+      proteinConsumedG: math.max(0.0, proteinConsumedG + proteinDelta),
+      carbsConsumedG: math.max(0.0, carbsConsumedG + carbsDelta),
+      fatsConsumedG: math.max(0.0, fatsConsumedG + fatsDelta),
+      meals: updatedMeals,
+    );
+  }
+
   int get caloriesRemaining =>
       (caloriesTarget - caloriesConsumed).clamp(0, caloriesTarget);
   double get proteinRemainingG =>
@@ -196,9 +282,8 @@ class TodayNutritionSummary {
   double get proteinFraction => proteinTargetG > 0
       ? (proteinConsumedG / proteinTargetG).clamp(0.0, 1.0)
       : 0.0;
-  double get carbsFraction => carbsTargetG > 0
-      ? (carbsConsumedG / carbsTargetG).clamp(0.0, 1.0)
-      : 0.0;
+  double get carbsFraction =>
+      carbsTargetG > 0 ? (carbsConsumedG / carbsTargetG).clamp(0.0, 1.0) : 0.0;
   double get fatsFraction =>
       fatsTargetG > 0 ? (fatsConsumedG / fatsTargetG).clamp(0.0, 1.0) : 0.0;
 

@@ -2580,7 +2580,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
   @override
   Widget build(BuildContext context) {
     final nutritionAsync = ref.watch(
-      todayNutritionSummaryProvider(widget.dateKey),
+      effectiveTodayNutritionSummaryProvider(widget.dateKey),
     );
     final permissionAsync = ref.watch(healthPermissionProvider);
     final stepsAsync = ref.watch(todayStepsProvider);
@@ -3176,14 +3176,14 @@ class _CalorieRingIcon extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          CircularProgressIndicator(
-            value: fraction.clamp(0.0, 1.0),
-            strokeWidth: strokeWidth,
-            backgroundColor: AppTheme.borderDark.withValues(alpha: 0.6),
-            valueColor: AlwaysStoppedAnimation(
-              AppTheme.xpGold.withValues(alpha: 0.75),
+          CustomPaint(
+            size: Size.square(size),
+            painter: _RingProgressPainter(
+              fraction: fraction.clamp(0.0, 1.0),
+              strokeWidth: strokeWidth,
+              trackColor: AppTheme.borderDark.withValues(alpha: 0.6),
+              progressColor: AppTheme.xpGold.withValues(alpha: 0.75),
             ),
-            strokeCap: StrokeCap.round,
           ),
           Container(
             width: innerSize,
@@ -3209,6 +3209,61 @@ class _CalorieRingIcon extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _RingProgressPainter extends CustomPainter {
+  final double fraction;
+  final double strokeWidth;
+  final Color trackColor;
+  final Color progressColor;
+
+  const _RingProgressPainter({
+    required this.fraction,
+    required this.strokeWidth,
+    required this.trackColor,
+    required this.progressColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = (math.min(size.width, size.height) - strokeWidth) / 2;
+    final rect = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: radius,
+    );
+
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final progressPaint = Paint()
+      ..color = progressColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(rect, -math.pi / 2, math.pi * 2, false, trackPaint);
+
+    if (fraction <= 0) return;
+
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      math.pi * 2 * fraction.clamp(0.0, 1.0),
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingProgressPainter oldDelegate) {
+    return oldDelegate.fraction != fraction ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.progressColor != progressColor;
   }
 }
 
@@ -3316,16 +3371,14 @@ class _MacroCard extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  CircularProgressIndicator(
-                    value: fraction.clamp(0.0, 1.0),
-                    strokeWidth: 6,
-                    backgroundColor: AppTheme.borderDark.withValues(
-                      alpha: 0.45,
+                  CustomPaint(
+                    size: Size.square(ringSize),
+                    painter: _RingProgressPainter(
+                      fraction: fraction.clamp(0.0, 1.0),
+                      strokeWidth: 6,
+                      trackColor: AppTheme.borderDark.withValues(alpha: 0.45),
+                      progressColor: iconColor.withValues(alpha: 0.75),
                     ),
-                    valueColor: AlwaysStoppedAnimation(
-                      iconColor.withValues(alpha: 0.75),
-                    ),
-                    strokeCap: StrokeCap.round,
                   ),
                   Container(
                     width: innerSize,
@@ -4240,6 +4293,31 @@ class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
     await _transitionController.forward();
   }
 
+  TodayNutritionSummary? _currentNutritionSummary() {
+    final summaryAsync = ref.read(
+      effectiveTodayNutritionSummaryProvider(widget.dateKey),
+    );
+    return summaryAsync.asData?.value ?? _lastNutrition;
+  }
+
+  void _setOptimisticNutritionSummary(TodayNutritionSummary? summary) {
+    ref
+        .read(todayNutritionOptimisticSummaryProvider(widget.dateKey).notifier)
+        .set(summary);
+  }
+
+  Future<void> _syncNutritionSummary() async {
+    try {
+      final syncedSummary = await ref.refresh(
+        todayNutritionSummaryProvider(widget.dateKey).future,
+      );
+      _lastNutrition = syncedSummary;
+      _setOptimisticNutritionSummary(null);
+    } catch (_) {
+      // Keep the optimistic snapshot if sync fails after a successful log.
+    }
+  }
+
   Future<void> _checkMeal(
     TodayMealItem meal,
     List<TodayMealItem> pendingMeals,
@@ -4247,6 +4325,11 @@ class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
   ) async {
     if (_mealMutationInFlight || _activeTransition != null) return;
 
+    final previousSummary = _currentNutritionSummary();
+    final optimisticSummary = previousSummary?.withMealCompletion(
+      meal.id,
+      isCompleted: true,
+    );
     final currentPendingMeals = List<TodayMealItem>.from(pendingMeals);
     final previousVisibleMeals = currentPendingMeals.take(2).toList();
     final tappedSlotIndex = previousVisibleMeals.indexWhere(
@@ -4262,6 +4345,9 @@ class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
     if (mounted) {
       setState(() => _mealMutationInFlight = true);
     }
+    if (optimisticSummary != null) {
+      _setOptimisticNutritionSummary(optimisticSummary);
+    }
 
     try {
       if (reduceMotion) {
@@ -4271,10 +4357,9 @@ class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
 
         try {
           await DietService.logMealCompletion(widget.dateKey, meal.id, true);
-          if (mounted) {
-            ref.invalidate(todayNutritionSummaryProvider(widget.dateKey));
-          }
+          await _syncNutritionSummary();
         } catch (_) {
+          _setOptimisticNutritionSummary(previousSummary);
           if (mounted) {
             setState(() => _optimisticPendingMeals = currentPendingMeals);
             AppSnackbar.error(context, 'Could not log this meal right now.');
@@ -4320,10 +4405,11 @@ class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
       if (!mounted) return;
 
       if (requestError == null) {
-        ref.invalidate(todayNutritionSummaryProvider(widget.dateKey));
+        await _syncNutritionSummary();
         return;
       }
 
+      _setOptimisticNutritionSummary(previousSummary);
       final rollbackTransition = _MealFeedTransition(
         direction: _MealFeedTransitionDirection.rollback,
         duration: _rollbackDuration,
@@ -4687,7 +4773,7 @@ class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
         (mediaQuery?.disableAnimations ?? false) ||
         (mediaQuery?.accessibleNavigation ?? false);
     final nutritionAsync = ref.watch(
-      todayNutritionSummaryProvider(widget.dateKey),
+      effectiveTodayNutritionSummaryProvider(widget.dateKey),
     );
     final freshNutrition = nutritionAsync.asData?.value;
     if (freshNutrition != null) {
