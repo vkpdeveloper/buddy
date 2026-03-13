@@ -89,6 +89,19 @@ export const userProfile = pgTable('user_profile', {
     index('user_profile_user_id_idx').on(t.userId),
 ]);
 
+export const userTargets = pgTable('user_targets', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    dailySteps: integer('daily_steps').notNull().default(10000),
+    dailySleepTarget: real('daily_sleep_target').notNull().default(7),
+    dailyWaterMl: integer('daily_water_ml').notNull().default(2500),
+    targetWeight: real('target_weight'),
+    dailyCalorieBurn: integer('daily_calorie_burn').notNull().default(500),
+    updatedAt: text('updated_at').default(sql`now()`),
+}, (t) => [
+    uniqueIndex('user_targets_user_id_unique').on(t.userId),
+]);
+
 // ─── Diet Plans ─────────────────────────────────────────────────────────────
 
 export const dietPlans = pgTable('diet_plans', {

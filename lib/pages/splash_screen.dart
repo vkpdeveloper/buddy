@@ -4,6 +4,7 @@ import 'package:buddy/app_theme.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/pages/onboarding_screen.dart';
 import 'package:buddy/services/auth_service.dart';
+import 'package:buddy/services/home_dashboard_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,6 +23,12 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _resolveDestination() async {
+    try {
+      await HomeDashboardPreferences.preload();
+    } catch (_) {
+      // Keep going with defaults if prefs are unavailable for any reason.
+    }
+
     bool isOnboarded = false;
     try {
       final res = await AuthService.getMe();

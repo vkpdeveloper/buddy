@@ -6,6 +6,7 @@ import 'package:buddy/app_theme.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/pages/onboarding_screen.dart';
 import 'package:buddy/services/auth_service.dart';
+import 'package:buddy/services/home_dashboard_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -86,6 +87,14 @@ class _LoginPageState extends State<LoginPage>
         isOnboarded = false;
       }
 
+      if (!mounted) return;
+      if (isOnboarded) {
+        try {
+          await HomeDashboardPreferences.preload();
+        } catch (_) {
+          // Fall back to defaults if local prefs are unavailable.
+        }
+      }
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(

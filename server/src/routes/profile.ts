@@ -5,6 +5,7 @@ import { db } from '../db';
 import { userProfile } from '../db/schema';
 import { ok } from '../lib/response';
 import { notFound } from '../lib/errors';
+import { syncTargetsFromProfile } from '../lib/userTargets';
 
 const router = new Hono();
 
@@ -118,6 +119,11 @@ router.put('/', async (c) => {
             .where(eq(userProfile.userId, userId))
             .returning();
     }
+
+    await syncTargetsFromProfile(userId, {
+        dailyWaterMl: body.waterTargetMl,
+        targetWeight: body.weightGoalKg,
+    });
 
     return ok(c, result[0]);
 });

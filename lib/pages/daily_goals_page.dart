@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/providers/home_dashboard_provider.dart';
+import 'package:buddy/services/targets_service.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 
-class DailyGoalsPage extends StatefulWidget {
+class DailyGoalsPage extends ConsumerStatefulWidget {
   const DailyGoalsPage({super.key});
 
   @override
-  State<DailyGoalsPage> createState() => _DailyGoalsPageState();
+  ConsumerState<DailyGoalsPage> createState() => _DailyGoalsPageState();
 }
 
-class _DailyGoalsPageState extends State<DailyGoalsPage> {
+class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
   double _stepGoal = 10000;
-  double _sleepTarget = 7.5;
+  double _sleepTarget = 7.0;
   double _waterTargetMl = 2500;
   bool _loading = true;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -25,24 +28,45 @@ class _DailyGoalsPageState extends State<DailyGoalsPage> {
   }
 
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _stepGoal = prefs.getDouble('step_goal') ?? 10000;
-      _sleepTarget = prefs.getDouble('sleep_target') ?? 7.5;
-      _waterTargetMl = (prefs.getInt('water_target_ml') ?? 2500).toDouble();
-      _loading = false;
-    });
+    try {
+      final res = await TargetsService.getTargets();
+      final data = res['data'] as Map<String, dynamic>? ?? const {};
+      if (!mounted) return;
+      setState(() {
+        _stepGoal = (data['dailySteps'] as num?)?.toDouble() ?? 10000;
+        _sleepTarget = (data['dailySleepTarget'] as num?)?.toDouble() ?? 7.0;
+        _waterTargetMl = (data['dailyWaterMl'] as num?)?.toDouble() ?? 2500;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      AppSnackbar.error(context, 'Failed to load daily goals.');
+    }
   }
 
   Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('step_goal', _stepGoal);
-    await prefs.setDouble('sleep_target', _sleepTarget);
-    await prefs.setInt('water_target_ml', _waterTargetMl.toInt());
-    if (mounted) {
-      AppSnackbar.success(context, 'Goals saved.');
-      Navigator.pop(context);
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await TargetsService.updateTargets(
+        dailySteps: _stepGoal.toInt(),
+        dailySleepTarget: _sleepTarget,
+        dailyWaterMl: _waterTargetMl.toInt(),
+      );
+      ref.invalidate(userTargetsProvider);
+      if (mounted) {
+        AppSnackbar.success(context, 'Goals saved.');
+        Navigator.pop(context, true);
+      }
+    } catch (_) {
+      if (mounted) {
+        AppSnackbar.error(context, 'Failed to save goals.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -137,8 +161,8 @@ class _DailyGoalsPageState extends State<DailyGoalsPage> {
                       divisions: 16,
                       activeColor: AppTheme.primary,
                       inactiveColor: AppTheme.borderDark,
-                      onChanged: (v) => setState(
-                          () => _sleepTarget = (v * 2).round() / 2.0),
+                      onChanged: (v) =>
+                          setState(() => _sleepTarget = (v * 2).round() / 2.0),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -156,12 +180,13 @@ class _DailyGoalsPageState extends State<DailyGoalsPage> {
                       activeColor: AppTheme.primary,
                       inactiveColor: AppTheme.borderDark,
                       onChanged: (v) => setState(
-                          () => _waterTargetMl = (v / 250).round() * 250.0),
+                        () => _waterTargetMl = (v / 250).round() * 250.0,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),
                   GestureDetector(
-                    onTap: _save,
+                    onTap: _saving ? null : _save,
                     child: Container(
                       height: 54,
                       decoration: BoxDecoration(

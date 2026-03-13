@@ -10,6 +10,7 @@ import 'package:buddy/pages/profile_page.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/models/home_dashboard.dart';
 import 'package:buddy/models/gamification.dart';
+import 'package:buddy/models/user_targets.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/providers/generation_provider.dart';
@@ -21,6 +22,7 @@ import 'package:buddy/pages/growth_page.dart';
 import 'package:buddy/pages/buddy_chat_page.dart';
 import 'package:buddy/services/logs_service.dart';
 import 'package:buddy/services/diet_service.dart';
+import 'package:buddy/services/home_dashboard_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
@@ -399,6 +401,7 @@ class _HealthDashboardState extends ConsumerState<_HealthDashboard> {
     invalidateAllHealthProviders(ref);
     ref.invalidate(progressProvider);
     ref.invalidate(homeDashboardProvider);
+    ref.invalidate(userTargetsProvider);
     ref.invalidate(weeklyWorkoutSummaryProvider);
     ref.invalidate(todayNutritionSummaryProvider(_dateKey(_selectedDate)));
     await Future.delayed(const Duration(milliseconds: 400));
@@ -2531,13 +2534,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
   final _controller = PageController();
   int _page = 0;
 
-  // Static so the value survives State recreation (e.g. PageView destroys/recreates widgets).
-  static bool _persistedShowConsumed = false;
-  static int _persistedStepGoal = 10000;
-  static const int _defaultCalorieBurnGoal = 500;
-
-  bool _showConsumed = _persistedShowConsumed;
-  int _stepGoal = _persistedStepGoal;
+  bool _showConsumed = HomeDashboardPreferences.showConsumed;
   bool _requestingHealthAccess = false;
 
   // Keeps last-known nutrition data alive during provider re-fetch so _CountingNumber
@@ -2547,35 +2544,12 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
   int? _lastSteps;
   double? _lastEnergy;
   HomeDashboardData? _lastHomeData;
-
-  static const _prefKey = 'calories_show_consumed';
-
-  @override
-  void initState() {
-    super.initState();
-    SharedPreferences.getInstance().then((prefs) {
-      final showConsumed = prefs.getBool(_prefKey) ?? _persistedShowConsumed;
-      final storedStepGoal =
-          (prefs.getDouble('step_goal') ?? _persistedStepGoal.toDouble())
-              .round();
-
-      _persistedShowConsumed = showConsumed;
-      _persistedStepGoal = storedStepGoal > 0 ? storedStepGoal : 10000;
-
-      if (!mounted) return;
-      setState(() {
-        _showConsumed = showConsumed;
-        _stepGoal = _persistedStepGoal;
-      });
-    });
-  }
+  UserTargets? _lastTargets;
 
   void _toggleCaloriesMode() async {
     final next = !_showConsumed;
-    _persistedShowConsumed = next;
     setState(() => _showConsumed = next);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefKey, next);
+    await HomeDashboardPreferences.setShowConsumed(next);
   }
 
   Future<void> _handleHealthAccessTap() async {
@@ -2612,6 +2586,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
     final stepsAsync = ref.watch(todayStepsProvider);
     final energyAsync = ref.watch(todayActiveEnergyProvider);
     final homeAsync = ref.watch(homeDashboardProvider);
+    final targetsAsync = ref.watch(userTargetsProvider);
 
     return Column(
       children: [
@@ -2629,6 +2604,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
                 stepsAsync,
                 energyAsync,
                 homeAsync,
+                targetsAsync,
               ),
             ],
           ),
@@ -2675,7 +2651,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
             onTap: _toggleCaloriesMode,
             child: Container(
               height: 136,
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
               decoration: BoxDecoration(
                 color: AppTheme.cardDark,
                 borderRadius: BorderRadius.circular(22),
@@ -2709,7 +2685,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
                       target: n.caloriesTarget,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   _CalorieRingIcon(fraction: n.calorieFraction, size: 86),
                 ],
               ),
@@ -2777,6 +2753,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
     AsyncValue<int> stepsAsync,
     AsyncValue<double> energyAsync,
     AsyncValue<HomeDashboardData> homeAsync,
+    AsyncValue<UserTargets> targetsAsync,
   ) {
     final freshPermission = permissionAsync.hasError
         ? false
@@ -2808,6 +2785,13 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
     }
     final homeData = freshHomeData ?? _lastHomeData;
 
+    final freshTargets = targetsAsync.asData?.value;
+    if (freshTargets != null) {
+      _lastTargets = freshTargets;
+    }
+    final targets =
+        freshTargets ?? _lastTargets ?? const UserTargets.defaults();
+
     final isWaitingForPermission =
         hasPermission == null && !permissionAsync.hasError;
     final isWaitingForActivityData =
@@ -2815,21 +2799,24 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
         ((steps == null && !stepsAsync.hasError) ||
             (energy == null && !energyAsync.hasError));
     final isWaitingForHomeData = homeData == null && !homeAsync.hasError;
+    final isWaitingForTargets =
+        freshTargets == null && _lastTargets == null && !targetsAsync.hasError;
 
     if (isWaitingForPermission ||
         isWaitingForActivityData ||
-        isWaitingForHomeData) {
+        isWaitingForHomeData ||
+        isWaitingForTargets) {
       return const _ActivityCarouselSkeleton();
     }
 
     final hydrationMl = homeData?.hydrationMl ?? 0;
-    final targetMl = 2500;
-    final stepGoal = _stepGoal > 0 ? _stepGoal : _persistedStepGoal;
+    final targetMl = targets.dailyWaterMl;
+    final stepGoal = targets.dailySteps;
     final currentSteps = hasPermission == true ? steps ?? 0 : 0;
     final remainingSteps = math.max(stepGoal - currentSteps, 0);
     final burnedCalories = hasPermission == true ? energy?.toInt() ?? 0 : 0;
     final remainingBurnedCalories = math.max(
-      _defaultCalorieBurnGoal - burnedCalories,
+      targets.dailyCalorieBurn - burnedCalories,
       0,
     );
 
@@ -2868,7 +2855,7 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
                     label: 'BURNED',
                     currentValue: burnedCalories,
                     remainingValue: remainingBurnedCalories,
-                    targetValue: _defaultCalorieBurnGoal,
+                    targetValue: targets.dailyCalorieBurn,
                     showRemaining: !_showConsumed,
                     unit: 'kcal',
                     currentSubtitle: 'Calories burned',
@@ -3179,7 +3166,10 @@ class _CalorieRingIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final innerSize = size * 0.70;
+    const strokeWidth = 8.0;
+    final innerSize = size * 0.75;
+    final iconSize = innerSize * 0.45;
+
     return SizedBox(
       width: size,
       height: size,
@@ -3188,7 +3178,7 @@ class _CalorieRingIcon extends StatelessWidget {
         children: [
           CircularProgressIndicator(
             value: fraction.clamp(0.0, 1.0),
-            strokeWidth: 8,
+            strokeWidth: strokeWidth,
             backgroundColor: AppTheme.borderDark.withValues(alpha: 0.6),
             valueColor: AlwaysStoppedAnimation(
               AppTheme.xpGold.withValues(alpha: 0.75),
@@ -3205,8 +3195,15 @@ class _CalorieRingIcon extends StatelessWidget {
                 color: AppTheme.xpGold.withValues(alpha: 0.12),
               ),
             ),
-            child: const Center(
-              child: Icon(LucideIcons.flame, color: Colors.white, size: 26),
+            child: Center(
+              child: Transform.translate(
+                offset: const Offset(0, -1),
+                child: Icon(
+                  LucideIcons.flame,
+                  color: Colors.white,
+                  size: iconSize,
+                ),
+              ),
             ),
           ),
         ],
@@ -3395,7 +3392,7 @@ class _ActivityMetricCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
           decoration: BoxDecoration(
             color: AppTheme.cardDark,
             borderRadius: BorderRadius.circular(22),
@@ -3553,7 +3550,7 @@ class _HealthConnectActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(22),
@@ -3798,7 +3795,7 @@ class _HydrationOverviewCardState
   Widget build(BuildContext context) {
     return Container(
       height: 148,
-      padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(22),
@@ -3834,7 +3831,7 @@ class _HydrationOverviewCardState
                     targetMl: widget.targetMl,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 _HydrationAddButton(onTap: _addWater),
               ],
             ),

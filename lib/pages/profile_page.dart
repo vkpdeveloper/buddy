@@ -921,10 +921,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const DailyGoalsPage()),
-        ),
+        onTap: () async {
+          final didSave = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const DailyGoalsPage()),
+          );
+          if (didSave == true && mounted) {
+            await _loadProfile();
+          }
+        },
         child: Container(
           decoration: BoxDecoration(
             color: AppTheme.cardDark,

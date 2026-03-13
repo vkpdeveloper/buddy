@@ -19,6 +19,7 @@ import generationRouter from "./routes/generation";
 import exercisesRouter from "./routes/exercises";
 import mediaRouter from "./routes/media";
 import buddyRouter from "./routes/buddy";
+import targetsRouter from "./routes/targets";
 import { seedCatalog } from "./lib/seedCatalog";
 
 const app = new Hono();
@@ -58,6 +59,7 @@ app.route("/api/tts", ttsRouter);
 app.route("/api/logs", logsRouter);
 app.route("/api/progress", progressRouter);
 app.route("/api/body", bodyRouter);
+app.route("/api/targets", targetsRouter);
 app.route("/api/generation", generationRouter);
 app.route("/api/exercises", exercisesRouter);
 app.route("/api/diet/media", mediaRouter);

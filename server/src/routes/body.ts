@@ -14,6 +14,7 @@ import { getLevel, getLevelLabel, getLevelProgressFraction, getStreakMultiplier 
 import { createProgressPhotoObjectKey, signPrivateObjectUrl, uploadPrivateObject } from '../lib/r2';
 import { ok, fail } from '../lib/response';
 import { notFound } from '../lib/errors';
+import { syncTargetsFromProfile } from '../lib/userTargets';
 
 const router = new Hono();
 
@@ -480,6 +481,10 @@ router.put('/goals', async (c) => {
     .set(updateData)
     .where(eq(userProfile.userId, userId))
     .returning();
+
+  await syncTargetsFromProfile(userId, {
+    targetWeight: payload.weightGoalKg === undefined ? undefined : toNum(payload.weightGoalKg),
+  });
 
   return ok(c, updated[0]);
 });

@@ -14,6 +14,8 @@ import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/services/profile_service.dart';
 import 'package:buddy/services/generation_service.dart';
 import 'package:buddy/services/diet_service.dart';
+import 'package:buddy/services/home_dashboard_preferences.dart';
+import 'package:buddy/services/targets_service.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/providers/generation_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
@@ -519,6 +521,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _openAppWhileGenerating() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('pending_plan_reveal', true);
+    try {
+      await HomeDashboardPreferences.preload();
+    } catch (_) {
+      // Fall back to defaults if local prefs are unavailable.
+    }
     if (!mounted) return;
     _stopQuoteCycle();
     ref.read(generationStatusProvider.notifier).startPolling();
@@ -531,6 +538,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _openAppAfterGenerationFailure() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('pending_plan_reveal', false);
+    try {
+      await HomeDashboardPreferences.preload();
+    } catch (_) {
+      // Fall back to defaults if local prefs are unavailable.
+    }
     if (!mounted) return;
     _stopQuoteCycle();
     Navigator.of(context).pushAndRemoveUntil(
@@ -542,6 +554,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _completeRevealAndOpenApp() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('pending_plan_reveal', false);
+    try {
+      await HomeDashboardPreferences.preload();
+    } catch (_) {
+      // Fall back to defaults if local prefs are unavailable.
+    }
     if (!mounted) return;
     _stopQuoteCycle();
     Navigator.of(context).pushAndRemoveUntil(
@@ -623,9 +640,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       });
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('step_goal', _stepGoal);
-      await prefs.setDouble('sleep_target', _sleepTarget);
-      await prefs.setInt('water_target_ml', _waterTargetMl.toInt());
+      await TargetsService.updateTargets(
+        dailySteps: _stepGoal.toInt(),
+        dailySleepTarget: _sleepTarget,
+        dailyWaterMl: _waterTargetMl.toInt(),
+        targetWeight: _showTargetWeight ? _targetWeight : null,
+        includeTargetWeight: true,
+        dailyCalorieBurn: 500,
+      );
       await prefs.setDouble('user_height', _height);
       await prefs.setDouble('user_weight', _weight);
       await _persistRevealSummary(prefs, projection);
