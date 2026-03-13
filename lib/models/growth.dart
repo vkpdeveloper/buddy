@@ -229,3 +229,47 @@ class GrowthOverviewData {
     );
   }
 }
+
+class DailyCalorieSummary {
+  final String date;
+  final String dayLabel;
+  final int calories;
+  final double proteinG;
+  final double carbsG;
+  final double fatsG;
+
+  const DailyCalorieSummary({
+    required this.date,
+    required this.dayLabel,
+    required this.calories,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatsG,
+  });
+
+  factory DailyCalorieSummary.fromJson(Map<String, dynamic> j) {
+    final dateStr = j['date'] as String? ?? '';
+    String dayLabel = '';
+    try {
+      final d = DateTime.parse(dateStr);
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      dayLabel = days[d.weekday - 1];
+    } catch (_) {}
+    return DailyCalorieSummary(
+      date: dateStr,
+      dayLabel: dayLabel,
+      calories: (j['calories'] as num?)?.toInt() ??
+          (j['caloriesConsumed'] as num?)?.toInt() ??
+          0,
+      proteinG: (j['proteinG'] as num?)?.toDouble() ??
+          (j['proteinConsumedG'] as num?)?.toDouble() ??
+          0,
+      carbsG: (j['carbsG'] as num?)?.toDouble() ??
+          (j['carbsConsumedG'] as num?)?.toDouble() ??
+          0,
+      fatsG: (j['fatsG'] as num?)?.toDouble() ??
+          (j['fatsConsumedG'] as num?)?.toDouble() ??
+          0,
+    );
+  }
+}

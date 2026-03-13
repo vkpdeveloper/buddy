@@ -19,6 +19,7 @@ import 'package:buddy/pages/workout_page.dart';
 import 'package:buddy/pages/growth_page.dart';
 import 'package:buddy/pages/buddy_chat_page.dart';
 import 'package:buddy/services/logs_service.dart';
+import 'package:buddy/services/diet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
@@ -353,13 +354,23 @@ class _RevealRow extends StatelessWidget {
   }
 }
 
-// ─── Health Dashboard (original home content) ─────────────────────────────
+// ─── Health Dashboard ─────────────────────────────────────────────────────
 
-class _HealthDashboard extends ConsumerWidget {
+class _HealthDashboard extends ConsumerStatefulWidget {
   final void Function(int) onNavigate;
   const _HealthDashboard({required this.onNavigate});
 
-  Future<void> _refresh(WidgetRef ref) async {
+  @override
+  ConsumerState<_HealthDashboard> createState() => _HealthDashboardState();
+}
+
+class _HealthDashboardState extends ConsumerState<_HealthDashboard> {
+  DateTime _selectedDate = DateTime.now();
+
+  String _dateKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _refresh() async {
     ref.invalidate(todayStepsProvider);
     ref.invalidate(latestHeartRateProvider);
     ref.invalidate(todayActiveEnergyProvider);
@@ -369,16 +380,17 @@ class _HealthDashboard extends ConsumerWidget {
     ref.invalidate(progressProvider);
     ref.invalidate(homeDashboardProvider);
     ref.invalidate(weeklyWorkoutSummaryProvider);
-    // Allow providers to rebuild
+    ref.invalidate(todayNutritionSummaryProvider(_dateKey(_selectedDate)));
     await Future.delayed(const Duration(milliseconds: 400));
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final dateKey = _dateKey(_selectedDate);
     return RefreshIndicator(
       color: AppTheme.primary,
       backgroundColor: AppTheme.cardDark,
-      onRefresh: () => _refresh(ref),
+      onRefresh: _refresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(
@@ -390,34 +402,20 @@ class _HealthDashboard extends ConsumerWidget {
             const _HeaderSection(),
             const GeneratingBanner(),
             const _PermissionBanner(),
-            const _HeroHealthScore(),
-            _QuickActionsRow(onNavigate: onNavigate),
-            const _AgendaCard(),
-            const _VitalsCarousel(),
-            const _ProgressCard(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: Column(
-                children: [
-                  const _SleepCard(),
-                  const SizedBox(height: 16),
-                  const _WeeklyTrendsCard(),
-                  const SizedBox(height: 16),
-                  const _HydrationCard(),
-                  const SizedBox(height: 16),
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: const [
-                        Expanded(child: _BodyMetricsCard()),
-                        SizedBox(width: 16),
-                        Expanded(child: _MindfulnessCard()),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            _WeekDatePicker(
+              selected: _selectedDate,
+              onDateSelected: (d) => setState(() => _selectedDate = d),
             ),
+            const SizedBox(height: 8),
+            _NutritionCarousel(
+              dateKey: dateKey,
+              onNavigateToDiet: () => widget.onNavigate(1),
+            ),
+            const SizedBox(height: 12),
+            _TodayWorkoutCard(onNavigate: widget.onNavigate),
+            const SizedBox(height: 12),
+            _TodayMealsFeed(dateKey: dateKey),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -2646,6 +2644,1283 @@ class _LeaderboardWeekRow extends StatelessWidget {
   }
 }
 
+// ─── New Home Widgets ────────────────────────────────────────────────────────
+
+class _WeekDatePicker extends StatelessWidget {
+  final DateTime selected;
+  final ValueChanged<DateTime> onDateSelected;
+
+  const _WeekDatePicker({required this.selected, required this.onDateSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    // Find Sunday of current week
+    final weekday = today.weekday % 7; // Mon=1..Sun=0 → Sun=0
+    final sunday = today.subtract(Duration(days: weekday));
+    const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(7, (i) {
+          final day = sunday.add(Duration(days: i));
+          final isToday = day == today;
+          final isSelected =
+              day ==
+              DateTime(selected.year, selected.month, selected.day);
+          final isPast = day.isBefore(today);
+
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onDateSelected(day),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    dayLabels[i],
+                    style: GoogleFonts.plusJakartaSans(
+                      color: isSelected
+                          ? AppTheme.primary
+                          : AppTheme.textSageMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isSelected
+                          ? AppTheme.primary.withValues(alpha: 0.18)
+                          : Colors.transparent,
+                      border: isToday && !isSelected
+                          ? Border.all(color: AppTheme.primary, width: 1.5)
+                          : isPast && !isSelected
+                          ? Border.all(
+                              color: AppTheme.borderDark,
+                              width: 1,
+                              strokeAlign: BorderSide.strokeAlignCenter,
+                            )
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${day.day}',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: isSelected
+                            ? AppTheme.primary
+                            : isToday
+                            ? AppTheme.primary
+                            : AppTheme.textSageMuted,
+                        fontSize: 13,
+                        fontWeight: isSelected || isToday
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _NutritionCarousel extends ConsumerStatefulWidget {
+  final String dateKey;
+  final VoidCallback onNavigateToDiet;
+  const _NutritionCarousel({
+    required this.dateKey,
+    required this.onNavigateToDiet,
+  });
+
+  @override
+  ConsumerState<_NutritionCarousel> createState() =>
+      _NutritionCarouselState();
+}
+
+class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
+  final _controller = PageController();
+  int _page = 0;
+
+  // Static so the value survives State recreation (e.g. PageView destroys/recreates widgets).
+  // Prevents the async prefs-load from flipping false→true and triggering a spurious count animation.
+  static bool _persistedShowConsumed = false;
+  static bool _prefsLoadedOnce = false;
+
+  bool _showConsumed = _persistedShowConsumed;
+
+  // Keeps last-known nutrition data alive during provider re-fetch so _CountingNumber
+  // stays mounted and can animate from old→new values when a meal is actually checked.
+  TodayNutritionSummary? _lastNutrition;
+
+  static const _prefKey = 'calories_show_consumed';
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_prefsLoadedOnce) {
+      SharedPreferences.getInstance().then((prefs) {
+        if (mounted) {
+          final val = prefs.getBool(_prefKey) ?? false;
+          _persistedShowConsumed = val;
+          _prefsLoadedOnce = true;
+          setState(() => _showConsumed = val);
+        }
+      });
+    }
+  }
+
+  void _toggleCaloriesMode() async {
+    final next = !_showConsumed;
+    _persistedShowConsumed = next;
+    setState(() => _showConsumed = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, next);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nutritionAsync = ref.watch(
+      todayNutritionSummaryProvider(widget.dateKey),
+    );
+    final stepsAsync = ref.watch(todayStepsProvider);
+    final energyAsync = ref.watch(todayActiveEnergyProvider);
+    final homeAsync = ref.watch(homeDashboardProvider);
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 308,
+          child: PageView(
+            controller: _controller,
+            onPageChanged: (p) => setState(() => _page = p),
+            children: [
+              // Page 1: Calories + Macros
+              _buildCaloriesPage(nutritionAsync),
+              // Page 2: Activity + Hydration
+              _buildActivityPage(stepsAsync, energyAsync, homeAsync),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(2, (i) {
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: _page == i ? 18 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: _page == i
+                    ? AppTheme.primary
+                    : AppTheme.borderDark,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCaloriesPage(
+    AsyncValue<TodayNutritionSummary> nutritionAsync,
+  ) {
+    // Cache last known data so widgets stay mounted during re-fetch.
+    // This lets _CountingNumber animate from old→new when a meal is checked,
+    // rather than unmounting (shimmer) and remounting without animation.
+    final freshData = nutritionAsync.asData?.value;
+    if (freshData != null) _lastNutrition = freshData;
+    final n = freshData ?? _lastNutrition;
+
+    if (n == null) {
+      if (nutritionAsync.hasError) return _CaloriesEmptyCard();
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: ShimmerBox(width: double.infinity, height: 308, borderRadius: 20),
+      );
+    }
+
+    return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          children: [
+            // ── Top: Calorie card ──────────────────────────────────────
+            GestureDetector(
+              onTap: _toggleCaloriesMode,
+              child: Container(
+                height: 136,
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: AppTheme.borderDark),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: _CaloriesDisplay(
+                        showConsumed: _showConsumed,
+                        consumed: n.caloriesConsumed,
+                        remaining: n.caloriesRemaining,
+                        target: n.caloriesTarget,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    _CalorieRingIcon(
+                      fraction: n.calorieFraction,
+                      size: 86,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // ── Bottom: 3 Macro cards ──────────────────────────────────
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _MacroCard(
+                      label: 'Protein',
+                      value: _showConsumed
+                          ? n.proteinConsumedG.round()
+                          : n.proteinRemainingG.round(),
+                      target: _showConsumed
+                          ? n.proteinTargetG.round()
+                          : null,
+                      showConsumed: _showConsumed,
+                      unit: 'g',
+                      fraction: n.proteinFraction,
+                      icon: '🍗',
+                      iconColor: const Color(0xFFE87B6F),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _MacroCard(
+                      label: 'Carbs',
+                      value: _showConsumed
+                          ? n.carbsConsumedG.round()
+                          : n.carbsRemainingG.round(),
+                      target: _showConsumed
+                          ? n.carbsTargetG.round()
+                          : null,
+                      showConsumed: _showConsumed,
+                      unit: 'g',
+                      fraction: n.carbsFraction,
+                      icon: '🌾',
+                      iconColor: const Color(0xFFC89A4F),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _MacroCard(
+                      label: 'Fats',
+                      value: _showConsumed
+                          ? n.fatsConsumedG.round()
+                          : n.fatsRemainingG.round(),
+                      target: _showConsumed
+                          ? n.fatsTargetG.round()
+                          : null,
+                      showConsumed: _showConsumed,
+                      unit: 'g',
+                      fraction: n.fatsFraction,
+                      icon: '🥑',
+                      iconColor: const Color(0xFF6B94D4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+  }
+
+  Widget _buildActivityPage(
+    AsyncValue<int> stepsAsync,
+    AsyncValue<double> energyAsync,
+    AsyncValue<HomeDashboardData> homeAsync,
+  ) {
+    final steps = stepsAsync.asData?.value ?? 0;
+    final energy = energyAsync.asData?.value ?? 0.0;
+    final hydrationMl = homeAsync.asData?.value.hydrationMl ?? 0;
+    final targetMl = 2500;
+    final hydrationFraction =
+        (hydrationMl / targetMl).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ACTIVITY',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _ActivityTile(
+                    icon: LucideIcons.footprints,
+                    label: 'Steps',
+                    value: '$steps',
+                    color: AppTheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ActivityTile(
+                    icon: LucideIcons.flame,
+                    label: 'Burned',
+                    value: '${energy.toInt()} kcal',
+                    color: AppTheme.error,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Icon(
+                  LucideIcons.droplet,
+                  color: AppTheme.primary,
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'HYDRATION',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '$hydrationMl / ${targetMl}ml',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: hydrationFraction,
+                minHeight: 6,
+                backgroundColor: AppTheme.borderDark,
+                valueColor:
+                    const AlwaysStoppedAnimation(AppTheme.primary),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _HydrationIncrementRow(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CaloriesEmptyCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Center(
+          child: Text(
+            'No diet plan active — set up your diet to see nutrition targets.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalorieRing extends StatelessWidget {
+  final double fraction;
+  final double size;
+  const _CalorieRing({required this.fraction, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: fraction.clamp(0.0, 1.0),
+            strokeWidth: 7,
+            backgroundColor: AppTheme.borderDark,
+            valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
+            strokeCap: StrokeCap.round,
+          ),
+          Text(
+            '${(fraction * 100).toInt()}%',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textCream,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Counts up/down smoothly when value changes.
+class _CountingNumber extends StatefulWidget {
+  final int value;
+  final TextStyle style;
+
+  const _CountingNumber({required this.value, required this.style});
+
+  @override
+  State<_CountingNumber> createState() => _CountingNumberState();
+}
+
+class _CountingNumberState extends State<_CountingNumber>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _anim = Tween<double>(
+      begin: widget.value.toDouble(),
+      end: widget.value.toDouble(),
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void didUpdateWidget(_CountingNumber old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value) {
+      final from = _anim.value;
+      _anim = Tween<double>(begin: from, end: widget.value.toDouble())
+          .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      _ctrl.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) =>
+          Text('${_anim.value.round()}', style: widget.style),
+    );
+  }
+}
+
+class _CaloriesDisplay extends StatelessWidget {
+  final bool showConsumed;
+  final int consumed;
+  final int remaining;
+  final int target;
+
+  const _CaloriesDisplay({
+    super.key,
+    required this.showConsumed,
+    required this.consumed,
+    required this.remaining,
+    required this.target,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final mainValue = showConsumed ? consumed : remaining;
+    final keyword = showConsumed ? 'eaten' : 'left';
+    final numStyle = GoogleFonts.plusJakartaSans(
+      color: AppTheme.textCream,
+      fontSize: 52,
+      fontWeight: FontWeight.w700,
+      height: 1.0,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            _CountingNumber(value: mainValue, style: numStyle),
+            if (showConsumed) ...[
+              const SizedBox(width: 6),
+              Text(
+                '/$target',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  height: 1.0,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 4),
+        RichText(
+          text: TextSpan(
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+            ),
+            children: [
+              const TextSpan(text: 'Calories '),
+              TextSpan(
+                text: keyword,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CalorieRingIcon extends StatelessWidget {
+  final double fraction;
+  final double size;
+
+  const _CalorieRingIcon({required this.fraction, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final innerSize = size * 0.70;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: fraction.clamp(0.0, 1.0),
+            strokeWidth: 8,
+            backgroundColor: AppTheme.borderDark.withValues(alpha: 0.6),
+            valueColor: AlwaysStoppedAnimation(
+              AppTheme.borderDark.withValues(alpha: 1.0),
+            ),
+            strokeCap: StrokeCap.round,
+          ),
+          Container(
+            width: innerSize,
+            height: innerSize,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1D26),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Icon(
+                LucideIcons.flame,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroCard extends StatelessWidget {
+  final String label;
+  final int value;
+  final int? target;
+  final bool showConsumed;
+  final String unit;
+  final double fraction;
+  final String icon;
+  final Color iconColor;
+
+  const _MacroCard({
+    required this.label,
+    required this.value,
+    this.target,
+    this.showConsumed = false,
+    required this.unit,
+    required this.fraction,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final keyword = showConsumed ? 'eaten' : 'left';
+    final ringSize = 64.0;
+    final innerSize = ringSize * 0.70;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Value row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              _CountingNumber(
+                value: value,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                ),
+              ),
+              Text(
+                unit,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                ),
+              ),
+              if (target != null) ...[
+                const SizedBox(width: 3),
+                Text(
+                  '/$target$unit',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 1.0,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
+          RichText(
+            text: TextSpan(
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+              children: [
+                TextSpan(text: '$label '),
+                TextSpan(
+                  text: keyword,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          // Ring + icon
+          Center(
+            child: SizedBox(
+              width: ringSize,
+              height: ringSize,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: fraction.clamp(0.0, 1.0),
+                    strokeWidth: 6,
+                    backgroundColor:
+                        AppTheme.borderDark.withValues(alpha: 0.6),
+                    valueColor: AlwaysStoppedAnimation(
+                      AppTheme.borderDark.withValues(alpha: 1.0),
+                    ),
+                    strokeCap: StrokeCap.round,
+                  ),
+                  Container(
+                    width: innerSize,
+                    height: innerSize,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1A1D26),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        icon,
+                        style: TextStyle(fontSize: innerSize * 0.45),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _ActivityTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: color,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HydrationIncrementRow extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_HydrationIncrementRow> createState() =>
+      _HydrationIncrementRowState();
+}
+
+class _HydrationIncrementRowState
+    extends ConsumerState<_HydrationIncrementRow> {
+  bool _loading = false;
+
+  String get _todayDate {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _addWater() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await LogsService.incrementHydration(_todayDate, amountMl: 250);
+      ref.invalidate(homeDashboardProvider);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(
+          '+250 ml',
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textSageMuted,
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Semantics(
+          button: true,
+          label: 'Add 250 ml of water',
+          child: GestureDetector(
+            onTap: _loading ? null : _addWater,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: _loading
+                  ? const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primary,
+                      ),
+                    )
+                  : const Icon(
+                      LucideIcons.plus,
+                      color: AppTheme.primary,
+                      size: 18,
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TodayWorkoutCard extends ConsumerWidget {
+  final void Function(int) onNavigate;
+  const _TodayWorkoutCard({required this.onNavigate});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final homeAsync = ref.watch(homeDashboardProvider);
+    final workout = homeAsync.asData?.value.todayWorkoutSummary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: GestureDetector(
+        onTap: () => onNavigate(2),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppTheme.borderDark),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  workout?.isRestDay == true
+                      ? LucideIcons.moon
+                      : LucideIcons.dumbbell,
+                  color: AppTheme.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TODAY\'S WORKOUT',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _workoutLabel(workout),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textCream,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (workout?.hasInProgressSession == true) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    'Resume',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Icon(
+                  LucideIcons.chevron_right,
+                  color: AppTheme.textSageMuted,
+                  size: 16,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _workoutLabel(HomeWorkoutSummaryData? w) {
+    if (w == null) return 'No workout planned';
+    if (w.isRestDay) return 'Rest Day — Recover & recharge';
+    if (w.isCompletedToday) return '${w.dayLabel} — Completed ✓';
+    if (w.hasInProgressSession) return '${w.dayLabel} — In progress';
+    return '${w.dayLabel} • ${w.exerciseCount} exercises';
+  }
+}
+
+class _TodayMealsFeed extends ConsumerStatefulWidget {
+  final String dateKey;
+  const _TodayMealsFeed({required this.dateKey});
+
+  @override
+  ConsumerState<_TodayMealsFeed> createState() => _TodayMealsFeedState();
+}
+
+class _TodayMealsFeedState extends ConsumerState<_TodayMealsFeed>
+    with TickerProviderStateMixin {
+  final Map<int, AnimationController> _exitControllers = {};
+  final Set<int> _exiting = {};
+
+  @override
+  void dispose() {
+    for (final c in _exitControllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _checkMeal(TodayMealItem meal) async {
+    if (_exiting.contains(meal.id)) return;
+
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    if (!mounted) return;
+    setState(() {
+      _exitControllers[meal.id] = controller;
+      _exiting.add(meal.id);
+    });
+
+    await controller.forward();
+
+    try {
+      await DietService.logMealCompletion(widget.dateKey, meal.id, true);
+    } catch (_) {}
+
+    controller.dispose();
+    _exitControllers.remove(meal.id);
+    _exiting.remove(meal.id);
+
+    if (mounted) {
+      ref.invalidate(todayNutritionSummaryProvider(widget.dateKey));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nutritionAsync = ref.watch(todayNutritionSummaryProvider(widget.dateKey));
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              "TODAY'S MEALS",
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2.0,
+              ),
+            ),
+          ),
+          nutritionAsync.when(
+            loading: () => const ShimmerBox(
+              width: double.infinity,
+              height: 80,
+              borderRadius: 14,
+            ),
+            error: (_, _) => const SizedBox.shrink(),
+            data: (n) {
+              if (n.meals.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardDark,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.borderDark),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.utensils,
+                        color: AppTheme.textSageMuted,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'No meals logged yet — tap Diet to log.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final firstUnloggedIndex =
+                  n.meals.indexWhere((m) => !m.isCompleted);
+
+              if (firstUnloggedIndex == -1) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardDark,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.borderDark),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.circle_check,
+                        color: AppTheme.success,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'All meals logged for today!',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final end = (firstUnloggedIndex + 2).clamp(0, n.meals.length);
+              final mealsToShow = n.meals.sublist(firstUnloggedIndex, end);
+
+              return Column(
+                children: mealsToShow.map((meal) {
+                  final exitController = _exitControllers[meal.id];
+                  final isExiting = _exiting.contains(meal.id);
+
+                  Widget card = Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.borderDark),
+                    ),
+                    child: Row(
+                      children: [
+                        // Tappable check circle
+                        GestureDetector(
+                          onTap: () => _checkMeal(meal),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 24,
+                            height: 24,
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isExiting
+                                  ? AppTheme.success
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: isExiting
+                                    ? AppTheme.success
+                                    : AppTheme.borderDark,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: isExiting
+                                ? const Icon(
+                                    LucideIcons.check,
+                                    size: 14,
+                                    color: Colors.black,
+                                  )
+                                : null,
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                meal.label.isNotEmpty
+                                    ? meal.label
+                                    : meal.type,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textSageMuted,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              Text(
+                                meal.name.isNotEmpty ? meal.name : 'Meal',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textCream,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '${meal.calories} kcal',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  // Wrap in exit animation when being checked off
+                  if (exitController != null) {
+                    final slide = Tween<Offset>(
+                      begin: Offset.zero,
+                      end: const Offset(-1.2, 0),
+                    ).animate(CurvedAnimation(
+                      parent: exitController,
+                      curve: Curves.easeInCubic,
+                    ));
+                    final fade = Tween<double>(begin: 1.0, end: 0.0).animate(
+                      CurvedAnimation(
+                        parent: exitController,
+                        curve: const Interval(0.4, 1.0),
+                      ),
+                    );
+                    card = FadeTransition(
+                      opacity: fade,
+                      child: SlideTransition(position: slide, child: card),
+                    );
+                  }
+
+                  return card;
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Bottom Navigation ────────────────────────────────────────────────────────
+
 class _BottomNavigation extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -2712,7 +3987,7 @@ class _BottomNavigation extends StatelessWidget {
           ),
           _NavItem(
             icon: LucideIcons.trending_up,
-            label: 'GROWTH',
+            label: 'PROGRESS',
             isActive: currentIndex == 3,
             onTap: () => onTap(3),
           ),
@@ -2760,11 +4035,14 @@ class _NavItem extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     label,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
                     style: TextStyle(
                       color: color,
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
+                      letterSpacing: 0.8,
                     ),
                   ),
                   const SizedBox(height: 4),

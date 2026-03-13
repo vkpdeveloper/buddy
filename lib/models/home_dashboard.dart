@@ -122,3 +122,102 @@ class WeeklyWorkoutSummary {
     );
   }
 }
+
+class TodayMealItem {
+  final int id;
+  final String type;
+  final String label;
+  final String name;
+  final int calories;
+  final double proteinG;
+  final double carbsG;
+  final double fatsG;
+  final bool isCompleted;
+
+  const TodayMealItem({
+    required this.id,
+    required this.type,
+    required this.label,
+    required this.name,
+    required this.calories,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatsG,
+    required this.isCompleted,
+  });
+
+  factory TodayMealItem.fromJson(Map<String, dynamic> j) => TodayMealItem(
+    id: (j['id'] as num?)?.toInt() ?? 0,
+    type: j['type'] as String? ?? '',
+    label: j['label'] as String? ?? '',
+    name: j['mealName'] as String? ?? j['name'] as String? ?? '',
+    calories: (j['calories'] as num?)?.toInt() ?? 0,
+    proteinG: (j['proteinG'] as num?)?.toDouble() ?? 0,
+    carbsG: (j['carbsG'] as num?)?.toDouble() ?? 0,
+    fatsG: (j['fatsG'] as num?)?.toDouble() ?? 0,
+    isCompleted: j['isCompleted'] == true || j['isCompleted'] == 1,
+  );
+}
+
+class TodayNutritionSummary {
+  final int caloriesTarget;
+  final int caloriesConsumed;
+  final double proteinTargetG;
+  final double proteinConsumedG;
+  final double carbsTargetG;
+  final double carbsConsumedG;
+  final double fatsTargetG;
+  final double fatsConsumedG;
+  final List<TodayMealItem> meals;
+
+  const TodayNutritionSummary({
+    required this.caloriesTarget,
+    required this.caloriesConsumed,
+    required this.proteinTargetG,
+    required this.proteinConsumedG,
+    required this.carbsTargetG,
+    required this.carbsConsumedG,
+    required this.fatsTargetG,
+    required this.fatsConsumedG,
+    required this.meals,
+  });
+
+  int get caloriesRemaining =>
+      (caloriesTarget - caloriesConsumed).clamp(0, caloriesTarget);
+  double get proteinRemainingG =>
+      (proteinTargetG - proteinConsumedG).clamp(0, proteinTargetG);
+  double get carbsRemainingG =>
+      (carbsTargetG - carbsConsumedG).clamp(0, carbsTargetG);
+  double get fatsRemainingG =>
+      (fatsTargetG - fatsConsumedG).clamp(0, fatsTargetG);
+  double get calorieFraction => caloriesTarget > 0
+      ? (caloriesConsumed / caloriesTarget).clamp(0.0, 1.0)
+      : 0.0;
+  double get proteinFraction => proteinTargetG > 0
+      ? (proteinConsumedG / proteinTargetG).clamp(0.0, 1.0)
+      : 0.0;
+  double get carbsFraction => carbsTargetG > 0
+      ? (carbsConsumedG / carbsTargetG).clamp(0.0, 1.0)
+      : 0.0;
+  double get fatsFraction =>
+      fatsTargetG > 0 ? (fatsConsumedG / fatsTargetG).clamp(0.0, 1.0) : 0.0;
+
+  factory TodayNutritionSummary.fromJson(Map<String, dynamic> j) {
+    final meals =
+        (j['meals'] as List?)
+            ?.map((e) => TodayMealItem.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
+    return TodayNutritionSummary(
+      caloriesTarget: (j['caloriesTarget'] as num?)?.toInt() ?? 0,
+      caloriesConsumed: (j['caloriesConsumed'] as num?)?.toInt() ?? 0,
+      proteinTargetG: (j['proteinTargetG'] as num?)?.toDouble() ?? 0,
+      proteinConsumedG: (j['proteinConsumedG'] as num?)?.toDouble() ?? 0,
+      carbsTargetG: (j['carbsTargetG'] as num?)?.toDouble() ?? 0,
+      carbsConsumedG: (j['carbsConsumedG'] as num?)?.toDouble() ?? 0,
+      fatsTargetG: (j['fatsTargetG'] as num?)?.toDouble() ?? 0,
+      fatsConsumedG: (j['fatsConsumedG'] as num?)?.toDouble() ?? 0,
+      meals: meals,
+    );
+  }
+}

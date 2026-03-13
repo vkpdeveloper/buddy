@@ -5,11 +5,11 @@ import 'package:buddy/models/body_measurement.dart';
 import 'package:buddy/models/growth.dart';
 import 'package:buddy/providers/body_provider.dart';
 import 'package:buddy/providers/growth_provider.dart';
+import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/body_service.dart';
 import 'package:buddy/services/progress_share_service.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
-import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:buddy/widgets/progress_share_cards.dart';
 import 'package:flutter/material.dart';
@@ -35,7 +35,12 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
     ref.invalidate(growthGoalsProvider);
     ref.invalidate(bodyHistoryProvider);
     ref.invalidate(latestBodyMeasurementProvider);
+    ref.invalidate(latestWeightProvider);
+    ref.invalidate(latestHeightProvider);
     ref.invalidate(progressProvider);
+    for (int i = 0; i < 4; i++) {
+      ref.invalidate(weeklyCaloriesProvider(i));
+    }
     await Future.delayed(const Duration(milliseconds: 350));
   }
 
@@ -289,65 +294,16 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                     children: [
                       AppEmptyState(
                         icon: LucideIcons.triangle_alert,
-                        title: 'Could not load Growth',
+                        title: 'Could not load Progress',
                         subtitle: '$e',
                       ),
                     ],
                   ),
                   data: (overview) {
-                    if (overview.totalLogs == 0) {
-                      return ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(
-                          top: 80,
-                          left: 16,
-                          right: 16,
-                        ),
-                        children: const [
-                          AppEmptyState(
-                            icon: LucideIcons.trending_up,
-                            title: 'No growth logs yet',
-                            subtitle:
-                                'Start check-ins to unlock trends, goals, body-composition, and milestone rewards.',
-                          ),
-                        ],
-                      );
-                    }
-
-                    return SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.paddingOf(context).bottom + 92,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const SizedBox(height: 16),
-                          _StatsStrip(overview: overview),
-                          const SizedBox(height: 16),
-                          _LevelCard(overview: overview),
-                          const SizedBox(height: 20),
-                          _MetricGrid(metrics: overview.metricCards),
-                          const SizedBox(height: 20),
-                          if (overview.firstPhoto != null &&
-                              overview.latestPhoto != null) ...[
-                            _PhotoCompareCard(
-                              firstPhoto: overview.firstPhoto,
-                              latestPhoto: overview.latestPhoto,
-                            ),
-                            const SizedBox(height: 20),
-                          ],
-                          _AchievementsCard(items: overview.achievements),
-                          const SizedBox(height: 20),
-                          _CompositionCard(series: overview.compositionSeries),
-                          const SizedBox(height: 20),
-                          _GoalsCard(
-                            goals: overview.goals,
-                            onEdit: () => _showGoalEditSheet(overview.goals),
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
+                    return _GrowthBody(
+                      overview: overview,
+                      onEditGoals: () =>
+                          _showGoalEditSheet(overview.goals),
                     );
                   },
                 ),
@@ -359,6 +315,1191 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
     );
   }
 }
+
+// ─── New Growth Body ─────────────────────────────────────────────────────────
+
+class _GrowthBody extends ConsumerStatefulWidget {
+  final GrowthOverviewData overview;
+  final VoidCallback onEditGoals;
+
+  const _GrowthBody({required this.overview, required this.onEditGoals});
+
+  @override
+  ConsumerState<_GrowthBody> createState() => _GrowthBodyState();
+}
+
+class _GrowthBodyState extends ConsumerState<_GrowthBody> {
+  int _timeRangeIndex = 0; // 0=90d, 1=6m, 2=1y, 3=all
+  int _weekOffset = 0; // 0=this week, 1=last, 2=2wks ago, 3=3wks ago
+  static const _timeLabels = ['90 Days', '6 Months', '1 Year', 'All Time'];
+  static const _weekLabels = [
+    'This Week',
+    'Last Week',
+    '2 wks. ago',
+    '3 wks. ago',
+  ];
+
+  List<GrowthTrendPoint> _filteredTrend() {
+    final trend = widget.overview.weightTrend;
+    if (trend.isEmpty) return trend;
+    final now = DateTime.now();
+    DateTime cutoff;
+    switch (_timeRangeIndex) {
+      case 0:
+        cutoff = now.subtract(const Duration(days: 90));
+      case 1:
+        cutoff = now.subtract(const Duration(days: 180));
+      case 2:
+        cutoff = now.subtract(const Duration(days: 365));
+      default:
+        return trend;
+    }
+    return trend
+        .where((p) {
+          final d = DateTime.tryParse(p.date);
+          return d != null && d.isAfter(cutoff);
+        })
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final overview = widget.overview;
+    final photosAsync = ref.watch(growthPhotosProvider);
+    final weightAsync = ref.watch(latestWeightProvider);
+    final heightAsync = ref.watch(latestHeightProvider);
+    final profileAsync = ref.watch(userProfileMeasurementsProvider);
+    final weeklyAsync = ref.watch(weeklyCaloriesProvider(_weekOffset));
+    final filteredTrend = _filteredTrend();
+
+    final profileData = profileAsync.asData?.value;
+
+    // Use weight from logs → Health Connect → user profile (onboarding)
+    final effectiveWeightKg =
+        overview.currentWeightKg ??
+        weightAsync.asData?.value ??
+        profileData?.weightKg;
+
+    // Height: Health Connect → user profile (onboarding)
+    final effectiveHeightCm =
+        heightAsync.asData?.value ?? profileData?.heightCm;
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.paddingOf(context).bottom + 92,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 16),
+          // Top stats row: weight + streak
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _WeightCard(
+                    currentKg: effectiveWeightKg,
+                    goalKg: overview.goals.weightGoalKg,
+                    lastLogDate: overview.lastLogDate,
+                    onEdit: widget.onEditGoals,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _StreakCard(streak: overview.currentStreak),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Time range selector
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _SegmentedSelector(
+              labels: _timeLabels,
+              selectedIndex: _timeRangeIndex,
+              onChanged: (i) => setState(() => _timeRangeIndex = i),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Goal progress chart
+          _GoalProgressChartCard(
+            trend: filteredTrend,
+            goalKg: overview.goals.weightGoalKg,
+            currentKg: effectiveWeightKg,
+            onEditGoal: widget.onEditGoals,
+          ),
+          const SizedBox(height: 20),
+          // Progress photos
+          _ProgressPhotosSection(photosAsync: photosAsync),
+          const SizedBox(height: 20),
+          // Weekly calories section
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _SegmentedSelector(
+              labels: _weekLabels,
+              selectedIndex: _weekOffset,
+              onChanged: (i) => setState(() => _weekOffset = i),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _WeeklyCaloriesSection(weeklyAsync: weeklyAsync),
+          const SizedBox(height: 20),
+          // BMI card
+          _BmiCard(weightKg: effectiveWeightKg, heightCm: effectiveHeightCm),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeightCard extends StatelessWidget {
+  final double? currentKg;
+  final double? goalKg;
+  final String? lastLogDate;
+  final VoidCallback onEdit;
+
+  const _WeightCard({
+    required this.currentKg,
+    required this.goalKg,
+    required this.lastLogDate,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasGoal = goalKg != null && currentKg != null;
+    final progress = hasGoal
+        ? (currentKg! / goalKg!).clamp(0.0, 1.2)
+        : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'MY WEIGHT',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.primary,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            currentKg != null
+                ? '${currentKg!.toStringAsFixed(1)} kg'
+                : '— kg',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textCream,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+          ),
+          if (goalKg != null) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                minHeight: 4,
+                backgroundColor: AppTheme.borderDark,
+                valueColor:
+                    const AlwaysStoppedAnimation(AppTheme.primary),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Goal: ${goalKg!.toStringAsFixed(1)} kg',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 10,
+              ),
+            ),
+          ],
+          if (lastLogDate != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Last: $lastLogDate',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 9,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StreakCard extends StatelessWidget {
+  final int streak;
+  const _StreakCard({required this.streak});
+
+  @override
+  Widget build(BuildContext context) {
+    const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final today = DateTime.now().weekday; // 1=Mon..7=Sun
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.flame, color: AppTheme.xpGold, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                'STREAK',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.xpGold,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$streak days',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textCream,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(7, (i) {
+              final isActive = i < (today - 1); // past days this week
+              final isToday = i == today - 1;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    weekdays[i],
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 8,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isToday
+                          ? AppTheme.xpGold
+                          : isActive && streak > 0
+                          ? AppTheme.xpGold.withValues(alpha: 0.5)
+                          : AppTheme.borderDark,
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegmentedSelector extends StatelessWidget {
+  final List<String> labels;
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  const _SegmentedSelector({
+    required this.labels,
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Row(
+        children: List.generate(labels.length, (i) {
+          final isSelected = i == selectedIndex;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  labels[i],
+                  style: GoogleFonts.plusJakartaSans(
+                    color: isSelected
+                        ? AppTheme.oledBlack
+                        : AppTheme.textSageMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _GoalProgressChartCard extends StatelessWidget {
+  final List<GrowthTrendPoint> trend;
+  final double? goalKg;
+  final double? currentKg;
+  final VoidCallback onEditGoal;
+
+  const _GoalProgressChartCard({
+    required this.trend,
+    required this.goalKg,
+    required this.currentKg,
+    required this.onEditGoal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasData = trend.length >= 2;
+    final startKg = trend.isNotEmpty ? trend.first.value : null;
+    final latestKg = currentKg;
+    double? progressPct;
+    if (startKg != null && latestKg != null && goalKg != null) {
+      final total = (startKg - goalKg!).abs();
+      final done = (startKg - latestKg).abs();
+      progressPct = total > 0 ? (done / total * 100).clamp(0, 100) : null;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'WEIGHT PROGRESS',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.primary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                ),
+                if (progressPct != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${progressPct.toStringAsFixed(0)}% of goal',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onEditGoal,
+                  child: const Icon(
+                    LucideIcons.pencil,
+                    size: 14,
+                    color: AppTheme.textSageMuted,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (!hasData && currentKg == null)
+              Text(
+                'Log a check-in to start tracking your weight trend.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 12,
+                ),
+              )
+            else if (!hasData && currentKg != null)
+              _BaselineWeightChart(currentKg: currentKg!, goalKg: goalKg)
+            else
+              SizedBox(
+                height: 140,
+                child: CustomPaint(
+                  painter: _WeightChartPainter(
+                    points: trend,
+                    goalKg: goalKg,
+                  ),
+                  size: const Size(double.infinity, 140),
+                ),
+              ),
+            if (hasData || currentKg != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                goalKg != null
+                    ? "Getting started is the hardest part. You're ready for this!"
+                    : 'Set a goal weight to track your progress.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: hasData
+                      ? AppTheme.textSageMuted
+                      : const Color(0xFF4CAF50),
+                  fontSize: 11,
+                  fontStyle: hasData ? FontStyle.italic : FontStyle.normal,
+                  fontWeight:
+                      hasData ? FontWeight.normal : FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Shows a flat starting-weight baseline with Y-axis labels when there are no logs yet
+class _BaselineWeightChart extends StatelessWidget {
+  final double currentKg;
+  final double? goalKg;
+
+  const _BaselineWeightChart({required this.currentKg, this.goalKg});
+
+  @override
+  Widget build(BuildContext context) {
+    const rowCount = 5;
+    final step = 0.2;
+    final midVal = (currentKg * 2).round() / 2; // round to nearest 0.5
+    final labels = List.generate(
+      rowCount,
+      (i) => midVal + (rowCount ~/ 2 - i) * step,
+    );
+
+    return SizedBox(
+      height: 140,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Y-axis labels
+          Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: labels
+                .map(
+                  (v) => Text(
+                    v.toStringAsFixed(1),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 9,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(width: 8),
+          // Chart area
+          Expanded(
+            child: CustomPaint(
+              painter: _BaselineChartPainter(
+                currentKg: currentKg,
+                labels: labels,
+                goalKg: goalKg,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BaselineChartPainter extends CustomPainter {
+  final double currentKg;
+  final List<double> labels;
+  final double? goalKg;
+
+  _BaselineChartPainter({
+    required this.currentKg,
+    required this.labels,
+    required this.goalKg,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final minV = labels.last;
+    final maxV = labels.first;
+    final range = maxV - minV == 0 ? 1.0 : maxV - minV;
+
+    double toY(double v) =>
+        size.height - ((v - minV) / range) * size.height;
+
+    // Draw dashed grid lines
+    final gridPaint = Paint()
+      ..color = AppTheme.borderDark.withValues(alpha: 0.5)
+      ..strokeWidth = 0.8
+      ..style = PaintingStyle.stroke;
+    for (final v in labels) {
+      final y = toY(v);
+      double x = 0;
+      while (x < size.width) {
+        canvas.drawLine(
+          Offset(x, y),
+          Offset(math.min(x + 8, size.width), y),
+          gridPaint,
+        );
+        x += 14;
+      }
+    }
+
+    // Draw goal dashed line
+    if (goalKg != null && goalKg! >= minV && goalKg! <= maxV) {
+      final goalY = toY(goalKg!);
+      final goalPaint = Paint()
+        ..color = AppTheme.xpGold.withValues(alpha: 0.6)
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+      double x = 0;
+      while (x < size.width) {
+        canvas.drawLine(
+          Offset(x, goalY),
+          Offset(math.min(x + 8, size.width), goalY),
+          goalPaint,
+        );
+        x += 14;
+      }
+    }
+
+    // Draw solid baseline at currentKg
+    final baseY = toY(currentKg);
+    canvas.drawLine(
+      Offset(0, baseY),
+      Offset(size.width, baseY),
+      Paint()
+        ..color = AppTheme.textCream
+        ..strokeWidth = 1.8
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BaselineChartPainter old) =>
+      old.currentKg != currentKg ||
+      old.goalKg != goalKg;
+}
+
+class _WeightChartPainter extends CustomPainter {
+  final List<GrowthTrendPoint> points;
+  final double? goalKg;
+
+  _WeightChartPainter({required this.points, required this.goalKg});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    const hPad = 8.0;
+    const vPad = 12.0;
+
+    final values = points.map((p) => p.value).toList();
+    final allValues = [...values, if (goalKg != null) goalKg!];
+    var minV = allValues.reduce(math.min);
+    var maxV = allValues.reduce(math.max);
+    final range = maxV - minV == 0 ? 1.0 : maxV - minV;
+    minV -= range * 0.1;
+    maxV += range * 0.1;
+    final safeRange = maxV - minV;
+
+    double toY(double v) =>
+        size.height - vPad - ((v - minV) / safeRange) * (size.height - 2 * vPad);
+    double toX(int i) =>
+        hPad + (i / (points.length - 1)) * (size.width - 2 * hPad);
+
+    // Draw goal line
+    if (goalKg != null) {
+      final goalY = toY(goalKg!);
+      final dashPaint = Paint()
+        ..color = AppTheme.xpGold.withValues(alpha: 0.6)
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+      double x = hPad;
+      while (x < size.width - hPad) {
+        canvas.drawLine(
+          Offset(x, goalY),
+          Offset(math.min(x + 8, size.width - hPad), goalY),
+          dashPaint,
+        );
+        x += 14;
+      }
+    }
+
+    // Draw area fill
+    final chartPoints = List.generate(
+      points.length,
+      (i) => Offset(toX(i), toY(values[i])),
+    );
+    final fillPath = Path()..moveTo(chartPoints.first.dx, chartPoints.first.dy);
+    for (int i = 1; i < chartPoints.length; i++) {
+      final cp = (chartPoints[i - 1] + chartPoints[i]) / 2;
+      fillPath.quadraticBezierTo(
+        chartPoints[i - 1].dx,
+        chartPoints[i - 1].dy,
+        cp.dx,
+        cp.dy,
+      );
+    }
+    fillPath.lineTo(chartPoints.last.dx, size.height - vPad);
+    fillPath.lineTo(chartPoints.first.dx, size.height - vPad);
+    fillPath.close();
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppTheme.primary.withValues(alpha: 0.2),
+            AppTheme.primary.withValues(alpha: 0.02),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
+
+    // Draw line
+    final linePath = Path()
+      ..moveTo(chartPoints.first.dx, chartPoints.first.dy);
+    for (int i = 1; i < chartPoints.length; i++) {
+      final cp = (chartPoints[i - 1] + chartPoints[i]) / 2;
+      linePath.quadraticBezierTo(
+        chartPoints[i - 1].dx,
+        chartPoints[i - 1].dy,
+        cp.dx,
+        cp.dy,
+      );
+    }
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = AppTheme.primary
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Draw last point dot
+    canvas.drawCircle(
+      chartPoints.last,
+      4,
+      Paint()..color = AppTheme.primary,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_WeightChartPainter old) =>
+      old.points != points || old.goalKg != goalKg;
+}
+
+class _ProgressPhotosSection extends ConsumerWidget {
+  final AsyncValue<List<GrowthPhotoData>> photosAsync;
+  const _ProgressPhotosSection({required this.photosAsync});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'PROGRESS PHOTOS',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.primary,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            photosAsync.when(
+              loading: () => const SizedBox(height: 60),
+              error: (_, _) => const SizedBox.shrink(),
+              data: (photos) {
+                if (photos.isEmpty) {
+                  return Text(
+                    'No photos yet. Upload a progress photo to get started.',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 12,
+                    ),
+                  );
+                }
+                final preview = photos.take(3).toList();
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ...preview.map(
+                        (p) => Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.borderDark),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(9),
+                            child: Image.network(
+                              p.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: AppTheme.backgroundDark,
+                                child: const Icon(
+                                  LucideIcons.image,
+                                  color: AppTheme.textSageMuted,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (photos.length > 3)
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: AppTheme.backgroundDark,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '+${photos.length - 3}',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyCaloriesSection extends StatelessWidget {
+  final AsyncValue<List<DailyCalorieSummary>> weeklyAsync;
+  const _WeeklyCaloriesSection({required this.weeklyAsync});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'WEEKLY CALORIES',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.primary,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            weeklyAsync.when(
+              loading: () => const SizedBox(
+                height: 100,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
+              error: (_, _) => Text(
+                'Could not load weekly data.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 12,
+                ),
+              ),
+              data: (days) {
+                if (days.isEmpty) {
+                  return Text(
+                    'No calorie data logged for this week.',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 12,
+                    ),
+                  );
+                }
+                final totalCal = days.fold<int>(0, (s, d) => s + d.calories);
+                final maxCal = days
+                    .map((d) => d.calories)
+                    .fold<int>(1, math.max);
+
+                return Column(
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          '$totalCal',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textCream,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'kcal total',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppTheme.textSageMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 80,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: days.map((d) {
+                          final frac =
+                              maxCal > 0 ? d.calories / maxCal : 0.0;
+                          return Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 3),
+                              child: Column(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.end,
+                                children: [
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.bottomCenter,
+                                      child: FractionallySizedBox(
+                                        heightFactor: frac
+                                            .clamp(0.04, 1.0),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: frac > 0.01
+                                                ? AppTheme.primary
+                                                : AppTheme.borderDark,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    d.dayLabel,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      color: AppTheme.textSageMuted,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _LegendDot(color: AppTheme.primary, label: 'Calories'),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            color: AppTheme.textSageMuted,
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BmiCard extends StatelessWidget {
+  final double? weightKg;
+  final double? heightCm;
+  const _BmiCard({required this.weightKg, required this.heightCm});
+
+  @override
+  Widget build(BuildContext context) {
+    double? bmi;
+    if (weightKg != null && heightCm != null && heightCm! > 0) {
+      final hm = heightCm! / 100;
+      bmi = weightKg! / (hm * hm);
+    }
+
+    String category = '';
+    Color catColor = AppTheme.textSageMuted;
+    double markerFrac = 0.5;
+    if (bmi != null) {
+      if (bmi < 18.5) {
+        category = 'Underweight';
+        catColor = AppTheme.info;
+        markerFrac = (bmi / 18.5) * 0.25;
+      } else if (bmi < 25) {
+        category = 'Healthy';
+        catColor = AppTheme.success;
+        markerFrac = 0.25 + ((bmi - 18.5) / 6.5) * 0.25;
+      } else if (bmi < 30) {
+        category = 'Overweight';
+        catColor = AppTheme.xpGold;
+        markerFrac = 0.5 + ((bmi - 25) / 5) * 0.25;
+      } else {
+        category = 'Obese';
+        catColor = AppTheme.error;
+        markerFrac = math.min(0.75 + ((bmi - 30) / 10) * 0.25, 1.0);
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderDark),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'YOUR BMI',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.primary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
+                    ),
+                  ),
+                ),
+                if (bmi != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: catColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: catColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      category,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: catColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (bmi == null)
+              Text(
+                'Log a check-in to calculate your BMI.',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textSageMuted,
+                  fontSize: 12,
+                ),
+              )
+            else ...[
+              Text(
+                bmi.toStringAsFixed(2),
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.textCream,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Gradient bar with marker
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: SizedBox(
+                          height: 10,
+                          child: Row(
+                            children: const [
+                              Expanded(child: ColoredBox(color: Color(0xFF64B5F6))),
+                              Expanded(child: ColoredBox(color: Color(0xFF66BB6A))),
+                              Expanded(child: ColoredBox(color: Color(0xFFFFB74D))),
+                              Expanded(child: ColoredBox(color: Color(0xFFEF5350))),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: (markerFrac.clamp(0.02, 0.98) * w) - 5,
+                        top: -3,
+                        child: Container(
+                          width: 10,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: AppTheme.textCream,
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                              color: AppTheme.oledBlack,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _LegendDot(
+                    color: const Color(0xFF64B5F6),
+                    label: 'Under',
+                  ),
+                  _LegendDot(
+                    color: const Color(0xFF66BB6A),
+                    label: 'Healthy',
+                  ),
+                  _LegendDot(
+                    color: const Color(0xFFFFB74D),
+                    label: 'Over',
+                  ),
+                  _LegendDot(
+                    color: const Color(0xFFEF5350),
+                    label: 'Obese',
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Original Growth Support Widgets ──────────────────────────────────────────
 
 class _GrowthHeader extends StatelessWidget {
   final VoidCallback onLogTap;
@@ -382,7 +1523,7 @@ class _GrowthHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'GROWTH',
+                  'PROGRESS',
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.primary,
                     fontSize: 10,
@@ -391,7 +1532,7 @@ class _GrowthHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Body Progress',
+                  'Progress',
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textCream,
                     fontSize: 24,

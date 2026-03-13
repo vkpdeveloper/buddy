@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/generation_provider.dart';
+import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/services/diet_service.dart';
 import 'package:buddy/services/media_service.dart';
 import 'package:buddy/services/notification_service.dart';
@@ -322,11 +323,13 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     await DietService.logMealCompletion(_todayDate, mealId, isCompleted);
     if (!mounted) return;
     setState(() => _todayLog[mealId] = isCompleted);
+    ref.invalidate(todayNutritionSummaryProvider(_todayDate));
   }
 
   Future<void> _logActualMeal(int mealId, Map<String, dynamic> payload) async {
     await DietService.logActualMeal(_todayDate, {'mealId': mealId, ...payload});
     await _loadPlanDetail(_activePlanId!);
+    if (mounted) ref.invalidate(todayNutritionSummaryProvider(_todayDate));
     // Write nutrition to Health Connect (fire-and-forget)
     final calories = (payload['calories'] as num?)?.toDouble() ?? 0;
     final proteinG = (payload['proteinG'] as num?)?.toDouble() ?? 0;
@@ -603,6 +606,9 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     });
                     if (_activePlanId != null) {
                       await _loadPlanDetail(_activePlanId!);
+                    }
+                    if (mounted) {
+                      ref.invalidate(todayNutritionSummaryProvider(_todayDate));
                     }
                   } catch (_) {}
                 },

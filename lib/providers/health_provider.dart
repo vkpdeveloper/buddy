@@ -266,6 +266,20 @@ final latestHeightProvider = FutureProvider<double?>((ref) async {
   }
 });
 
+/// Weight from onboarding profile stored in SharedPreferences.
+/// Available without Health Connect permission.
+final profileWeightKgProvider = FutureProvider<double?>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getDouble('user_weight');
+});
+
+/// Height (cm) from onboarding profile stored in SharedPreferences.
+/// Available without Health Connect permission.
+final profileHeightCmProvider = FutureProvider<double?>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getDouble('user_height');
+});
+
 final sleepDurationProvider = FutureProvider<Duration>((ref) async {
   final hasPermission = await ref.watch(healthPermissionProvider.future);
   if (!hasPermission) return Duration.zero;
