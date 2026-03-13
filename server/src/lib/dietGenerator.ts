@@ -161,11 +161,16 @@ function normalizeMealTime(value: string | undefined, mealType: string): string 
     return DEFAULT_MEAL_TIMES[mealType] ?? '12:00';
 }
 
-export async function runDietGeneration(userId: number): Promise<{ planId: number }> {
+export async function runDietGeneration(
+    userId: number,
+    options?: { onProgress?: (stageKey: string) => Promise<void> | void },
+): Promise<{ planId: number }> {
+    await options?.onProgress?.('reading_profile');
     const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
     if (profiles.length === 0) throw new Error('Profile not found. Set up profile first.');
     const profile = profiles[0];
 
+    await options?.onProgress?.('calculating_macros');
     const bmr = calculateBMR(profile.weight, profile.height, profile.age, profile.sex as any);
     const tdee = calculateTDEE(bmr, profile.activityLevel as any);
     const macros = calculateMacros(profile.weight, tdee, profile.goal as any, bmr);
@@ -335,6 +340,7 @@ RECIPE RULES:
 STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not add any other meal types.`;
 
     const model = 'gemini-3.1-flash-lite-preview';
+    await options?.onProgress?.('generating_meals');
     const { object: planData, usage } = await generateObject({
         model: google(model),
         schema: DietPlanSchema,
@@ -345,6 +351,7 @@ STRICT: Only use meal types from this list: ${preferredMeals.join(', ')}. Do not
 
     await trackAiUsage({ model, feature: AI_FEATURE.DIET_GENERATION, userId, usage });
 
+    await options?.onProgress?.('saving_plan');
     await db.update(dietPlans).set({ isActive: false }).where(eq(dietPlans.userId, userId));
 
     const [insertedPlan] = await db.insert(dietPlans).values({

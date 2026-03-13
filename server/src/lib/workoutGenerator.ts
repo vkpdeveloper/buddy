@@ -74,7 +74,11 @@ const CYCLE_TEMPLATES: Record<string, { days: { label: string; isRest: boolean }
     },
 };
 
-export async function runWorkoutGeneration(userId: number): Promise<{ planId: number }> {
+export async function runWorkoutGeneration(
+    userId: number,
+    options?: { onProgress?: (stageKey: string) => Promise<void> | void },
+): Promise<{ planId: number }> {
+    await options?.onProgress?.('reading_profile');
     const profiles = await db.select().from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
     if (profiles.length === 0) throw new Error('Profile not found');
     const profile = profiles[0];
@@ -91,6 +95,7 @@ export async function runWorkoutGeneration(userId: number): Promise<{ planId: nu
     const workDays = template.days.filter(d => !d.isRest).slice(0, daysPerWeek);
     const uniqueDayLabels = [...new Set(workDays.map(d => d.label))];
     const equipmentDisplay = equipment.map(e => e.replace('_', ' ')).join(', ');
+    await options?.onProgress?.('matching_equipment');
 
     const EXPERIENCE_CONTEXT: Record<ExperienceLevel, string> = {
         beginner: 'BEGINNER (0–1 year of training): Prioritise form and neural adaptation. Use foundational compound movements. Keep all rep ranges moderate (8–12). 3 sets per exercise maximum. Avoid complex or highly technical exercises — build the habit and movement patterns first.',
@@ -133,6 +138,7 @@ STRICT RULES:
 - For Cable Machine exercises, only include them if "cable" appears in the equipment list`;
 
     const model = 'gemini-3.1-flash-lite-preview';
+    await options?.onProgress?.('generating_split');
     const { object: planData, usage } = await generateObject({
         model: google(model),
         schema: WorkoutPlanSchema,
@@ -143,7 +149,9 @@ STRICT RULES:
 
     await trackAiUsage({ model, feature: AI_FEATURE.WORKOUT_GENERATION, userId, usage });
 
+    await options?.onProgress?.('generating_exercises');
     await db.update(workoutPlans).set({ isActive: false });
+    await options?.onProgress?.('saving_plan');
 
     const [insertedPlan] = await db.insert(workoutPlans).values({
         userId,

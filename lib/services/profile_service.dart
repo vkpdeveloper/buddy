@@ -25,10 +25,14 @@ final class ProfileService extends ApiBase {
   static Future<Map<String, dynamic>> updateProfile(
     Map<String, dynamic> data,
   ) async {
+    // Strip nulls and empty strings — Zod optional() rejects both
+    final payload = Map.fromEntries(
+      data.entries.where((e) => e.value != null && e.value != ''),
+    );
     final res = await ApiBase.client.put(
       Uri.parse('${ApiBase.baseUrl}/api/profile'),
       headers: await ApiBase.authHeaders(),
-      body: jsonEncode(data),
+      body: jsonEncode(payload),
     );
     return ApiBase.decode(res);
   }

@@ -11,6 +11,7 @@ import 'package:buddy/models/home_dashboard.dart';
 import 'package:buddy/models/gamification.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
+import 'package:buddy/providers/generation_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/pages/diet_plan_page.dart';
@@ -80,6 +81,9 @@ class _HomePageState extends State<HomePage> {
             onPageChanged: (index) => setState(() => _currentIndex = index),
             children: pages,
           ),
+          _PendingPlanRevealWatcher(
+            onOpenPlan: () => _goToTab(0, animate: false),
+          ),
           Positioned(
             left: 0,
             right: 0,
@@ -87,6 +91,260 @@ class _HomePageState extends State<HomePage> {
             child: _BottomNavigation(
               currentIndex: _currentIndex,
               onTap: _goToTab,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingPlanRevealWatcher extends ConsumerStatefulWidget {
+  final VoidCallback onOpenPlan;
+
+  const _PendingPlanRevealWatcher({required this.onOpenPlan});
+
+  @override
+  ConsumerState<_PendingPlanRevealWatcher> createState() =>
+      _PendingPlanRevealWatcherState();
+}
+
+class _PendingPlanRevealWatcherState
+    extends ConsumerState<_PendingPlanRevealWatcher> {
+  bool _pendingReveal = false;
+  bool _dialogOpen = false;
+  bool _revealScheduled = false;
+  bool _clearScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPendingState();
+  }
+
+  Future<void> _loadPendingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pending = prefs.getBool('pending_plan_reveal') ?? false;
+    if (!mounted) return;
+    setState(() => _pendingReveal = pending);
+    if (pending) {
+      ref.read(generationStatusProvider.notifier).startPolling();
+    }
+  }
+
+  Future<void> _clearPendingReveal() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('pending_plan_reveal', false);
+    if (mounted) {
+      setState(() {
+        _pendingReveal = false;
+        _dialogOpen = false;
+        _revealScheduled = false;
+        _clearScheduled = false;
+      });
+    }
+  }
+
+  Future<void> _showRevealDialog() async {
+    if (mounted) {
+      setState(() {
+        _dialogOpen = true;
+        _revealScheduled = false;
+      });
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final goalDate = prefs.getString('pending_plan_goal_date') ?? '--';
+    final paceLabel =
+        prefs.getString('pending_plan_pace_label') ?? 'Steady pace';
+    final calories = prefs.getInt('pending_plan_calories') ?? 0;
+    final daysPerWeek = prefs.getInt('pending_plan_days_per_week') ?? 4;
+    final builtAround =
+        prefs.getString('pending_plan_built_around') ?? 'your routine';
+    if (!mounted) return;
+    var openPlan = false;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog.fullscreen(
+        backgroundColor: AppTheme.oledBlack,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(
+                      LucideIcons.x,
+                      color: AppTheme.textSageMuted,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.badge_check,
+                    color: AppTheme.primary,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Your plan is ready',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Buddy finished building the parts that were still in progress. Your first targets are locked in.',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _RevealRow(label: 'Target date', value: goalDate),
+                const SizedBox(height: 12),
+                _RevealRow(label: 'Target pace', value: paceLabel),
+                const SizedBox(height: 12),
+                _RevealRow(label: 'Daily calories', value: '$calories kcal'),
+                const SizedBox(height: 12),
+                _RevealRow(
+                  label: 'Training',
+                  value: '$daysPerWeek days per week',
+                ),
+                const SizedBox(height: 12),
+                _RevealRow(label: 'Built around', value: builtAround),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      openPlan = true;
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('See today’s plan'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'I’ll check this in a minute',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (openPlan) {
+      widget.onOpenPlan();
+    }
+    await _clearPendingReveal();
+  }
+
+  void _scheduleReveal() {
+    if (_dialogOpen || _revealScheduled) return;
+    _revealScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showRevealDialog();
+    });
+  }
+
+  void _schedulePendingClear() {
+    if (_clearScheduled) return;
+    _clearScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _clearPendingReveal();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_pendingReveal) return const SizedBox.shrink();
+
+    final status = ref.watch(generationStatusProvider);
+    ref.listen<GenerationStatus>(generationStatusProvider, (prev, next) {
+      if (_pendingReveal && !_dialogOpen && next.isDone) {
+        _scheduleReveal();
+      } else if (_pendingReveal && next.hasFailed) {
+        _clearPendingReveal();
+      }
+    });
+
+    if (_pendingReveal && !_dialogOpen && status.isDone) {
+      _scheduleReveal();
+    } else if (_pendingReveal && status.hasFailed) {
+      _schedulePendingClear();
+    }
+
+    return const SizedBox.shrink();
+  }
+}
+
+class _RevealRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _RevealRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.oledBlack,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textCream,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],

@@ -69,6 +69,15 @@ export const userProfile = pgTable('user_profile', {
     experienceLevel: text('experience_level', {
         enum: ['beginner', 'intermediate', 'advanced'],
     }).default('beginner'),
+    whyNow: text('why_now', {
+        enum: ['look_better', 'feel_better', 'perform_better', 'build_routine'],
+    }),
+    goalPace: text('goal_pace', {
+        enum: ['relaxed', 'steady', 'aggressive'],
+    }),
+    primaryBlocker: text('primary_blocker', {
+        enum: ['consistency', 'food_choices', 'busy_schedule', 'lack_of_structure', 'low_motivation'],
+    }),
     currentBodyShape: text('current_body_shape', {
         enum: ['skinny', 'lean', 'fat'],
     }),
@@ -274,6 +283,9 @@ export const generationJobs = pgTable('generation_jobs', {
     userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     type: text('type', { enum: ['diet', 'workout'] }).notNull(),
     status: text('status', { enum: ['pending', 'generating', 'done', 'failed'] }).notNull().default('pending'),
+    stageKey: text('stage_key').notNull().default('queued'),
+    stageMessage: text('stage_message').notNull().default('Queued to build your plan.'),
+    progressPercent: integer('progress_percent').notNull().default(0),
     error: text('error'),
     createdAt: text('created_at').default(sql`now()`),
     updatedAt: text('updated_at').default(sql`now()`),

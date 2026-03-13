@@ -178,10 +178,10 @@ class _LoginPageState extends State<LoginPage>
                           children: [
                             const TextSpan(
                               text:
-                                  'Your personal fitness companion.\nBuilt to make you ',
+                                  'Build meals, workouts, and progress targets that fit your real life.\nBuddy helps you stay ',
                             ),
                             TextSpan(
-                              text: 'unstoppable',
+                              text: 'clear and consistent',
                               style: GoogleFonts.plusJakartaSans(
                                 color: AppTheme.textCream,
                                 fontWeight: FontWeight.w700,

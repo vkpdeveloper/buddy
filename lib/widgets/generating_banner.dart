@@ -14,17 +14,22 @@ class GeneratingBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(generationStatusProvider);
+    final job = switch (watchType) {
+      'diet' => status.diet,
+      'workout' => status.workout,
+      _ => null,
+    };
 
     final bool relevant = switch (watchType) {
-      'diet' => status.diet == 'pending' || status.diet == 'generating',
-      'workout' =>
-        status.workout == 'pending' || status.workout == 'generating',
+      'diet' => status.diet.isGenerating,
+      'workout' => status.workout.isGenerating,
       _ => status.isGenerating,
     };
 
     if (!relevant) return const SizedBox.shrink();
 
     final label = _label(watchType, status);
+    final progress = job?.progressPercent ?? status.overallProgressPercent;
     return Semantics(
       liveRegion: true,
       label: label,
@@ -50,13 +55,39 @@ class GeneratingBanner extends ConsumerWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                label,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.primary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      minHeight: 4,
+                      value: (progress / 100).clamp(0, 1).toDouble(),
+                      backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppTheme.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${progress.clamp(0, 100)}% ready',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -66,10 +97,8 @@ class GeneratingBanner extends ConsumerWidget {
   }
 
   String _label(String? type, GenerationStatus status) {
-    if (type == 'diet') return 'Building your diet plan — won\'t be long!';
-    if (type == 'workout') return 'Building your workout plan — won\'t be long!';
-    if (status.diet == 'done') return 'Almost there — finishing your workout plan…';
-    if (status.workout == 'done') return 'Almost there — finishing your diet plan…';
-    return 'Getting your plans ready, just a moment…';
+    if (type == 'diet') return status.diet.stageMessage;
+    if (type == 'workout') return status.workout.stageMessage;
+    return status.primaryMessage;
   }
 }

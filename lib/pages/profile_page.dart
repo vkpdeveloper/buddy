@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/models/gamification.dart';
+import 'package:buddy/pages/daily_goals_page.dart';
 import 'package:buddy/pages/login_page.dart';
 import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/notification_service.dart';
@@ -494,6 +495,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             const SizedBox(height: 12),
             _buildGoalsCard(),
             const SizedBox(height: 12),
+            _buildDailyGoalsCard(),
+            const SizedBox(height: 12),
             _buildNotificationsCard(),
             const SizedBox(height: 12),
             _buildHealthConnectCard(),
@@ -888,6 +891,58 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 isLast: true,
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // ── Daily Goals card ──────────────────────────────────────────────────────
+
+  Widget _buildDailyGoalsCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DailyGoalsPage()),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.borderDark),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.target, color: AppTheme.primary, size: 16),
+                const SizedBox(width: 10),
+                Text(
+                  'Daily Goals',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Steps · Sleep · Water',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  LucideIcons.chevron_right,
+                  color: AppTheme.textSageMuted,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -5,6 +5,11 @@ import { db } from '../db';
 import { generationJobs } from '../db/schema';
 import { runDietGeneration } from '../lib/dietGenerator';
 import { runWorkoutGeneration } from '../lib/workoutGenerator';
+import {
+    markGenerationJobFailed,
+    setGenerationJobStage,
+    type GenerationJobType,
+} from '../lib/generationProgress';
 
 export const plansWorker = new Worker(
     'plans-generation',
@@ -17,28 +22,34 @@ export const plansWorker = new Worker(
         if (!jobRow) throw new Error(`Job row ${jobRowId} not found`);
         const { userId } = jobRow;
 
-        await db.update(generationJobs)
-            .set({ status: 'generating', updatedAt: new Date().toISOString() })
-            .where(eq(generationJobs.id, jobRowId));
+        await setGenerationJobStage(jobRowId, type, 'reading_profile');
 
         try {
             if (type === 'diet') {
-                const { planId } = await runDietGeneration(userId);
+                const { planId } = await runDietGeneration(userId, {
+                    onProgress: (stageKey) => setGenerationJobStage(
+                        jobRowId,
+                        type,
+                        stageKey,
+                    ),
+                });
                 console.log(`[worker] Diet plan generated: planId=${planId}`);
             } else {
-                const { planId } = await runWorkoutGeneration(userId);
+                const { planId } = await runWorkoutGeneration(userId, {
+                    onProgress: (stageKey) => setGenerationJobStage(
+                        jobRowId,
+                        type,
+                        stageKey,
+                    ),
+                });
                 console.log(`[worker] Workout plan generated: planId=${planId}`);
             }
 
-            await db.update(generationJobs)
-                .set({ status: 'done', updatedAt: new Date().toISOString() })
-                .where(eq(generationJobs.id, jobRowId));
+            await setGenerationJobStage(jobRowId, type, 'done');
         } catch (err) {
             const error = String(err);
             console.error(`[worker] ${type} generation failed:`, error);
-            await db.update(generationJobs)
-                .set({ status: 'failed', error, updatedAt: new Date().toISOString() })
-                .where(eq(generationJobs.id, jobRowId));
+            await markGenerationJobFailed(jobRowId, error);
             throw err;
         }
     },

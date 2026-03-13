@@ -3,6 +3,11 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { generationJobs } from '../db/schema';
 import { plansQueue } from '../lib/queue';
+import {
+    getGenerationStage,
+    getIdleGenerationJobState,
+    type GenerationJobType,
+} from '../lib/generationProgress';
 import { ok } from '../lib/response';
 
 const router = new Hono();
@@ -12,7 +17,11 @@ const router = new Hono();
 router.post('/trigger', async (c) => {
     try {
         const userId = c.var.userId;
-        const types: Array<'diet' | 'workout'> = ['diet', 'workout'];
+        const body = await c.req.json<{ types?: GenerationJobType[] }>().catch(
+            () => ({ types: undefined } as { types?: GenerationJobType[] }),
+        );
+        const requestedTypes = (body.types?.length ? body.types : ['diet', 'workout']) as GenerationJobType[];
+        const types = requestedTypes.filter((type, index) => requestedTypes.indexOf(type) === index);
         const enqueuedIds: Record<string, number> = {};
 
         for (const type of types) {
@@ -30,9 +39,17 @@ router.post('/trigger', async (c) => {
             if (existing && (existing.status === 'pending' || existing.status === 'generating')) {
                 jobRowId = existing.id;
             } else {
+                const initialStage = getGenerationStage(type, 'queued');
                 const [inserted] = await db
                     .insert(generationJobs)
-                    .values({ userId, type, status: 'pending' })
+                    .values({
+                        userId,
+                        type,
+                        status: initialStage.status,
+                        stageKey: initialStage.key,
+                        stageMessage: initialStage.message,
+                        progressPercent: initialStage.progressPercent,
+                    })
                     .returning();
                 jobRowId = inserted.id;
             }
@@ -53,8 +70,21 @@ router.post('/trigger', async (c) => {
 router.get('/status', async (c) => {
     try {
         const userId = c.var.userId;
-        const types: Array<'diet' | 'workout'> = ['diet', 'workout'];
-        const result: Record<string, string> = { diet: 'idle', workout: 'idle' };
+        const types: GenerationJobType[] = ['diet', 'workout'];
+        const jobs: Record<
+            GenerationJobType,
+            {
+                type: GenerationJobType;
+                status: string;
+                stageKey: string;
+                stageMessage: string;
+                progressPercent: number;
+                error: string | null;
+            }
+        > = {
+            diet: getIdleGenerationJobState('diet'),
+            workout: getIdleGenerationJobState('workout'),
+        };
 
         for (const type of types) {
             const [latest] = await db
@@ -64,10 +94,47 @@ router.get('/status', async (c) => {
                 .orderBy(desc(generationJobs.id))
                 .limit(1);
 
-            if (latest) result[type] = latest.status;
+            if (latest) {
+                jobs[type] = {
+                    type,
+                    status: latest.status,
+                    stageKey: latest.stageKey,
+                    stageMessage: latest.stageMessage,
+                    progressPercent: latest.progressPercent,
+                    error: latest.error,
+                };
+            }
         }
 
-        return ok(c, result);
+        const jobStates = Object.values(jobs);
+        const overallStatus =
+            jobStates.some((job) => job.status === 'failed')
+                ? 'failed'
+                : jobStates.every((job) => job.status === 'done')
+                ? 'done'
+                : jobStates.every((job) => job.status === 'idle')
+                ? 'idle'
+                : 'generating';
+
+        const unfinishedJobs = jobStates.filter(
+            (job) => job.status === 'pending' || job.status === 'generating',
+        );
+        const primarySource =
+            unfinishedJobs.sort((left, right) => left.progressPercent - right.progressPercent)[0]
+            ?? jobStates.find((job) => job.status === 'failed')
+            ?? jobStates.find((job) => job.status === 'done')
+            ?? jobStates[0];
+
+        const overallProgressPercent = Math.round(
+            jobStates.reduce((sum, job) => sum + job.progressPercent, 0) / jobStates.length,
+        );
+
+        return ok(c, {
+            overallStatus,
+            overallProgressPercent,
+            primaryMessage: primarySource.stageMessage,
+            jobs,
+        });
     } catch (err) {
         throw err;
     }

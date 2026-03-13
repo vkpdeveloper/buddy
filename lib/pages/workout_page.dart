@@ -394,7 +394,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   @override
   Widget build(BuildContext context) {
     ref.listen<GenerationStatus>(generationStatusProvider, (prev, next) {
-      if (prev?.workout != 'done' && next.workout == 'done') {
+      if (!(prev?.workout.isDone ?? false) && next.workout.isDone) {
         _loadPlans();
       }
     });
@@ -583,8 +583,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
 
   Widget _buildEmptyState() {
     final genStatus = ref.watch(generationStatusProvider);
-    final isGenerating =
-        genStatus.workout == 'pending' || genStatus.workout == 'generating';
+    final isGenerating = genStatus.workout.isGenerating;
 
     return Expanded(
       child: AppEmptyState(

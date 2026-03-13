@@ -839,7 +839,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   @override
   Widget build(BuildContext context) {
     ref.listen<GenerationStatus>(generationStatusProvider, (prev, next) {
-      if (prev?.diet != 'done' && next.diet == 'done') {
+      if (!(prev?.diet.isDone ?? false) && next.diet.isDone) {
         _loadPlans();
       }
     });
@@ -1013,8 +1013,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
 
   Widget _buildEmptyState() {
     final genStatus = ref.watch(generationStatusProvider);
-    final isGenerating =
-        genStatus.diet == 'pending' || genStatus.diet == 'generating';
+    final isGenerating = genStatus.diet.isGenerating;
 
     return Expanded(
       child: AppEmptyState(

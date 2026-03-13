@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
@@ -45,15 +44,39 @@ const profileSchema = z.object({
     profileCompleted: z.boolean().optional(),
     preferSupersets: z.boolean().optional(),
     experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+    whyNow: z.enum(['look_better', 'feel_better', 'perform_better', 'build_routine']).optional(),
+    goalPace: z.enum(['relaxed', 'steady', 'aggressive']).optional(),
+    primaryBlocker: z.enum(['consistency', 'food_choices', 'busy_schedule', 'lack_of_structure', 'low_motivation']).optional(),
     currentBodyShape: z.enum(['skinny', 'lean', 'fat']).optional(),
     goalBodyShape: z.enum(['skinny', 'lean', 'fat']).optional(),
 });
 
 // PUT /api/profile — upsert profile for the authenticated user
-router.put('/', zValidator('json', profileSchema), async (c) => {
+router.put('/', async (c) => {
     const userId = c.var.userId;
-    const body = c.req.valid('json');
 
+    let raw: Record<string, unknown>;
+    try {
+        raw = await c.req.json();
+    } catch {
+        return c.json({ success: false, error: 'Invalid JSON body' }, 400);
+    }
+
+    // Strip empty strings and nulls — Zod optional() rejects both
+    const cleaned = Object.fromEntries(
+        Object.entries(raw).filter(([, v]) => v !== null && v !== ''),
+    );
+
+    const parsed = profileSchema.safeParse(cleaned);
+    if (!parsed.success) {
+        console.error('[PUT /api/profile] Validation failed:');
+        for (const issue of parsed.error.issues) {
+            console.error(`  field="${issue.path.join('.')}" code=${issue.code} message="${issue.message}"`);
+        }
+        return c.json({ success: false, error: parsed.error }, 400);
+    }
+
+    const body = parsed.data;
     const profiles = await db.select({ id: userProfile.id }).from(userProfile).where(eq(userProfile.userId, userId)).limit(1);
 
     const updateData: Partial<typeof userProfile.$inferInsert> = { userId };
@@ -80,6 +103,9 @@ router.put('/', zValidator('json', profileSchema), async (c) => {
     if (body.profileCompleted !== undefined) updateData.profileCompleted = body.profileCompleted;
     if (body.preferSupersets !== undefined) updateData.preferSupersets = body.preferSupersets;
     if (body.experienceLevel !== undefined) updateData.experienceLevel = body.experienceLevel;
+    if (body.whyNow !== undefined) updateData.whyNow = body.whyNow;
+    if (body.goalPace !== undefined) updateData.goalPace = body.goalPace;
+    if (body.primaryBlocker !== undefined) updateData.primaryBlocker = body.primaryBlocker;
     if (body.currentBodyShape !== undefined) updateData.currentBodyShape = body.currentBodyShape;
     if (body.goalBodyShape !== undefined) updateData.goalBodyShape = body.goalBodyShape;
 

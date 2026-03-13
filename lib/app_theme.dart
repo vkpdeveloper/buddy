@@ -18,7 +18,7 @@ class AppTheme {
   // primary: AA on all surfaces (5.34:1 on oledBlack)
   static const Color primary = Color(0xFF7B8188);
   // actionSurface/actionForeground: AAA pair for high-emphasis CTA controls
-  static const Color actionSurface = textCream;
+  static const Color actionSurface = textMain;
   static const Color actionForeground = oledBlack;
 
   // ── Text ──────────────────────────────────────────────────────────────────
