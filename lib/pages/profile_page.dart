@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/models/gamification.dart';
 import 'package:buddy/pages/daily_goals_page.dart';
 import 'package:buddy/pages/login_page.dart';
@@ -610,26 +611,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
           // Back button
           Align(
             alignment: Alignment.centerLeft,
-            child: Material(
-              color: AppTheme.transparent,
-              borderRadius: BorderRadius.circular(10),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardRaised,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.borderDark),
-                  ),
-                  child: const Icon(
-                    LucideIcons.arrow_left,
-                    color: AppTheme.textCream,
-                    size: 18,
-                  ),
-                ),
-              ),
+            child: AppBackButton(
+              onPressed: () => Navigator.pop(context),
             ),
           ),
           const SizedBox(height: 24),

@@ -7,6 +7,7 @@ import 'package:health/health.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/models/gamification.dart';
 import 'package:buddy/models/pr.dart';
 import 'package:buddy/providers/health_provider.dart';
@@ -1929,33 +1930,11 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       ),
                       child: Row(
                         children: [
-                          Tooltip(
-                            message: 'Exit workout',
-                            child: Semantics(
-                              label: 'Exit workout',
-                              button: true,
-                              child: GestureDetector(
-                                onTap: () => Navigator.pop(context),
-                                child: Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.cardDark,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: AppTheme.borderDark,
-                                    ),
-                                  ),
-                                  child: const ExcludeSemantics(
-                                    child: Icon(
-                                      LucideIcons.x,
-                                      color: AppTheme.textSageMuted,
-                                      size: 18,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                          AppBackButton(
+                            icon: LucideIcons.x,
+                            onPressed: () => Navigator.pop(context),
+                            iconSize: 20,
+                            color: AppTheme.textSageMuted,
                           ),
                           const Spacer(),
                           if (streak >= 3)

@@ -1139,49 +1139,45 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-              child: Semantics(
-                label: 'Add exercise from library',
-                button: true,
-                child: GestureDetector(
-                  onTap: () => showExerciseLibrarySheet(
-                    context,
-                    dayId: dayId,
-                    onAdded: () {
-                      _loadPlanDetail(_activePlanId!);
-                      ref.invalidate(prMapProvider);
-                    },
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppTheme.primary.withValues(alpha: 0.25),
-                        style: BorderStyle.solid,
+              child: AppPressable(
+                onPressed: () => showExerciseLibrarySheet(
+                  context,
+                  dayId: dayId,
+                  onAdded: () {
+                    _loadPlanDetail(_activePlanId!);
+                    ref.invalidate(prMapProvider);
+                  },
+                ),
+                semanticsLabel: 'Add exercise from library',
+                minHeight: 52,
+                borderRadius: BorderRadius.circular(16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardRaised,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.borderDark),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      LucideIcons.plus,
+                      color: AppTheme.primary,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Add from library',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textCream,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          LucideIcons.plus,
-                          color: AppTheme.primary,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'ADD FROM LIBRARY',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ),

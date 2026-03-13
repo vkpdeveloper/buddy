@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:buddy/models/pr.dart';
 import 'package:buddy/models/exercise_catalog.dart';
+import 'package:buddy/models/workout_session_history.dart';
 import 'package:buddy/services/api_base.dart';
 
 final class WorkoutService extends ApiBase {
@@ -86,16 +87,18 @@ final class WorkoutService extends ApiBase {
     int dayId, {
     required String date,
   }) async {
-    final uri = Uri.parse(
-      '${ApiBase.baseUrl}/api/workout/sessions/today',
-    ).replace(
-      queryParameters: {
-        'planId': '$planId',
-        'dayId': '$dayId',
-        'date': date,
-      },
+    final uri = Uri.parse('${ApiBase.baseUrl}/api/workout/sessions/today')
+        .replace(
+          queryParameters: {
+            'planId': '$planId',
+            'dayId': '$dayId',
+            'date': date,
+          },
+        );
+    final res = await ApiBase.client.get(
+      uri,
+      headers: await ApiBase.authHeaders(),
     );
-    final res = await ApiBase.client.get(uri, headers: await ApiBase.authHeaders());
     return ApiBase.decode(res);
   }
 
@@ -107,14 +110,19 @@ final class WorkoutService extends ApiBase {
     return ApiBase.decode(res);
   }
 
-  static Future<Map<String, dynamic>> getWorkoutSessionHistory({
+  static Future<WorkoutSessionHistoryData> getWorkoutSessionHistory({
     String range = '30d',
   }) async {
     final uri = Uri.parse(
       '${ApiBase.baseUrl}/api/workout/sessions/history',
     ).replace(queryParameters: {'range': range});
-    final res = await ApiBase.client.get(uri, headers: await ApiBase.authHeaders());
-    return ApiBase.decode(res);
+    final res = await ApiBase.client.get(
+      uri,
+      headers: await ApiBase.authHeaders(),
+    );
+    final decoded = ApiBase.decode(res);
+    final data = (decoded['data'] as Map<String, dynamic>?) ?? const {};
+    return WorkoutSessionHistoryData.fromJson(data);
   }
 
   static Future<Map<String, dynamic>> logWorkoutSession(
@@ -203,7 +211,10 @@ final class WorkoutService extends ApiBase {
           ? {'muscleGroup': muscleGroup}
           : null,
     );
-    final res = await ApiBase.client.get(uri, headers: await ApiBase.authHeaders());
+    final res = await ApiBase.client.get(
+      uri,
+      headers: await ApiBase.authHeaders(),
+    );
     final decoded = ApiBase.decode(res);
     final list = (decoded['data'] as List?) ?? [];
     return list

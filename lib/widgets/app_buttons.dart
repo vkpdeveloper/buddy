@@ -1,6 +1,7 @@
 import 'package:buddy/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_lucide/flutter_lucide.dart';
 
 class AppPressable extends StatelessWidget {
   final VoidCallback? onPressed;
@@ -145,6 +146,36 @@ class AppPrimaryButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class AppBackButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final double iconSize;
+  final Color? color;
+
+  const AppBackButton({
+    super.key,
+    required this.onPressed,
+    this.icon = LucideIcons.chevron_left,
+    this.iconSize = 22,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPressable(
+      onPressed: onPressed,
+      semanticsLabel: 'Go back',
+      minHeight: AppTheme.minimumTouchTarget,
+      minWidth: AppTheme.minimumTouchTarget,
+      child: Icon(
+        icon,
+        color: color ?? AppTheme.textCream,
+        size: iconSize,
       ),
     );
   }

@@ -155,6 +155,39 @@ const estimateSessionVolume = (
     }, 0);
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type HistoryBucketMode = 'day' | 'week' | 'month';
+
+const HISTORY_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const startOfUtcDay = (date: Date): Date =>
+    new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+
+const startOfHistoryBucket = (date: Date, mode: HistoryBucketMode): Date => {
+    if (mode === 'day') return startOfUtcDay(date);
+    if (mode === 'month') return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+
+    const start = startOfUtcDay(date);
+    const offset = (start.getUTCDay() + 6) % 7;
+    start.setUTCDate(start.getUTCDate() - offset);
+    return start;
+};
+
+const formatHistoryBucketLabel = (date: Date, mode: HistoryBucketMode): string => {
+    const month = HISTORY_MONTHS[date.getUTCMonth()];
+    if (mode === 'month') return `${month} ${String(date.getUTCFullYear()).slice(-2)}`;
+    return `${month} ${date.getUTCDate()}`;
+};
+
+const historyBucketLabel = (mode: HistoryBucketMode): string => {
+    if (mode === 'month') return 'Monthly';
+    if (mode === 'week') return 'Weekly';
+    return 'Daily';
+};
+
+const parseDateOnlyUtc = (value: string): Date => new Date(`${value}T00:00:00.000Z`);
+
 const normalizeExerciseName = (name: string): string => name
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '')
@@ -591,101 +624,157 @@ router.delete('/exercises/:id', async (c) => {
 // ─── GET /api/workout/sessions/history ──────────────────────────────────────
 router.get('/sessions/history', async (c) => {
     const userId = c.var.userId;
-        const range = (c.req.query('range') ?? '30d').toLowerCase();
-        const now = new Date();
-        const rangeDays = range === '90d' ? 90 : range === 'all' ? 3650 : 30;
-        const start = new Date(now);
-        start.setDate(now.getDate() - rangeDays + 1);
-        start.setHours(0, 0, 0, 0);
+    const range = (c.req.query('range') ?? '30d').toLowerCase();
+    const now = new Date();
+    const bucketMode: HistoryBucketMode = range === '90d' ? 'week' : range === 'all' ? 'month' : 'day';
+    const configuredRangeDays = range === '90d' ? 90 : range === 'all' ? null : 30;
+    const historyLimit = range === 'all' ? 180 : 120;
 
-        const sessions = await db.select().from(workoutSessions)
-            .where(and(
-                eq(workoutSessions.userId, userId),
-                gte(workoutSessions.startedAt, start.toISOString()),
-                sql`${workoutSessions.completedAt} IS NOT NULL`,
-            ))
-            .orderBy(desc(workoutSessions.startedAt))
-            .limit(range === 'all' ? 500 : 200);
+    const filters = [
+        eq(workoutSessions.userId, userId),
+        sql`${workoutSessions.completedAt} IS NOT NULL`,
+    ];
 
-        const dayIds = [...new Set(sessions.map((session) => session.dayId))];
-        const dayRows = dayIds.length > 0
-            ? await db.select().from(workoutDays).where(inArray(workoutDays.id, dayIds))
-            : [];
-        const dayMap = new Map(dayRows.map((day) => [day.id, day]));
+    if (configuredRangeDays != null) {
+        const start = startOfUtcDay(now);
+        start.setUTCDate(start.getUTCDate() - configuredRangeDays + 1);
+        filters.push(gte(workoutSessions.completedAt, start.toISOString()));
+    }
 
-        const exercisesByDay = new Map<number, WorkoutExerciseRow[]>();
-        if (dayIds.length > 0) {
-            const exerciseRows = await db.select().from(workoutExercises)
+    const [progressRows, sessions] = await Promise.all([
+        db.select({
+            currentStreak: userProgress.currentStreak,
+            longestStreak: userProgress.longestStreak,
+        }).from(userProgress).where(eq(userProgress.userId, userId)).limit(1),
+        db.select().from(workoutSessions)
+            .where(and(...filters))
+            .orderBy(desc(workoutSessions.completedAt), desc(workoutSessions.id)),
+    ]);
+
+    const dayIds = [...new Set(sessions.map((session) => session.dayId))];
+    const [dayRows, exerciseRows] = await Promise.all([
+        dayIds.length > 0
+            ? db.select().from(workoutDays).where(inArray(workoutDays.id, dayIds))
+            : Promise.resolve([]),
+        dayIds.length > 0
+            ? db.select().from(workoutExercises)
                 .where(inArray(workoutExercises.dayId, dayIds))
-                .orderBy(workoutExercises.orderIndex);
-            for (const row of exerciseRows) {
-                const list = exercisesByDay.get(row.dayId) ?? [];
-                list.push(row);
-                exercisesByDay.set(row.dayId, list);
-            }
-        }
+                .orderBy(workoutExercises.orderIndex)
+            : Promise.resolve([]),
+    ]);
 
-        const dailyBuckets = new Map<string, { volume: number; duration: number; sessions: number }>();
-        const sessionItems = sessions.map((session) => {
-            const day = dayMap.get(session.dayId);
-            const date = (session.completedAt ?? session.startedAt ?? new Date().toISOString()).slice(0, 10);
-            const duration = session.totalDurationSeconds ?? estimateDayDurationSeconds(exercisesByDay.get(session.dayId) ?? []);
-            const volume = estimateSessionVolume(session, exercisesByDay.get(session.dayId) ?? []);
-            const bucket = dailyBuckets.get(date) ?? { volume: 0, duration: 0, sessions: 0 };
-            bucket.volume += volume;
-            bucket.duration += duration;
-            bucket.sessions += 1;
-            dailyBuckets.set(date, bucket);
-            return {
-                id: session.id,
-                date,
-                startedAt: session.startedAt,
-                completedAt: session.completedAt,
-                dayLabel: day?.dayLabel ?? 'Workout',
-                totalDurationSeconds: duration,
-                totalVolume: volume,
-                completedExercises: session.completedExercises,
-                totalExercises: session.totalExercises,
-                xpEarned: session.xpEarned,
-            };
-        });
+    const dayMap = new Map(dayRows.map((day) => [day.id, day]));
+    const exercisesByDay = new Map<number, WorkoutExerciseRow[]>();
+    for (const row of exerciseRows) {
+        const list = exercisesByDay.get(row.dayId) ?? [];
+        list.push(row);
+        exercisesByDay.set(row.dayId, list);
+    }
 
-        const sortedDates = [...dailyBuckets.keys()].sort();
-        const volumeSeries = sortedDates.map((date) => ({
+    const seriesBuckets = new Map<
+        string,
+        { date: string; label: string; volume: number; duration: number; sessions: number }
+    >();
+    const sessionItems = sessions.map((session) => {
+        const day = dayMap.get(session.dayId);
+        const date = (session.completedAt ?? session.startedAt ?? new Date().toISOString()).slice(0, 10);
+        const exercises = exercisesByDay.get(session.dayId) ?? [];
+        const duration = session.totalDurationSeconds ?? estimateDayDurationSeconds(exercises);
+        const volume = estimateSessionVolume(session, exercises);
+        const bucketDate = startOfHistoryBucket(parseDateOnlyUtc(date), bucketMode);
+        const bucketKey = bucketDate.toISOString().slice(0, 10);
+        const bucket = seriesBuckets.get(bucketKey) ?? {
+            date: bucketKey,
+            label: formatHistoryBucketLabel(bucketDate, bucketMode),
+            volume: 0,
+            duration: 0,
+            sessions: 0,
+        };
+
+        bucket.volume += volume;
+        bucket.duration += duration;
+        bucket.sessions += 1;
+        seriesBuckets.set(bucketKey, bucket);
+
+        return {
+            id: session.id,
             date,
-            value: dailyBuckets.get(date)?.volume ?? 0,
-        }));
-        const durationSeries = sortedDates.map((date) => ({
-            date,
-            value: dailyBuckets.get(date)?.duration ?? 0,
-        }));
-        const consistencySeries = sortedDates.map((date) => ({
-            date,
-            value: dailyBuckets.get(date)?.sessions ?? 0,
-        }));
+            startedAt: session.startedAt,
+            completedAt: session.completedAt,
+            dayLabel: day?.dayLabel ?? 'Workout',
+            totalDurationSeconds: duration,
+            totalVolume: volume,
+            completedExercises: session.completedExercises,
+            totalExercises: session.totalExercises,
+            xpEarned: session.xpEarned,
+        };
+    });
 
-        const totalSessions = sessionItems.length;
-        const totalDurationSeconds = sessionItems.reduce((sum, item) => sum + item.totalDurationSeconds, 0);
-        const totalVolume = sessionItems.reduce((sum, item) => sum + item.totalVolume, 0);
-        const avgDurationSeconds = totalSessions > 0 ? Math.round(totalDurationSeconds / totalSessions) : 0;
-        const consistencyScore = rangeDays > 0 ? Math.min(totalSessions / rangeDays, 1) : 0;
+    const historySessions = sessionItems.slice(0, historyLimit);
+    const sortedBucketKeys = [...seriesBuckets.keys()].sort();
+    const volumeSeries = sortedBucketKeys.map((date) => ({
+        date,
+        label: seriesBuckets.get(date)?.label ?? date,
+        value: seriesBuckets.get(date)?.volume ?? 0,
+    }));
+    const durationSeries = sortedBucketKeys.map((date) => ({
+        date,
+        label: seriesBuckets.get(date)?.label ?? date,
+        value: seriesBuckets.get(date)?.duration ?? 0,
+    }));
+    const frequencySeries = sortedBucketKeys.map((date) => ({
+        date,
+        label: seriesBuckets.get(date)?.label ?? date,
+        value: seriesBuckets.get(date)?.sessions ?? 0,
+    }));
 
-        return ok(c, {
-            range,
-            sessions: sessionItems,
-            summary: {
-                totalSessions,
-                totalDurationSeconds,
-                avgDurationSeconds,
-                totalVolume,
-                consistencyScore,
-            },
-            series: {
-                volume: volumeSeries,
-                duration: durationSeries,
-                consistency: consistencySeries,
-            },
-        });
+    const totalSessions = sessionItems.length;
+    const totalDurationSeconds = sessionItems.reduce((sum, item) => sum + item.totalDurationSeconds, 0);
+    const totalVolume = sessionItems.reduce((sum, item) => sum + item.totalVolume, 0);
+    const totalXpEarned = sessionItems.reduce((sum, item) => sum + (item.xpEarned ?? 0), 0);
+    const avgDurationSeconds = totalSessions > 0 ? Math.round(totalDurationSeconds / totalSessions) : 0;
+    const activeRangeDays = (() => {
+        if (configuredRangeDays != null) return configuredRangeDays;
+        const earliestDate = sessionItems.length > 0 ? sessionItems[sessionItems.length - 1].date : null;
+        if (!earliestDate) return 0;
+        const diffDays = Math.floor((startOfUtcDay(now).getTime() - parseDateOnlyUtc(earliestDate).getTime()) / DAY_MS);
+        return Math.max(diffDays + 1, 1);
+    })();
+    const consistencyScore = activeRangeDays > 0 ? Math.min(totalSessions / activeRangeDays, 1) : 0;
+    const avgSessionsPerWeek = activeRangeDays > 0
+        ? Math.round((totalSessions / Math.max(activeRangeDays / 7, 1)) * 10) / 10
+        : 0;
+    const progress = progressRows[0];
+
+    return ok(c, {
+        range,
+        meta: {
+            bucket: bucketMode,
+            bucketLabel: historyBucketLabel(bucketMode),
+            rangeDays: activeRangeDays,
+            historyLimit,
+            points: sortedBucketKeys.length,
+        },
+        sessions: historySessions,
+        summary: {
+            totalSessions,
+            totalDurationSeconds,
+            avgDurationSeconds,
+            totalVolume,
+            totalXpEarned,
+            consistencyScore,
+            currentStreak: progress?.currentStreak ?? 0,
+            longestStreak: progress?.longestStreak ?? 0,
+            avgSessionsPerWeek,
+            lastCompletedAt: sessionItems.length > 0 ? sessionItems[0].completedAt : null,
+        },
+        series: {
+            volume: volumeSeries,
+            duration: durationSeries,
+            frequency: frequencySeries,
+            consistency: frequencySeries,
+        },
+    });
 });
 
 // ─── POST /api/workout/sessions ──────────────────────────────────────────────

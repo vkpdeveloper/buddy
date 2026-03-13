@@ -86,10 +86,8 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
             padding: EdgeInsets.fromLTRB(16, topPad + 12, 16, 12),
             child: Row(
               children: [
-                AppSurfaceIconButton(
-                  icon: LucideIcons.chevron_left,
+                AppBackButton(
                   onPressed: () => Navigator.pop(context),
-                  label: 'Go back',
                 ),
                 const SizedBox(width: 14),
                 Text(

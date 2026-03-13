@@ -254,12 +254,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
     return AppBar(
       backgroundColor: AppTheme.oledBlack,
       elevation: 0,
-      leading: IconButton(
-        icon: const Icon(
-          LucideIcons.chevron_left,
-          color: AppTheme.textCream,
-          size: 22,
-        ),
+      leading: AppBackButton(
         onPressed: () => Navigator.pop(context),
       ),
       titleSpacing: 0,
