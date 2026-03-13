@@ -12,3 +12,7 @@
 
 # SoLoud
 -keep class com.gabriel.pu.** { *; }
+
+# Google Play Core (ignore missing classes)
+-dontwarn com.google.android.play.core.**
+-keep class com.google.android.play.core.** { *; }
