@@ -5,9 +5,18 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/models/exercise_catalog.dart';
 import 'package:buddy/services/workout_service.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 
-const _muscleGroups = ['All', 'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'];
+const _muscleGroups = [
+  'All',
+  'Chest',
+  'Back',
+  'Legs',
+  'Shoulders',
+  'Arms',
+  'Core',
+];
 
 Future<void> showExerciseLibrarySheet(
   BuildContext context, {
@@ -124,7 +133,9 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
               child: Row(
                 children: [
                   Text(
-                    widget.replaceExerciseId != null ? 'Swap Exercise' : 'Exercise Library',
+                    widget.replaceExerciseId != null
+                        ? 'Swap Exercise'
+                        : 'Exercise Library',
                     style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.textCream,
                       fontSize: 18,
@@ -132,13 +143,11 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                     ),
                   ),
                   const Spacer(),
-                  Semantics(
-                    button: true,
+                  AppSurfaceIconButton(
+                    icon: LucideIcons.x,
+                    onPressed: () => Navigator.pop(context),
                     label: 'Close',
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: const Icon(LucideIcons.x, color: AppTheme.textSageMuted, size: 20),
-                    ),
+                    iconSize: 20,
                   ),
                 ],
               ),
@@ -157,30 +166,37 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                     button: true,
                     selected: isSelected,
                     label: '$group muscle group filter',
-                    child: GestureDetector(
-                      onTap: () {
+                    child: AppPressable(
+                      onPressed: () {
                         setState(() => _selectedGroup = group);
                         _loadExercises();
                       },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primary : AppTheme.backgroundDark,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-                          ),
+                      selected: isSelected,
+                      minHeight: AppTheme.minimumTouchTarget,
+                      borderRadius: BorderRadius.circular(20),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primary
+                            : AppTheme.backgroundDark,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.borderDark,
                         ),
-                        child: Text(
-                          group,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: isSelected ? AppTheme.oledBlack : AppTheme.textSageMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      ),
+                      child: Text(
+                        group,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: isSelected
+                              ? AppTheme.oledBlack
+                              : AppTheme.textSageMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -191,12 +207,16 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
             const SizedBox(height: 12),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+                  ? const Center(
+                      child: CircularProgressIndicator(color: AppTheme.primary),
+                    )
                   : _exercises.isEmpty
                   ? Center(
                       child: Text(
                         'No exercises found.',
-                        style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSageMuted,
+                        ),
                       ),
                     )
                   : ListView.builder(
@@ -206,124 +226,149 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                       itemBuilder: (_, i) {
                         final item = _exercises[i];
                         return Semantics(
-                          label: '${item.name}, ${item.muscleGroup}, ${item.equipment}. Double tap to add.',
+                          label:
+                              '${item.name}, ${item.muscleGroup}, ${item.equipment}. Double tap to add.',
                           child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: AppTheme.backgroundDark,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.borderDark),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
-                            title: Text(
-                              item.name,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textCream,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundDark,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppTheme.borderDark),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                8,
+                                12,
+                                8,
                               ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    _chip(item.muscleGroup, AppTheme.primary),
-                                    const SizedBox(width: 6),
-                                    _chip(item.equipment, AppTheme.accent),
-                                    const SizedBox(width: 6),
-                                    _chip(item.category, AppTheme.textSageMuted),
-                                  ],
+                              title: Text(
+                                item.name,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: AppTheme.textCream,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                if (item.description.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    item.description,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textSageMuted,
-                                      fontSize: 11,
-                                      height: 1.4,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      _chip(item.muscleGroup, AppTheme.primary),
+                                      const SizedBox(width: 6),
+                                      _chip(item.equipment, AppTheme.accent),
+                                      const SizedBox(width: 6),
+                                      _chip(
+                                        item.category,
+                                        AppTheme.textSageMuted,
+                                      ),
+                                    ],
                                   ),
+                                  if (item.description.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      item.description,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: AppTheme.textSageMuted,
+                                        fontSize: 11,
+                                        height: 1.4,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ],
-                              ],
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (item.videoLink != null) ...[
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (item.videoLink != null) ...[
+                                    Tooltip(
+                                      message:
+                                          'Copy video link for ${item.name}',
+                                      child: Semantics(
+                                        button: true,
+                                        label:
+                                            'Copy video link for ${item.name}',
+                                        child: GestureDetector(
+                                          onTap: () async {
+                                            await Clipboard.setData(
+                                              ClipboardData(
+                                                text: item.videoLink!,
+                                              ),
+                                            );
+                                            if (context.mounted) {
+                                              AppSnackbar.success(
+                                                context,
+                                                'Video link copied',
+                                              );
+                                            }
+                                          },
+                                          child: Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.accent.withValues(
+                                                alpha: 0.12,
+                                              ),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: AppTheme.accent
+                                                    .withValues(alpha: 0.35),
+                                              ),
+                                            ),
+                                            child: const Icon(
+                                              LucideIcons.youtube,
+                                              color: AppTheme.accent,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
                                   Tooltip(
-                                    message: 'Copy video link for ${item.name}',
+                                    message: widget.replaceExerciseId != null
+                                        ? 'Swap with ${item.name}'
+                                        : 'Add ${item.name}',
                                     child: Semantics(
                                       button: true,
-                                      label: 'Copy video link for ${item.name}',
+                                      enabled: !_isAdding,
+                                      label: widget.replaceExerciseId != null
+                                          ? 'Swap with ${item.name}'
+                                          : 'Add ${item.name}',
                                       child: GestureDetector(
-                                        onTap: () async {
-                                          await Clipboard.setData(
-                                            ClipboardData(text: item.videoLink!),
-                                          );
-                                          if (context.mounted) {
-                                            AppSnackbar.success(
-                                              context,
-                                              'Video link copied',
-                                            );
-                                          }
-                                        },
+                                        onTap: _isAdding
+                                            ? null
+                                            : () => _selectExercise(item),
                                         child: Container(
                                           width: 32,
                                           height: 32,
                                           decoration: BoxDecoration(
-                                            color: AppTheme.accent.withValues(alpha: 0.12),
+                                            color: AppTheme.primary.withValues(
+                                              alpha: 0.15,
+                                            ),
                                             shape: BoxShape.circle,
                                             border: Border.all(
-                                              color: AppTheme.accent.withValues(alpha: 0.35),
+                                              color: AppTheme.primary
+                                                  .withValues(alpha: 0.4),
                                             ),
                                           ),
                                           child: const Icon(
-                                            LucideIcons.youtube,
-                                            color: AppTheme.accent,
-                                            size: 14,
+                                            LucideIcons.plus,
+                                            color: AppTheme.primary,
+                                            size: 16,
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                 ],
-                                Tooltip(
-                                  message: widget.replaceExerciseId != null
-                                      ? 'Swap with ${item.name}'
-                                      : 'Add ${item.name}',
-                                  child: Semantics(
-                                    button: true,
-                                    enabled: !_isAdding,
-                                    label: widget.replaceExerciseId != null
-                                        ? 'Swap with ${item.name}'
-                                        : 'Add ${item.name}',
-                                    child: GestureDetector(
-                                      onTap: _isAdding ? null : () => _selectExercise(item),
-                                      child: Container(
-                                        width: 32,
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primary.withValues(alpha: 0.15),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: AppTheme.primary.withValues(alpha: 0.4),
-                                          ),
-                                        ),
-                                        child: const Icon(LucideIcons.plus, color: AppTheme.primary, size: 16),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
                           ),
                         );
                       },

@@ -6,6 +6,8 @@ import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/services/targets_service.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/app_buttons.dart';
+import 'package:buddy/widgets/app_card.dart';
 
 class DailyGoalsPage extends ConsumerStatefulWidget {
   const DailyGoalsPage({super.key});
@@ -84,22 +86,10 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
             padding: EdgeInsets.fromLTRB(16, topPad + 12, 16, 12),
             child: Row(
               children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardDark,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderDark),
-                    ),
-                    child: const Icon(
-                      LucideIcons.chevron_left,
-                      color: AppTheme.textCream,
-                      size: 18,
-                    ),
-                  ),
+                AppSurfaceIconButton(
+                  icon: LucideIcons.chevron_left,
+                  onPressed: () => Navigator.pop(context),
+                  label: 'Go back',
                 ),
                 const SizedBox(width: 14),
                 Text(
@@ -185,25 +175,10 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  GestureDetector(
-                    onTap: _saving ? null : _save,
-                    child: Container(
-                      height: 54,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'SAVE GOALS',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
+                  AppPrimaryButton(
+                    label: 'SAVE GOALS',
+                    onPressed: _saving ? null : _save,
+                    isLoading: _saving,
                   ),
                 ],
               ),
@@ -231,13 +206,8 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.borderDark),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

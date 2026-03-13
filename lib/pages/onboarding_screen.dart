@@ -19,9 +19,11 @@ import 'package:buddy/services/targets_service.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/providers/generation_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/widgets/onboarding_hero_page.dart';
 import 'package:buddy/widgets/onboarding_aha_moment.dart';
 import 'package:buddy/widgets/onboarding_social_proof.dart';
+import 'package:buddy/utils/motion_preferences.dart';
 
 class _EquipmentOption {
   final String id;
@@ -229,6 +231,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _startQuoteCycle() {
+    if (prefersReducedMotion(context)) {
+      _stopQuoteCycle();
+      if (!_quoteFadeVisible) {
+        setState(() => _quoteFadeVisible = true);
+      }
+      return;
+    }
     _quoteTimer?.cancel();
     _quoteTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
       if (!mounted) return;
@@ -717,23 +726,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               children: [
                 SizedBox(
                   width: 36,
-                  child: Semantics(
-                    button: true,
-                    enabled: _currentPage > 0,
-                    label: 'Go back',
-                    excludeSemantics: true,
-                    child: GestureDetector(
-                      onTap: _currentPage > 0 ? _previousPage : null,
-                      child: AnimatedOpacity(
-                        opacity: _currentPage > 0 ? 1.0 : 0.32,
-                        duration: const Duration(milliseconds: 200),
-                        child: const Padding(
-                          padding: EdgeInsets.only(right: 14),
-                          child: Icon(
-                            LucideIcons.chevron_left,
-                            color: AppTheme.textSageMuted,
-                            size: 22,
-                          ),
+                  child: AppPressable(
+                    onPressed: _currentPage > 0 ? _previousPage : null,
+                    semanticsLabel: 'Go back',
+                    minHeight: AppTheme.minimumTouchTarget,
+                    minWidth: AppTheme.minimumTouchTarget,
+                    child: AnimatedOpacity(
+                      opacity: _currentPage > 0 ? 1.0 : 0.32,
+                      duration: motionDuration(
+                        context,
+                        const Duration(milliseconds: 200),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 14),
+                        child: Icon(
+                          LucideIcons.chevron_left,
+                          color: AppTheme.textSageMuted,
+                          size: 22,
                         ),
                       ),
                     ),
@@ -1617,62 +1626,56 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return Semantics(
-      button: true,
+    return AppPressable(
+      onPressed: onTap,
+      semanticsLabel: '$title: $subtitle',
       selected: isSelected,
-      label: '$title: $subtitle',
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppTheme.primary.withValues(alpha: 0.12)
-                : AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-              width: isSelected ? 1.5 : 1,
+      padding: const EdgeInsets.all(18),
+      borderRadius: BorderRadius.circular(18),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? AppTheme.primary.withValues(alpha: 0.12)
+            : AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+          width: isSelected ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textSageMuted,
+                    fontSize: 12,
+                    height: 1.45,
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 12,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (isSelected)
-                const Icon(
-                  LucideIcons.circle_check,
-                  color: AppTheme.primary,
-                  size: 20,
-                ),
-            ],
-          ),
-        ),
+          const SizedBox(width: 12),
+          if (isSelected)
+            const Icon(
+              LucideIcons.circle_check,
+              color: AppTheme.primary,
+              size: 20,
+            ),
+        ],
       ),
     );
   }
@@ -1967,87 +1970,80 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 const SizedBox(height: 28),
                 ...goals.map((g) {
                   final isSelected = _fitnessGoal == g.$1;
-                  return Semantics(
-                    button: true,
+                  return AppPressable(
+                    onPressed: () {
+                      if (_isNavigating) return;
+                      setState(() {
+                        _fitnessGoal = g.$1;
+                        _isNavigating = true;
+                      });
+                      Future.delayed(const Duration(milliseconds: 300), () {
+                        if (mounted) {
+                          _nextPage();
+                          setState(() => _isNavigating = false);
+                        }
+                      });
+                    },
+                    semanticsLabel: '${g.$2}: ${g.$3}',
                     selected: isSelected,
-                    label: '${g.$2}: ${g.$3}',
-                    child: GestureDetector(
-                      onTap: () {
-                        if (_isNavigating) return;
-                        setState(() {
-                          _fitnessGoal = g.$1;
-                          _isNavigating = true;
-                        });
-                        Future.delayed(const Duration(milliseconds: 300), () {
-                          if (mounted) {
-                            _nextPage();
-                            setState(() => _isNavigating = false);
-                          }
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.primary.withValues(alpha: 0.12)
-                              : AppTheme.cardDark,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.primary
-                                : AppTheme.borderDark,
-                            width: isSelected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: ExcludeSemantics(
-                          child: Row(
-                            children: [
-                              Text(g.$4, style: const TextStyle(fontSize: 24)),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      g.$2,
-                                      style: GoogleFonts.plusJakartaSans(
-                                        color: isSelected
-                                            ? AppTheme.textCream
-                                            : AppTheme.textSageMuted,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      isSelected ? g.$5 : g.$3,
-                                      style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textSageMuted
-                                            .withValues(alpha: 0.7),
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
+                    padding: const EdgeInsets.all(18),
+                    borderRadius: BorderRadius.circular(18),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primary.withValues(alpha: 0.12)
+                          : AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.primary
+                            : AppTheme.borderDark,
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: ExcludeSemantics(
+                      child: Row(
+                        children: [
+                          Text(g.$4, style: const TextStyle(fontSize: 24)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  g.$2,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: isSelected
+                                        ? AppTheme.textCream
+                                        : AppTheme.textSageMuted,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
+                                Text(
+                                  isSelected ? g.$5 : g.$3,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppTheme.textSageMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
                               ),
-                              if (isSelected)
-                                Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: const BoxDecoration(
-                                    color: AppTheme.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    LucideIcons.check,
-                                    color: AppTheme.oledBlack,
-                                    size: 12,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
+                              child: const Icon(
+                                LucideIcons.check,
+                                color: AppTheme.oledBlack,
+                                size: 12,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   );
@@ -2145,137 +2141,138 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     double borderRadius = 18,
     EdgeInsets imagePadding = const EdgeInsets.fromLTRB(8, 8, 8, 36),
   }) {
-    return Semantics(
-      button: true,
+    final effectiveHeight = min(
+      height,
+      max(
+        AppTheme.minimumTouchTarget * 3.2,
+        MediaQuery.sizeOf(context).height * 0.2,
+      ),
+    );
+    return AppPressable(
+      onPressed: onTap,
+      semanticsLabel: subtitle == null ? title : '$title: $subtitle',
       selected: isSelected,
-      label: subtitle == null ? title : '$title: $subtitle',
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: height,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppTheme.primary.withValues(alpha: 0.12)
-                : AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: isSelected ? AppTheme.primary : AppTheme.borderDark,
-              width: isSelected ? 2 : 1,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.14),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
-          ),
-          child: ExcludeSemantics(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(borderRadius - 1),
-                    child: ColoredBox(
-                      color: AppTheme.oledBlack,
-                      child: Padding(
-                        padding: imagePadding,
-                        child: Image.asset(
-                          assetPath,
-                          fit: BoxFit.contain,
-                          alignment: Alignment.topCenter,
-                          errorBuilder: (context, error, _) => Center(
-                            child: Icon(
-                              LucideIcons.user,
-                              color: AppTheme.textSageMuted.withValues(
-                                alpha: 0.4,
-                              ),
-                              size: subtitle == null ? 36 : 28,
-                            ),
+      borderRadius: BorderRadius.circular(borderRadius),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? AppTheme.primary.withValues(alpha: 0.12)
+            : AppTheme.cardDark,
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(
+          color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: AppTheme.primary.withValues(alpha: 0.14),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ]
+            : null,
+      ),
+      child: AnimatedContainer(
+        duration: motionDuration(context, const Duration(milliseconds: 200)),
+        height: effectiveHeight,
+        child: ExcludeSemantics(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(borderRadius - 1),
+                  child: ColoredBox(
+                    color: AppTheme.oledBlack,
+                    child: Padding(
+                      padding: imagePadding,
+                      child: Image.asset(
+                        assetPath,
+                        fit: BoxFit.contain,
+                        alignment: Alignment.topCenter,
+                        errorBuilder: (context, error, _) => Center(
+                          child: Icon(
+                            LucideIcons.user,
+                            color: AppTheme.textSageMuted,
+                            size: subtitle == null ? 36 : 28,
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(borderRadius - 1),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: const [0, 0.58, 1],
-                          colors: [
-                            AppTheme.transparent,
-                            AppTheme.transparent,
-                            AppTheme.oledBlack.withValues(alpha: 0.94),
-                          ],
-                        ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(borderRadius - 1),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0, 0.58, 1],
+                        colors: [
+                          AppTheme.transparent,
+                          AppTheme.transparent,
+                          AppTheme.oledBlack.withValues(alpha: 0.94),
+                        ],
                       ),
                     ),
                   ),
                 ),
-                Positioned(
-                  left: 12,
-                  right: 40,
-                  bottom: 12,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+              ),
+              Positioned(
+                left: 12,
+                right: 40,
+                bottom: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textCream,
+                        fontSize: subtitle == null ? 15 : 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        title,
-                        maxLines: 1,
+                        subtitle,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
-                          fontSize: subtitle == null ? 15 : 12,
-                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textSageMuted.withValues(alpha: 0.9),
+                          fontSize: 9,
+                          height: 1.2,
                         ),
                       ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted.withValues(
-                              alpha: 0.9,
-                            ),
-                            fontSize: 9,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
-                if (isSelected)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        LucideIcons.check,
-                        color: AppTheme.oledBlack,
-                        size: 14,
-                      ),
+              ),
+              if (isSelected)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      LucideIcons.check,
+                      color: AppTheme.oledBlack,
+                      size: 14,
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
@@ -3942,43 +3939,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     IconData icon = LucideIcons.arrow_right,
     String? semanticLabel,
   }) {
-    return Semantics(
-      button: true,
-      label: semanticLabel ?? label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            color: AppTheme.actionSurface,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Center(
-            child: ExcludeSemantics(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.actionForeground,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(icon, color: AppTheme.actionForeground, size: 18),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    return AppPrimaryButton(
+      label: label,
+      onPressed: onTap,
+      icon: icon,
+      semanticsLabel: semanticLabel,
     );
   }
 

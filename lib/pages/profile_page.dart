@@ -22,7 +22,8 @@ class ProfilePage extends ConsumerStatefulWidget {
   ConsumerState<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends ConsumerState<ProfilePage> {
+class _ProfilePageState extends ConsumerState<ProfilePage>
+    with SingleTickerProviderStateMixin {
   Map<String, dynamic>? _profileData;
   bool _profileLoading = true;
   late final AppLifecycleListener _healthLifecycleListener;
@@ -35,9 +36,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   int _reminderLeadMinutes = 60;
   TimeOfDay _workoutTime = const TimeOfDay(hour: 18, minute: 0);
 
+  // Entrance animation
+  late final AnimationController _controller;
+
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..forward();
     _healthLifecycleListener = AppLifecycleListener(
       onResume: _handleHealthAppResume,
     );
@@ -47,9 +55,38 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   void dispose() {
+    _controller.dispose();
     _healthLifecycleListener.dispose();
     super.dispose();
   }
+
+  // ── Stagger helpers ───────────────────────────────────────────────────────
+
+  Animation<double> _fadeAnim(int index) => CurvedAnimation(
+    parent: _controller,
+    curve: Interval(
+      (index * 0.07).clamp(0.0, 0.65),
+      ((index * 0.07) + 0.42).clamp(0.0, 1.0),
+      curve: Curves.easeOut,
+    ),
+  );
+
+  Animation<Offset> _slideAnim(int index) =>
+      Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Interval(
+            (index * 0.07).clamp(0.0, 0.65),
+            ((index * 0.07) + 0.42).clamp(0.0, 1.0),
+            curve: Curves.easeOutCubic,
+          ),
+        ),
+      );
+
+  Widget _animated(int index, Widget child) => FadeTransition(
+    opacity: _fadeAnim(index),
+    child: SlideTransition(position: _slideAnim(index), child: child),
+  );
 
   void _handleHealthAppResume() {
     if (!mounted) return;
@@ -285,11 +322,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
+        decoration: _cardDecoration(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -305,52 +338,62 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   const SizedBox(width: 8),
                   Text(
                     'Health Connect',
-                    style: GoogleFonts.sora(
+                    style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.textCream,
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const Spacer(),
                   permissionAsync.when(
-                    data: (granted) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                    data: (granted) => AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: ScaleTransition(scale: anim, child: child),
                       ),
-                      decoration: BoxDecoration(
-                        color: granted
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : AppTheme.error.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: granted
-                              ? AppTheme.primary.withValues(alpha: 0.4)
-                              : AppTheme.error.withValues(alpha: 0.4),
+                      child: Container(
+                        key: ValueKey(granted),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            granted
-                                ? LucideIcons.circle_check
-                                : LucideIcons.circle_x,
-                            color: granted ? AppTheme.success : AppTheme.error,
-                            size: 12,
+                        decoration: BoxDecoration(
+                          color: granted
+                              ? AppTheme.primary.withValues(alpha: 0.12)
+                              : AppTheme.error.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: granted
+                                ? AppTheme.primary.withValues(alpha: 0.4)
+                                : AppTheme.error.withValues(alpha: 0.4),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            granted ? 'Connected' : 'Disconnected',
-                            style: GoogleFonts.plusJakartaSans(
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              granted
+                                  ? LucideIcons.circle_check
+                                  : LucideIcons.circle_x,
                               color: granted
                                   ? AppTheme.success
                                   : AppTheme.error,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                              size: 12,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              granted ? 'Connected' : 'Disconnected',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: granted
+                                    ? AppTheme.success
+                                    : AppTheme.error,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     loading: () => const SizedBox(
@@ -358,7 +401,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (error, stackTrace) => const SizedBox.shrink(),
                   ),
                 ],
               ),
@@ -423,7 +466,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   height: 20,
                   child: Center(child: LinearProgressIndicator()),
                 ),
-                error: (_, __) => Text(
+                error: (error, stackTrace) => Text(
                   'Could not check Health Connect status.',
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textSageMuted,
@@ -504,25 +547,25 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildHero(context, user, progress, topPad),
+            _animated(0, _buildHero(context, user, progress, topPad)),
             const SizedBox(height: 16),
             if (progress != null) ...[
-              _buildXpCard(progress),
+              _animated(1, _buildXpCard(progress)),
               const SizedBox(height: 12),
             ],
-            _buildFitnessCard(),
+            _animated(2, _buildFitnessCard()),
             const SizedBox(height: 12),
-            _buildGoalsCard(),
+            _animated(3, _buildGoalsCard()),
             const SizedBox(height: 12),
-            _buildDailyGoalsCard(),
+            _animated(4, _buildDailyGoalsCard()),
             const SizedBox(height: 12),
-            _buildNotificationsCard(),
+            _animated(5, _buildNotificationsCard()),
             const SizedBox(height: 12),
-            _buildHealthConnectCard(),
+            _animated(6, _buildHealthConnectCard()),
             const SizedBox(height: 12),
-            _buildAccountCard(),
+            _animated(7, _buildAccountCard()),
             const SizedBox(height: 24),
-            _buildSignOutButton(),
+            _animated(8, _buildSignOutButton()),
             SizedBox(height: bottomPad + 32),
           ],
         ),
@@ -552,7 +595,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(24, topPad + 16, 24, 28),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -568,38 +610,48 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           // Back button
           Align(
             alignment: Alignment.centerLeft,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardRaised,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.borderDark),
-                ),
-                child: const Icon(
-                  LucideIcons.arrow_left,
-                  color: AppTheme.textCream,
-                  size: 18,
+            child: Material(
+              color: AppTheme.transparent,
+              borderRadius: BorderRadius.circular(10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardRaised,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.borderDark),
+                  ),
+                  child: const Icon(
+                    LucideIcons.arrow_left,
+                    color: AppTheme.textCream,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 24),
 
-          // Avatar with XP ring
+          // Avatar with animated XP ring
           Stack(
             alignment: Alignment.center,
             children: [
               SizedBox(
                 width: 116,
                 height: 116,
-                child: CircularProgressIndicator(
-                  value: levelFraction,
-                  strokeWidth: 3.5,
-                  backgroundColor: AppTheme.borderDark,
-                  valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
-                  strokeCap: StrokeCap.round,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: levelFraction),
+                  duration: const Duration(milliseconds: 1400),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) => CircularProgressIndicator(
+                    value: value,
+                    strokeWidth: 3.5,
+                    backgroundColor: AppTheme.borderDark,
+                    valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
+                    strokeCap: StrokeCap.round,
+                  ),
                 ),
               ),
               Container(
@@ -703,12 +755,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        decoration: _cardDecoration(),
         child: Column(
           children: [
             Row(
@@ -747,24 +795,34 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                Text(
-                  '${(progress.levelProgressFraction * 100).toInt()}%',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.xpGold,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: progress.levelProgressFraction),
+                  duration: const Duration(milliseconds: 1200),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) => Text(
+                    '${(value * 100).toInt()}%',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.xpGold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress.levelProgressFraction,
-                minHeight: 5,
-                backgroundColor: AppTheme.borderDark,
-                valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: progress.levelProgressFraction),
+              duration: const Duration(milliseconds: 1200),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) => ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: value,
+                  minHeight: 5,
+                  backgroundColor: AppTheme.borderDark,
+                  valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
+                ),
               ),
             ),
             if (progress.totalWorkoutsCompleted > 0) ...[
@@ -920,55 +978,51 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget _buildDailyGoalsCard() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GestureDetector(
-        onTap: () async {
-          final didSave = await Navigator.push<bool>(
+      child: Material(
+        color: AppTheme.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const DailyGoalsPage()),
-          );
-          if (didSave == true && mounted) {
-            await _loadProfile();
-          }
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.borderDark),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                const Icon(
-                  LucideIcons.target,
-                  color: AppTheme.primary,
-                  size: 16,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Daily Goals',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+          child: Container(
+            decoration: _cardDecoration(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  const Icon(
+                    LucideIcons.target,
+                    color: AppTheme.primary,
+                    size: 16,
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  'Steps · Sleep · Water',
-                  style: GoogleFonts.plusJakartaSans(
+                  const SizedBox(width: 10),
+                  Text(
+                    'Daily Goals',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textCream,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Steps · Sleep · Water',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    LucideIcons.chevron_right,
                     color: AppTheme.textSageMuted,
-                    fontSize: 11,
+                    size: 16,
                   ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  LucideIcons.chevron_right,
-                  color: AppTheme.textSageMuted,
-                  size: 16,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -982,11 +1036,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
+        decoration: _cardDecoration(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1002,10 +1052,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   const SizedBox(width: 8),
                   Text(
                     'Workout Reminders',
-                    style: GoogleFonts.sora(
+                    style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.textCream,
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -1029,13 +1079,19 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          _reminderEnabled
-                              ? '${_workoutTime.format(context)} · $_reminderLeadMinutes min before'
-                              : 'Tap to enable',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 11,
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          transitionBuilder: (child, anim) =>
+                              FadeTransition(opacity: anim, child: child),
+                          child: Text(
+                            key: ValueKey(_reminderEnabled),
+                            _reminderEnabled
+                                ? '${_workoutTime.format(context)} · $_reminderLeadMinutes min before'
+                                : 'Tap to enable',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textSageMuted,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                       ],
@@ -1049,36 +1105,45 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ],
               ),
             ),
-            if (_reminderEnabled) ...[
-              const Divider(
-                color: AppTheme.borderDark,
-                height: 1,
-                indent: 16,
-                endIndent: 16,
-              ),
-              ListTile(
-                dense: true,
-                onTap: _openReminderSheet,
-                leading: const Icon(
-                  LucideIcons.settings_2,
-                  color: AppTheme.primary,
-                  size: 16,
-                ),
-                title: Text(
-                  'Configure reminder time',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                trailing: const Icon(
-                  LucideIcons.chevron_right,
-                  color: AppTheme.textSageMuted,
-                  size: 16,
-                ),
-              ),
-            ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOut,
+              child: _reminderEnabled
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Divider(
+                          color: AppTheme.borderDark,
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                        ),
+                        ListTile(
+                          dense: true,
+                          onTap: _openReminderSheet,
+                          leading: const Icon(
+                            LucideIcons.settings_2,
+                            color: AppTheme.primary,
+                            size: 16,
+                          ),
+                          title: Text(
+                            'Configure reminder time',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: AppTheme.textCream,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          trailing: const Icon(
+                            LucideIcons.chevron_right,
+                            color: AppTheme.textSageMuted,
+                            size: 16,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
             const SizedBox(height: 4),
           ],
         ),
@@ -1092,11 +1157,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
+        decoration: _cardDecoration(),
         child: Column(
           children: [
             Padding(
@@ -1111,10 +1172,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   const SizedBox(width: 8),
                   Text(
                     'Account',
-                    style: GoogleFonts.sora(
+                    style: GoogleFonts.plusJakartaSans(
                       color: AppTheme.textCream,
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -1352,8 +1413,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       'ppl_upper': 'PPL+Upper',
       'full_body': 'Full Body',
     }[d['workoutCycle']];
-    if (days != null && cycleLabel != null)
+    if (days != null && cycleLabel != null) {
       return '${days}x/week · $cycleLabel';
+    }
     if (days != null) return '${days}x/week';
     return '-';
   }
@@ -1371,6 +1433,25 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         .join(', ');
   }
 }
+
+// ── Shared card decoration ──────────────────────────────────────────────────
+
+BoxDecoration _cardDecoration() => BoxDecoration(
+  borderRadius: BorderRadius.circular(20),
+  border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.95)),
+  gradient: const LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+  ),
+  boxShadow: [
+    BoxShadow(
+      color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+      blurRadius: 20,
+      offset: const Offset(0, 10),
+    ),
+  ],
+);
 
 // ── Supporting Widgets ─────────────────────────────────────────────────────
 
@@ -1443,11 +1524,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.borderDark),
-      ),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1459,10 +1536,10 @@ class _SectionCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: GoogleFonts.sora(
+                  style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textCream,
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

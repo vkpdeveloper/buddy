@@ -1,7 +1,10 @@
 import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:buddy/main.dart';
+import 'package:buddy/app_theme.dart';
+import 'package:buddy/pages/login_page.dart';
 
 void main() {
   setUpAll(() {
@@ -9,16 +12,17 @@ void main() {
     HttpOverrides.global = null;
   });
 
-  testWidgets('App renders without crashing', (WidgetTester tester) async {
-    // Provide a localized mock response for image requests instead of throwing
-    await tester.runAsync(() async {
-      await tester.pumpWidget(const HealthBiometricsApp());
+  testWidgets('Login page renders without crashing', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.darkTheme, home: const LoginPage()),
+    );
+    await tester.pump();
 
-      // Let the image fetch fail and catch the exception locally
-      tester.takeException();
-
-      // Verify that the title is rendered.
-      expect(find.text('Buddy'), findsOneWidget);
-    });
+    expect(find.byType(MaterialApp), findsOneWidget);
+    expect(find.byType(Scaffold), findsOneWidget);
+    expect(find.text('Buddy'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

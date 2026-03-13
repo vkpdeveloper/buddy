@@ -10,7 +10,10 @@ import 'package:buddy/providers/progress_provider.dart';
 import 'package:buddy/services/body_service.dart';
 import 'package:buddy/services/progress_share_service.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
+import 'package:buddy/widgets/app_buttons.dart';
+import 'package:buddy/widgets/app_card.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/app_text_field.dart';
 import 'package:buddy/widgets/progress_share_cards.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -702,32 +705,38 @@ class _SegmentedSelector extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF131318), AppTheme.cardDark],
+          colors: AppTheme.cardGradient,
         ),
       ),
       child: Row(
         children: List.generate(labels.length, (i) {
           final isSelected = i == selectedIndex;
           return Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(9),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppTheme.primary.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
+            child: AppPressable(
+              onPressed: () => onChanged(i),
+              semanticsLabel: labels[i],
+              selected: isSelected,
+              minHeight: AppTheme.minimumTouchTarget,
+              minWidth: AppTheme.minimumTouchTarget,
+              borderRadius: BorderRadius.circular(9),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primary : AppTheme.transparent,
+                borderRadius: BorderRadius.circular(9),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primary.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 10,
                 ),
-                alignment: Alignment.center,
                 child: Text(
                   labels[i],
                   style: GoogleFonts.plusJakartaSans(
@@ -1036,7 +1045,7 @@ class _WeightChartPainter extends CustomPainter {
     const vPad = 12.0;
 
     final values = points.map((p) => p.value).toList();
-    final allValues = [...values, if (goalKg != null) goalKg!];
+    final allValues = [...values, ?goalKg];
     var minV = allValues.reduce(math.min);
     var maxV = allValues.reduce(math.max);
     final range = maxV - minV == 0 ? 1.0 : maxV - minV;
@@ -1204,14 +1213,15 @@ class _ProgressPhotosSection extends ConsumerWidget {
                             child: Image.network(
                               p.imageUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: AppTheme.backgroundDark,
-                                child: const Icon(
-                                  LucideIcons.image,
-                                  color: AppTheme.textSageMuted,
-                                  size: 20,
-                                ),
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: AppTheme.backgroundDark,
+                                    child: const Icon(
+                                      LucideIcons.image,
+                                      color: AppTheme.textSageMuted,
+                                      size: 20,
+                                    ),
+                                  ),
                             ),
                           ),
                         ),
@@ -1493,19 +1503,7 @@ class _BmiCard extends StatelessWidget {
         label: bmi == null
             ? 'BMI unavailable. Add your latest weight and height to calculate it.'
             : 'BMI ${bmi.toStringAsFixed(2)}. Current range $category.',
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppTheme.borderDark.withValues(alpha: 0.95),
-            ),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
-            ),
-          ),
+        child: AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1783,367 +1781,6 @@ class _IconAction extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatsStrip extends StatelessWidget {
-  final GrowthOverviewData overview;
-
-  const _StatsStrip({required this.overview});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          _StatChip(
-            label: 'LOGS',
-            value: '${overview.totalLogs}',
-            icon: LucideIcons.clipboard_list,
-          ),
-          const SizedBox(width: 10),
-          _StatChip(
-            label: 'WEIGHT',
-            value: overview.currentWeightKg == null
-                ? '—'
-                : '${overview.currentWeightKg!.toStringAsFixed(1)} kg',
-            icon: LucideIcons.scale,
-          ),
-          const SizedBox(width: 10),
-          _StatChip(
-            label: 'LAST LOG',
-            value: overview.lastLogDate ?? 'Never',
-            icon: LucideIcons.calendar,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _StatChip({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Semantics(
-        label: '$label: $value',
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          decoration: BoxDecoration(
-            color: AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.borderDark),
-          ),
-          child: ExcludeSemantics(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, color: AppTheme.primary, size: 12),
-                    const SizedBox(width: 4),
-                    Text(
-                      label,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LevelCard extends StatelessWidget {
-  final GrowthOverviewData overview;
-
-  const _LevelCard({required this.overview});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Semantics(
-        label:
-            'Level ${overview.currentLevel}, ${overview.levelLabel}. ${overview.totalXp} XP. ${overview.currentStreak} day streak. ${(overview.levelProgressFraction * 100).toStringAsFixed(0)}% to next level.',
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.cardDark,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppTheme.levelArc.withValues(alpha: 0.35),
-            ),
-          ),
-          child: ExcludeSemantics(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'LEVEL ${overview.currentLevel} • ${overview.levelLabel.toUpperCase()}',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.levelArc,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '${overview.totalXp} XP',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.xpGold,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${overview.currentStreak} day streak',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: overview.levelProgressFraction.clamp(0.0, 1.0),
-                    minHeight: 6,
-                    backgroundColor: AppTheme.borderDark,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      AppTheme.levelArc,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricGrid extends StatelessWidget {
-  final List<GrowthMetricCard> metrics;
-
-  const _MetricGrid({required this.metrics});
-
-  @override
-  Widget build(BuildContext context) {
-    final activeMetrics = metrics.where((m) => m.latestValue != null).toList();
-    if (activeMetrics.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'MEASUREMENTS',
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: activeMetrics.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.26,
-            ),
-            itemBuilder: (_, i) {
-              final metric = activeMetrics[i];
-              final metricValueStr = metric.latestValue == null
-                  ? 'no data'
-                  : '${metric.latestValue!.toStringAsFixed(1)} ${metric.unit}';
-              final deltaStr = metric.deltaSinceLast != null
-                  ? ', ${metric.deltaSinceLast! >= 0 ? '+' : ''}${metric.deltaSinceLast!.toStringAsFixed(1)} vs last'
-                  : '';
-              return Semantics(
-                label: '${metric.label}: $metricValueStr$deltaStr',
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.borderDark),
-                  ),
-                  child: ExcludeSemantics(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          metric.label.toUpperCase(),
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            if (metric.latestValue == null)
-                              Text(
-                                '—',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textCream,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              )
-                            else ...[
-                              Text(
-                                metric.latestValue!.toStringAsFixed(1),
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textCream,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                metric.unit,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textSageMuted,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                            if (metric.sparkline.length >= 2) ...[
-                              if (metric.deltaSinceLast != null) ...[
-                                const SizedBox(width: 6),
-                                _DeltaBadge(
-                                  label: 'vs last',
-                                  delta: metric.deltaSinceLast!,
-                                  unit: metric.unit == '%'
-                                      ? '%'
-                                      : ' ${metric.unit}',
-                                ),
-                              ] else if (metric.deltaSinceStart != null) ...[
-                                const SizedBox(width: 6),
-                                _DeltaBadge(
-                                  label: 'vs start',
-                                  delta: metric.deltaSinceStart!,
-                                  unit: metric.unit == '%'
-                                      ? '%'
-                                      : ' ${metric.unit}',
-                                ),
-                              ],
-                            ],
-                          ],
-                        ),
-                        const Spacer(),
-                        if (metric.sparkline.length >= 2)
-                          SizedBox(
-                            width: double.infinity,
-                            height: 20,
-                            child: CustomPaint(
-                              painter: _SparklinePainter(
-                                metric.sparkline.map((e) => e.value).toList(),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeltaBadge extends StatelessWidget {
-  final String label;
-  final double delta;
-  final String unit;
-
-  const _DeltaBadge({
-    required this.label,
-    required this.delta,
-    required this.unit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDown = delta < 0;
-    final color = isDown ? AppTheme.success : AppTheme.error;
-    final icon = isDown ? LucideIcons.trending_down : LucideIcons.trending_up;
-    final absValue = delta.abs().toStringAsFixed(1);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 9, color: color),
-          const SizedBox(width: 3),
-          Text(
-            '$absValue$unit $label',
-            style: GoogleFonts.plusJakartaSans(
-              color: color,
-              fontSize: 8,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2533,435 +2170,6 @@ class _AchievementGrid extends StatelessWidget {
   }
 }
 
-class _CompositionCard extends StatelessWidget {
-  final List<GrowthCompositionPoint> series;
-
-  const _CompositionCard({required this.series});
-
-  @override
-  Widget build(BuildContext context) {
-    final fatSeries = series.map((e) => e.fatMassKg).toList();
-    final leanSeries = series.map((e) => e.leanMassKg).toList();
-    final firstPoint = series.isNotEmpty ? series.first : null;
-    final lastPoint = series.isNotEmpty ? series.last : null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.cardRaised.withValues(alpha: 0.72),
-              AppTheme.cardDark,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'BODY COMPOSITION',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-                const Spacer(),
-                if (firstPoint != null && lastPoint != null)
-                  Text(
-                    '${_formatDateLabel(firstPoint.date)} - ${_formatDateLabel(lastPoint.date)}',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (series.length < 2)
-              Text(
-                'Log weight + body fat for at least two entries to view composition trend.',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
-                  fontSize: 12,
-                ),
-              )
-            else ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  height: 164,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        AppTheme.backgroundDark.withValues(alpha: 0.8),
-                        AppTheme.backgroundDark.withValues(alpha: 0.5),
-                      ],
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: _CompositionChartPainter(
-                            first: fatSeries,
-                            second: leanSeries,
-                            firstColor: AppTheme.warning,
-                            secondColor: AppTheme.info,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Row(
-                          children: const [
-                            _CompositionLegendDot(
-                              label: 'Fat Mass',
-                              color: AppTheme.warning,
-                            ),
-                            SizedBox(width: 10),
-                            _CompositionLegendDot(
-                              label: 'Lean Mass',
-                              color: AppTheme.info,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _CompositionStatChip(
-                      label: 'Fat Mass',
-                      value: '${fatSeries.last.toStringAsFixed(1)} kg',
-                      delta: fatSeries.last - fatSeries.first,
-                      color: AppTheme.warning,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _CompositionStatChip(
-                      label: 'Lean Mass',
-                      value: '${leanSeries.last.toStringAsFixed(1)} kg',
-                      delta: leanSeries.last - leanSeries.first,
-                      color: AppTheme.info,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatDateLabel(String raw) {
-    final d = DateTime.tryParse(raw);
-    if (d == null) return raw;
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${d.day} ${months[d.month - 1]}';
-  }
-}
-
-class _CompositionLegendDot extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _CompositionLegendDot({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textMain,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CompositionStatChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final double delta;
-  final Color color;
-
-  const _CompositionStatChip({
-    required this.label,
-    required this.value,
-    required this.delta,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isUp = delta >= 0;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundDark.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.8)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            '${isUp ? '+' : ''}${delta.toStringAsFixed(1)} kg',
-            style: GoogleFonts.plusJakartaSans(
-              color: color.withValues(alpha: 0.95),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GoalsCard extends StatelessWidget {
-  final GrowthGoalData goals;
-  final VoidCallback onEdit;
-
-  const _GoalsCard({required this.goals, required this.onEdit});
-
-  @override
-  Widget build(BuildContext context) {
-    final hasGoal =
-        goals.weightGoalKg != null || goals.bodyFatGoalPercent != null;
-    final hasCheckIn =
-        goals.currentWeightKg != null || goals.currentBodyFatPercent != null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.cardDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'Goals',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: onEdit,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primary,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    hasGoal ? 'Edit' : 'Set',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 11),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _summary(hasGoal: hasGoal, hasCheckIn: hasCheckIn),
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
-                fontSize: 10.5,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _GoalCompactRow(
-              title: 'Weight Goal',
-              current: goals.currentWeightKg,
-              target: goals.weightGoalKg,
-              remaining: goals.weightRemainingKg,
-              unit: 'kg',
-            ),
-            const SizedBox(height: 8),
-            _GoalCompactRow(
-              title: 'Body Fat Goal',
-              current: goals.currentBodyFatPercent,
-              target: goals.bodyFatGoalPercent,
-              remaining: goals.bodyFatRemainingPercent,
-              unit: '%',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _summary({required bool hasGoal, required bool hasCheckIn}) {
-    if (!hasGoal) {
-      return 'Set your targets to start tracking progress.';
-    }
-    if (!hasCheckIn) {
-      return 'Targets set. Log your first check-in.';
-    }
-    return 'Updated after each check-in.';
-  }
-}
-
-class _GoalCompactRow extends StatelessWidget {
-  final String title;
-  final double? current;
-  final double? target;
-  final double? remaining;
-  final String unit;
-
-  const _GoalCompactRow({
-    required this.title,
-    required this.current,
-    required this.target,
-    required this.remaining,
-    required this.unit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasTarget = target != null;
-    final remainingValue = remaining?.abs();
-    final status = hasTarget
-        ? remainingValue == null
-              ? 'Target set'
-              : '${_format(remainingValue)} $unit left'
-        : 'Not set';
-    final valueLine = hasTarget
-        ? current == null
-              ? 'Target ${_format(target)} $unit'
-              : '${_format(current)} $unit now • ${_format(target)} $unit target'
-        : 'No target yet';
-
-    return Semantics(
-      label: '$title: $valueLine. $status.',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundDark,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    valueLine,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              status,
-              style: GoogleFonts.plusJakartaSans(
-                color: hasTarget ? AppTheme.success : AppTheme.textSageMuted,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _format(double? value) {
-    if (value == null) return '—';
-    return value.toStringAsFixed(1);
-  }
-}
-
 class _GoalEditSheet extends StatefulWidget {
   final GrowthGoalData initial;
 
@@ -3079,194 +2287,15 @@ class _GoalInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return AppTextField(
       controller: controller,
+      label: label,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
       ],
-      style: GoogleFonts.plusJakartaSans(color: AppTheme.textCream),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
-        filled: true,
-        fillColor: AppTheme.backgroundDark,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+      semanticLabel: label,
     );
-  }
-}
-
-class _SparklinePainter extends CustomPainter {
-  final List<double> data;
-
-  _SparklinePainter(this.data);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.length < 2) return;
-
-    final minV = data.reduce(math.min);
-    final maxV = data.reduce(math.max);
-    final range = maxV - minV == 0 ? 1.0 : maxV - minV;
-
-    final points = <Offset>[];
-    for (int i = 0; i < data.length; i++) {
-      final x = (i / (data.length - 1)) * size.width;
-      final y = size.height - ((data[i] - minV) / range) * size.height;
-      points.add(Offset(x, y));
-    }
-
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-    }
-
-    final paint = Paint()
-      ..color = AppTheme.primary
-      ..strokeWidth = 1.6
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(path, paint);
-    canvas.drawCircle(points.last, 2.8, Paint()..color = AppTheme.primary);
-  }
-
-  @override
-  bool shouldRepaint(_SparklinePainter oldDelegate) => oldDelegate.data != data;
-}
-
-class _CompositionChartPainter extends CustomPainter {
-  final List<double> first;
-  final List<double> second;
-  final Color firstColor;
-  final Color secondColor;
-
-  _CompositionChartPainter({
-    required this.first,
-    required this.second,
-    required this.firstColor,
-    required this.secondColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (first.length < 2 || second.length < 2) return;
-    const left = 10.0;
-    const right = 10.0;
-    const top = 12.0;
-    const bottom = 16.0;
-    final chartRect = Rect.fromLTWH(
-      left,
-      top,
-      size.width - left - right,
-      size.height - top - bottom,
-    );
-
-    final allValues = [...first, ...second];
-    final minValue = allValues.reduce(math.min);
-    final maxValue = allValues.reduce(math.max);
-    final range = (maxValue - minValue).abs();
-    final padding = math.max(0.8, range * 0.18);
-    final lower = minValue - padding;
-    final upper = maxValue + padding;
-    final safeRange = upper - lower == 0 ? 1.0 : upper - lower;
-
-    final gridPaint = Paint()
-      ..color = AppTheme.borderDark.withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    for (int i = 0; i < 4; i++) {
-      final y = chartRect.top + (i / 3) * chartRect.height;
-      canvas.drawLine(
-        Offset(chartRect.left, y),
-        Offset(chartRect.right, y),
-        gridPaint,
-      );
-    }
-
-    final firstPoints = _buildPoints(first, chartRect, lower, safeRange);
-    final secondPoints = _buildPoints(second, chartRect, lower, safeRange);
-
-    _drawArea(canvas, chartRect, firstPoints, firstColor);
-    _drawArea(canvas, chartRect, secondPoints, secondColor);
-    _drawLine(canvas, firstPoints, firstColor);
-    _drawLine(canvas, secondPoints, secondColor);
-    _drawMarker(canvas, firstPoints.last, firstColor);
-    _drawMarker(canvas, secondPoints.last, secondColor);
-  }
-
-  List<Offset> _buildPoints(
-    List<double> values,
-    Rect rect,
-    double lower,
-    double range,
-  ) {
-    final points = <Offset>[];
-    for (int i = 0; i < values.length; i++) {
-      final x = rect.left + (i / (values.length - 1)) * rect.width;
-      final normalized = ((values[i] - lower) / range).clamp(0.0, 1.0);
-      final y = rect.bottom - normalized * rect.height;
-      points.add(Offset(x, y));
-    }
-    return points;
-  }
-
-  Path _smoothPath(List<Offset> points) {
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (int i = 1; i < points.length; i++) {
-      final current = points[i];
-      final prev = points[i - 1];
-      final cpX = (prev.dx + current.dx) / 2;
-      path.quadraticBezierTo(cpX, prev.dy, current.dx, current.dy);
-    }
-    return path;
-  }
-
-  void _drawArea(Canvas canvas, Rect rect, List<Offset> points, Color color) {
-    final stroke = _smoothPath(points);
-    final fillPath = Path.from(stroke)
-      ..lineTo(points.last.dx, rect.bottom)
-      ..lineTo(points.first.dx, rect.bottom)
-      ..close();
-
-    canvas.drawPath(
-      fillPath,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            color.withValues(alpha: 0.18),
-            color.withValues(alpha: 0.02),
-          ],
-        ).createShader(rect),
-    );
-  }
-
-  void _drawLine(Canvas canvas, List<Offset> points, Color color) {
-    canvas.drawPath(
-      _smoothPath(points),
-      Paint()
-        ..color = color.withValues(alpha: 0.95)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  void _drawMarker(Canvas canvas, Offset point, Color color) {
-    canvas.drawCircle(point, 7, Paint()..color = color.withValues(alpha: 0.22));
-    canvas.drawCircle(point, 3.2, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CompositionChartPainter oldDelegate) {
-    return oldDelegate.first != first ||
-        oldDelegate.second != second ||
-        oldDelegate.firstColor != firstColor ||
-        oldDelegate.secondColor != secondColor;
   }
 }
 
@@ -3482,27 +2511,19 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
                     ),
             ),
             const SizedBox(height: 10),
-            TextField(
+            AppTextField(
               controller: _controller,
+              label: step.label,
+              semanticLabel: step.label,
+              suffixText: step.unit,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
               ],
-              style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
-                fontSize: 34,
-                fontWeight: FontWeight.w700,
-              ),
-              decoration: InputDecoration(
-                suffixText: step.unit,
-                filled: true,
-                fillColor: AppTheme.backgroundDark,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
+              fontSize: 34,
+              fontWeight: FontWeight.w700,
             ),
             const Spacer(),
             Row(

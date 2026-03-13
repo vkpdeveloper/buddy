@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/utils/motion_preferences.dart';
 
 class ShimmerBox extends StatefulWidget {
   final double width;
@@ -24,6 +25,7 @@ class ShimmerBox extends StatefulWidget {
 class _ShimmerBoxState extends State<ShimmerBox>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+  bool _isAnimating = false;
 
   @override
   void initState() {
@@ -31,7 +33,22 @@ class _ShimmerBoxState extends State<ShimmerBox>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final shouldAnimate = !prefersReducedMotion(context);
+    if (shouldAnimate == _isAnimating) return;
+    _isAnimating = shouldAnimate;
+    if (shouldAnimate) {
+      _controller.repeat();
+      return;
+    }
+    _controller
+      ..stop()
+      ..value = 0.5;
   }
 
   @override

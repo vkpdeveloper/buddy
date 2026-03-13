@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 
 /// Self-contained social proof screen for onboarding.
 /// Drop it into the PageView as a step — it manages its own entry animations.
@@ -28,9 +29,9 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
 
   // Stats that count up
   static const _stats = [
-    _Stat(value: 3.0,  suffix: '×',  label: 'more consistent\nwith a plan'),
-    _Stat(value: 87.0, suffix: '%',  label: 'still going\npast week 4'),
-    _Stat(value: 3.8,  suffix: ' kg', label: 'avg. first-month\nresult'),
+    _Stat(value: 3.0, suffix: '×', label: 'more consistent\nwith a plan'),
+    _Stat(value: 87.0, suffix: '%', label: 'still going\npast week 4'),
+    _Stat(value: 3.8, suffix: ' kg', label: 'avg. first-month\nresult'),
   ];
 
   @override
@@ -305,8 +306,11 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
               builder: (context, _) {
                 final progress = CurvedAnimation(
                   parent: _statsController,
-                  curve: Interval(delay, min(delay + 0.6, 1.0),
-                      curve: Curves.easeOutCubic),
+                  curve: Interval(
+                    delay,
+                    min(delay + 0.6, 1.0),
+                    curve: Curves.easeOutCubic,
+                  ),
                 ).value;
 
                 final displayValue = stat.value * progress;
@@ -422,27 +426,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
   // ─── CTA ─────────────────────────────────────────────────────────────────
 
   Widget _buildCTA() {
-    return GestureDetector(
-      onTap: widget.onNext,
-      child: Container(
-        width: double.infinity,
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          'I\'M READY',
-          style: GoogleFonts.plusJakartaSans(
-            color: Colors.black,
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.8,
-          ),
-        ),
-      ),
-    );
+    return AppPrimaryButton(label: 'I\'M READY', onPressed: widget.onNext);
   }
 }
 

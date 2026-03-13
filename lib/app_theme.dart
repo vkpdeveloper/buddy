@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 ///   AA  normal text ≥ 4.5:1 | large text / non-text UI ≥ 3.0:1
 ///   AAA normal text ≥ 7.0:1 | large text                ≥ 4.5:1
 class AppTheme {
+  static const double minimumTouchTarget = 44;
+
   // ── Surfaces ──────────────────────────────────────────────────────────────
   static const Color oledBlack = Color(0xFF000000); // OLED base
   static const Color backgroundDark = Color(0xFF0A0B0D); // fallback surface
@@ -83,6 +85,11 @@ class AppTheme {
   static const Color scrimSoft = Color(0x33000000);
   static const Color scrimHeavy = Color(0xCC000000);
   static const Color scrimDense = Color(0xF5000000);
+  static const List<Color> cardGradient = [
+    Color(0xFF1A151B),
+    Color(0xFF14161A),
+    cardDark,
+  ];
 
   /// Display/heading font (Sora). Use for large titles and section headers.
   static TextStyle displayStyle({
@@ -129,6 +136,34 @@ class AppTheme {
         foregroundColor: actionForeground,
       ),
       appBarTheme: const AppBarTheme(backgroundColor: oledBlack, elevation: 0),
+    );
+  }
+
+  static BoxDecoration cardDecoration({
+    double radius = 20,
+    Color? borderColor,
+    List<Color> colors = cardGradient,
+    bool withShadow = true,
+  }) {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(
+        color: borderColor ?? borderDark.withValues(alpha: 0.95),
+      ),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: colors,
+      ),
+      boxShadow: withShadow
+          ? [
+              BoxShadow(
+                color: shadowSoft.withValues(alpha: 0.28),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ]
+          : null,
     );
   }
 }

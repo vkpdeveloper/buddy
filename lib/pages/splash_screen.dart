@@ -73,7 +73,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: LinearProgressIndicator(
                 minHeight: 2,
                 backgroundColor: AppTheme.borderDark,
-                color: AppTheme.textSageMuted.withValues(alpha: 0.4),
+                color: AppTheme.textSageMuted,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

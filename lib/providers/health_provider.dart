@@ -471,7 +471,7 @@ final sleepDurationProvider = FutureProvider<Duration>((ref) async {
 Future<void> writeHydrationToHC({required double ml}) async {
   // Health Connect stores HydrationRecord in liters (Volume.liters(value)).
   // Pass the value in liters; no chunking needed since 0.25 L << 100 L limit.
-  print('[HC] writeHydrationToHC: ${ml}ml (${ml / 1000.0}L)');
+  AppLogger.info('[HC] writeHydrationToHC: ${ml}ml (${ml / 1000.0}L)');
   try {
     final health = Health();
     final now = DateTime.now();
@@ -483,9 +483,9 @@ Future<void> writeHydrationToHC({required double ml}) async {
       endTime: start.add(const Duration(seconds: 1)),
       unit: HealthDataUnit.LITER,
     );
-    print('[HC] writeHydrationToHC: success');
+    AppLogger.info('[HC] writeHydrationToHC: success');
   } catch (e) {
-    print('[HC] writeHydrationToHC: ERROR $e');
+    AppLogger.error('[HC] writeHydrationToHC failed', e);
   }
 }
 
@@ -496,7 +496,7 @@ Future<void> writeNutritionToHC({
   required double fatG,
   String name = 'Meal',
 }) async {
-  print(
+  AppLogger.info(
     '[HC] writeNutritionToHC: $name — ${calories}kcal, protein=${proteinG}g, carbs=${carbsG}g, fat=${fatG}g',
   );
   try {
@@ -512,9 +512,9 @@ Future<void> writeNutritionToHC({
       fatTotal: fatG,
       name: name,
     );
-    print('[HC] writeNutritionToHC: success');
+    AppLogger.info('[HC] writeNutritionToHC: success');
   } catch (e) {
-    print('[HC] writeNutritionToHC: ERROR $e');
+    AppLogger.error('[HC] writeNutritionToHC failed', e);
   }
 }
 
@@ -523,7 +523,7 @@ Future<void> writeWorkoutToHC({
   required DateTime end,
   required String dayLabel,
 }) async {
-  print('[HC] writeWorkoutToHC: "$dayLabel" from $start to $end');
+  AppLogger.info('[HC] writeWorkoutToHC: "$dayLabel" from $start to $end');
   try {
     final prefs = await SharedPreferences.getInstance();
     final weightKg = prefs.getDouble('user_weight') ?? 70.0;
@@ -535,7 +535,7 @@ Future<void> writeWorkoutToHC({
       durationSeconds,
       weightKg,
     );
-    print(
+    AppLogger.info(
       '[HC] writeWorkoutToHC: activityType=$activityType, duration=${durationSeconds}s, weightKg=$weightKg, kcal=$kcal',
     );
     await health.writeWorkoutData(
@@ -545,14 +545,14 @@ Future<void> writeWorkoutToHC({
       totalEnergyBurned: kcal,
       title: dayLabel,
     );
-    print('[HC] writeWorkoutToHC: success');
+    AppLogger.info('[HC] writeWorkoutToHC: success');
   } catch (e) {
-    print('[HC] writeWorkoutToHC: ERROR $e');
+    AppLogger.error('[HC] writeWorkoutToHC failed', e);
   }
 }
 
 Future<void> writeWeightToHC(double kg) async {
-  print('[HC] writeWeightToHC: ${kg}kg');
+  AppLogger.info('[HC] writeWeightToHC: ${kg}kg');
   try {
     final health = Health();
     final now = DateTime.now();
@@ -562,14 +562,14 @@ Future<void> writeWeightToHC(double kg) async {
       startTime: now,
       unit: HealthDataUnit.KILOGRAM,
     );
-    print('[HC] writeWeightToHC: success');
+    AppLogger.info('[HC] writeWeightToHC: success');
   } catch (e) {
-    print('[HC] writeWeightToHC: ERROR $e');
+    AppLogger.error('[HC] writeWeightToHC failed', e);
   }
 }
 
 Future<void> writeBodyFatToHC(double percent) async {
-  print('[HC] writeBodyFatToHC: $percent%');
+  AppLogger.info('[HC] writeBodyFatToHC: $percent%');
   try {
     final health = Health();
     final now = DateTime.now();
@@ -579,9 +579,9 @@ Future<void> writeBodyFatToHC(double percent) async {
       startTime: now,
       unit: HealthDataUnit.PERCENT,
     );
-    print('[HC] writeBodyFatToHC: success');
+    AppLogger.info('[HC] writeBodyFatToHC: success');
   } catch (e) {
-    print('[HC] writeBodyFatToHC: ERROR $e');
+    AppLogger.error('[HC] writeBodyFatToHC failed', e);
   }
 }
 
@@ -590,7 +590,7 @@ Future<void> writeLeanBodyMassToHC({
   required double bodyFatPercent,
 }) async {
   final leanKg = weightKg * (1 - bodyFatPercent / 100);
-  print(
+  AppLogger.info(
     '[HC] writeLeanBodyMassToHC: weightKg=$weightKg, bodyFat=$bodyFatPercent% → leanKg=${leanKg.toStringAsFixed(2)}',
   );
   try {
@@ -602,14 +602,14 @@ Future<void> writeLeanBodyMassToHC({
       startTime: now,
       unit: HealthDataUnit.KILOGRAM,
     );
-    print('[HC] writeLeanBodyMassToHC: success');
+    AppLogger.info('[HC] writeLeanBodyMassToHC: success');
   } catch (e) {
-    print('[HC] writeLeanBodyMassToHC: ERROR $e');
+    AppLogger.error('[HC] writeLeanBodyMassToHC failed', e);
   }
 }
 
 Future<void> writeHeightToHC(double cm) async {
-  print('[HC] writeHeightToHC: ${cm}cm (${cm / 100.0}m)');
+  AppLogger.info('[HC] writeHeightToHC: ${cm}cm (${cm / 100.0}m)');
   try {
     final health = Health();
     final now = DateTime.now();
@@ -619,9 +619,9 @@ Future<void> writeHeightToHC(double cm) async {
       startTime: now,
       unit: HealthDataUnit.METER,
     );
-    print('[HC] writeHeightToHC: success');
+    AppLogger.info('[HC] writeHeightToHC: success');
   } catch (e) {
-    print('[HC] writeHeightToHC: ERROR $e');
+    AppLogger.error('[HC] writeHeightToHC failed', e);
   }
 }
 

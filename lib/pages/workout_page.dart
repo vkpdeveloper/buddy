@@ -16,6 +16,7 @@ import 'package:buddy/providers/pr_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:buddy/widgets/app_text_field.dart';
 import 'package:buddy/widgets/exercise_library_sheet.dart';
@@ -621,84 +622,66 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 ),
               ),
               const SizedBox(width: 10),
-              Tooltip(
-                message: 'Adjust workout plan',
-                child: Semantics(
-                  label: 'Adjust workout plan',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: _showRegenerateDialog,
-                    child: _regenLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.primary,
-                            ),
-                          )
-                        : Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cardDark,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppTheme.borderDark),
-                            ),
-                            child: const Icon(
-                              LucideIcons.refresh_cw,
-                              color: AppTheme.textSageMuted,
-                              size: 13,
-                            ),
+              _regenLoading
+                  ? const SizedBox(
+                      width: AppTheme.minimumTouchTarget,
+                      height: AppTheme.minimumTouchTarget,
+                      child: Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.primary,
                           ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Semantics(
-                label: 'View workout sessions history',
-                button: true,
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const WorkoutSessionsPage(),
+                        ),
                       ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 7,
+                    )
+                  : AppSurfaceIconButton(
+                      icon: LucideIcons.refresh_cw,
+                      onPressed: _showRegenerateDialog,
+                      label: 'Adjust workout plan',
+                      iconSize: 14,
                     ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardDark,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderDark),
+              const SizedBox(width: 6),
+              AppPressable(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const WorkoutSessionsPage(),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.history,
-                          color: AppTheme.textSageMuted,
-                          size: 13,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'SESSIONS',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.1,
-                          ),
-                        ),
-                      ],
+                  );
+                },
+                semanticsLabel: 'View workout sessions history',
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 9,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.borderDark),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.history,
+                      color: AppTheme.textSageMuted,
+                      size: 13,
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'SESSIONS',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.textSageMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -730,73 +713,74 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 'SUN',
               ];
               final weekday = i < 7 ? weekdays[i] : '';
-              return Semantics(
-                label:
-                    '${weekday.isEmpty ? 'Day ${i + 1}' : weekday}, $label${isRest ? ', rest day' : ''}',
-                button: true,
-                selected: isSelected,
-                child: GestureDetector(
-                  onTap: () => _onSelectDay(i),
-                  child: Column(
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
+              return Padding(
+                padding: EdgeInsets.only(right: i == days.length - 1 ? 0 : 8),
+                child: Semantics(
+                  label:
+                      '${weekday.isEmpty ? 'Day ${i + 1}' : weekday}, $label${isRest ? ', rest day' : ''}',
+                  button: true,
+                  selected: isSelected,
+                  child: AppPressable(
+                    onPressed: () => _onSelectDay(i),
+                    selected: isSelected,
+                    minHeight: AppTheme.minimumTouchTarget,
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? (isRest
+                                  ? AppTheme.textSageMuted.withValues(
+                                      alpha: 0.2,
+                                    )
+                                  : AppTheme.primary)
+                            : AppTheme.cardDark,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
                           color: isSelected
                               ? (isRest
-                                    ? AppTheme.textSageMuted.withValues(
-                                        alpha: 0.2,
-                                      )
+                                    ? AppTheme.textSageMuted
                                     : AppTheme.primary)
-                              : AppTheme.cardDark,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? (isRest
-                                      ? AppTheme.textSageMuted
-                                      : AppTheme.primary)
-                                : AppTheme.borderDark,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              weekday,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: isSelected
-                                    ? (isRest
-                                          ? AppTheme.textSageMuted
-                                          : AppTheme.oledBlack)
-                                    : AppTheme.textSageMuted,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              label.toString().toUpperCase(),
-                              style: GoogleFonts.plusJakartaSans(
-                                color: isSelected
-                                    ? (isRest
-                                          ? AppTheme.textSageMuted
-                                          : AppTheme.oledBlack)
-                                    : AppTheme.textSageMuted,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
+                              : AppTheme.borderDark,
                         ),
                       ),
-                    ],
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            weekday,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: isSelected
+                                  ? (isRest
+                                        ? AppTheme.textSageMuted
+                                        : AppTheme.oledBlack)
+                                  : AppTheme.textSageMuted,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            label.toString().toUpperCase(),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: isSelected
+                                  ? (isRest
+                                        ? AppTheme.textSageMuted
+                                        : AppTheme.oledBlack)
+                                  : AppTheme.textSageMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -1541,16 +1525,26 @@ class _ExerciseCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: AppTextField(controller: repsCtrl, label: 'Reps / Time'),
+                  child: AppTextField(
+                    controller: repsCtrl,
+                    label: 'Reps / Time',
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: AppTextField(controller: restCtrl, label: 'Rest (seconds)'),
+                  child: AppTextField(
+                    controller: restCtrl,
+                    label: 'Rest (seconds)',
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            AppTextField(controller: notesCtrl, label: 'Notes (optional)', maxLines: 2),
+            AppTextField(
+              controller: notesCtrl,
+              label: 'Notes (optional)',
+              maxLines: 2,
+            ),
             const SizedBox(height: 20),
             GestureDetector(
               onTap: () async {
@@ -2166,4 +2160,3 @@ class _StatBlock extends StatelessWidget {
     );
   }
 }
-

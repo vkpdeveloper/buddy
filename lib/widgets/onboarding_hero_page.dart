@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 
 /// The welcome screen.
 class OnboardingHeroPage extends StatefulWidget {
@@ -111,66 +112,30 @@ class _OnboardingHeroPageState extends State<OnboardingHeroPage>
       opacity: _ctaController,
       child: Column(
         children: [
-          GestureDetector(
-            onTap: widget.onNext,
-            child: Container(
-              width: double.infinity,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppTheme.actionSurface,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'BUILD MY CUSTOM PLAN',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.actionForeground,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    LucideIcons.arrow_right,
-                    color: AppTheme.actionForeground,
-                    size: 17,
-                  ),
-                ],
-              ),
-            ),
+          AppPrimaryButton(
+            label: 'BUILD MY CUSTOM PLAN',
+            onPressed: widget.onNext,
+            icon: LucideIcons.arrow_right,
           ),
           const SizedBox(height: 14),
-          GestureDetector(
-            onTap: widget.onSignOut,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    LucideIcons.log_out,
-                    size: 12,
-                    color: AppTheme.textSageMuted.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Not you? Sign out',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted.withValues(alpha: 0.45),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.underline,
-                      decorationColor: AppTheme.textSageMuted.withValues(
-                        alpha: 0.25,
-                      ),
-                    ),
-                  ),
-                ],
+          TextButton.icon(
+            onPressed: widget.onSignOut,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(
+                double.infinity,
+                AppTheme.minimumTouchTarget,
+              ),
+              foregroundColor: AppTheme.textSageMuted,
+            ),
+            icon: const Icon(LucideIcons.log_out, size: 14),
+            label: Text(
+              'Not you? Sign out',
+              style: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textSageMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.underline,
+                decorationColor: AppTheme.textSageMuted,
               ),
             ),
           ),

@@ -7,6 +7,8 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/utils/motion_preferences.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/services/buddy_service.dart';
 import 'package:buddy/services/profile_service.dart';
 
@@ -437,31 +439,34 @@ class _BuddyChatPageState extends State<BuddyChatPage>
                       : AppTheme.borderDark,
                 ),
               ),
-              child: TextField(
-                controller: _inputCtrl,
-                focusNode: _focusNode,
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                // Disable input while streaming
-                enabled: !_isStreaming,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-                decoration: InputDecoration(
-                  hintText: _isStreaming
-                      ? 'Buddy is thinking…'
-                      : 'Ask Buddy something…',
-                  hintStyle: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+              child: Semantics(
+                textField: true,
+                label: 'Message Buddy',
+                child: TextField(
+                  controller: _inputCtrl,
+                  focusNode: _focusNode,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  enabled: !_isStreaming,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.textCream,
                     fontSize: 14,
+                    height: 1.5,
                   ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 13,
+                  decoration: InputDecoration(
+                    hintText: _isStreaming
+                        ? 'Buddy is thinking…'
+                        : 'Ask Buddy something…',
+                    hintStyle: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.textSageMuted,
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 13,
+                    ),
                   ),
                 ),
               ),
@@ -830,8 +835,22 @@ class _BlinkingCursorState extends State<_BlinkingCursor>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    )..repeat(reverse: true);
+    );
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (prefersReducedMotion(context)) {
+      _ctrl
+        ..stop()
+        ..value = 1;
+      return;
+    }
+    if (!_ctrl.isAnimating) {
+      _ctrl.repeat(reverse: true);
+    }
   }
 
   @override
@@ -842,6 +861,16 @@ class _BlinkingCursorState extends State<_BlinkingCursor>
 
   @override
   Widget build(BuildContext context) {
+    if (prefersReducedMotion(context)) {
+      return Container(
+        width: 2,
+        height: 14,
+        decoration: BoxDecoration(
+          color: AppTheme.textSageMuted,
+          borderRadius: BorderRadius.circular(1),
+        ),
+      );
+    }
     return FadeTransition(
       opacity: _anim,
       child: Container(
@@ -865,22 +894,22 @@ class _SuggestionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.cardRaised,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: AppTheme.borderDark),
-        ),
-        child: Text(
-          text,
-          style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textMain,
-            fontSize: 13,
-            height: 1.4,
-          ),
+    return AppPressable(
+      onPressed: onTap,
+      semanticsLabel: text,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      borderRadius: BorderRadius.circular(22),
+      decoration: BoxDecoration(
+        color: AppTheme.cardRaised,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.borderDark),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          color: AppTheme.textMain,
+          fontSize: 13,
+          height: 1.4,
         ),
       ),
     );
@@ -896,20 +925,24 @@ class _SendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      // Explicitly null when streaming — disables tap AND long-press
-      onTap: isStreaming ? null : onTap,
+    return AppPressable(
+      onPressed: isStreaming ? null : onTap,
+      semanticsLabel: isStreaming ? 'Buddy is responding' : 'Send message',
+      minHeight: 48,
+      minWidth: 48,
+      borderRadius: BorderRadius.circular(24),
+      decoration: BoxDecoration(
+        color: isStreaming ? AppTheme.cardRaised : AppTheme.textCream,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isStreaming ? AppTheme.borderDark : AppTheme.transparent,
+        ),
+      ),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: motionDuration(context, const Duration(milliseconds: 200)),
         width: 48,
         height: 48,
-        decoration: BoxDecoration(
-          color: isStreaming ? AppTheme.cardRaised : AppTheme.textCream,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isStreaming ? AppTheme.borderDark : AppTheme.transparent,
-          ),
-        ),
+        alignment: Alignment.center,
         child: isStreaming
             ? const _SpinnerIcon()
             : const Icon(
