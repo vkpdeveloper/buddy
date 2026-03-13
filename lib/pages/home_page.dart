@@ -2824,9 +2824,14 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
 
     final hydrationMl = homeData?.hydrationMl ?? 0;
     final targetMl = 2500;
-    final hydrationFraction = (hydrationMl / targetMl).clamp(0.0, 1.0);
     final stepGoal = _stepGoal > 0 ? _stepGoal : _persistedStepGoal;
+    final currentSteps = hasPermission == true ? steps ?? 0 : 0;
+    final remainingSteps = math.max(stepGoal - currentSteps, 0);
     final burnedCalories = hasPermission == true ? energy?.toInt() ?? 0 : 0;
+    final remainingBurnedCalories = math.max(
+      _defaultCalorieBurnGoal - burnedCalories,
+      0,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -2845,10 +2850,14 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
                       : _ActivityMetricCard(
                           accentColor: AppTheme.primary,
                           icon: LucideIcons.footprints,
-                          label: '',
-                          value: hasPermission == true ? steps ?? 0 : 0,
+                          label: 'STEPS',
+                          currentValue: currentSteps,
+                          remainingValue: remainingSteps,
                           targetValue: stepGoal,
-                          subtitle: 'Walking today',
+                          showRemaining: !_showConsumed,
+                          currentSubtitle: 'Walking today',
+                          remainingSubtitle: 'Steps left',
+                          onTap: _toggleCaloriesMode,
                         ),
                 ),
                 const SizedBox(width: 10),
@@ -2856,11 +2865,15 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
                   child: _ActivityMetricCard(
                     accentColor: AppTheme.error,
                     icon: LucideIcons.flame,
-                    label: '',
-                    value: burnedCalories,
+                    label: 'BURNED',
+                    currentValue: burnedCalories,
+                    remainingValue: remainingBurnedCalories,
                     targetValue: _defaultCalorieBurnGoal,
+                    showRemaining: !_showConsumed,
                     unit: 'kcal',
-                    subtitle: 'Calories burned',
+                    currentSubtitle: 'Calories burned',
+                    remainingSubtitle: 'Calories left',
+                    onTap: _toggleCaloriesMode,
                   ),
                 ),
               ],
@@ -2871,7 +2884,6 @@ class _NutritionCarouselState extends ConsumerState<_NutritionCarousel> {
             child: _HydrationOverviewCard(
               hydrationMl: hydrationMl,
               targetMl: targetMl,
-              hydrationFraction: hydrationFraction,
             ),
           ),
         ],
@@ -3348,166 +3360,182 @@ class _MacroCard extends StatelessWidget {
 class _ActivityMetricCard extends StatelessWidget {
   final IconData icon;
   final String label;
-  final int value;
-  final int? targetValue;
-  final String subtitle;
+  final int currentValue;
+  final int remainingValue;
+  final int targetValue;
+  final bool showRemaining;
+  final String currentSubtitle;
+  final String remainingSubtitle;
   final Color accentColor;
   final String? unit;
+  final VoidCallback? onTap;
 
   const _ActivityMetricCard({
     required this.icon,
     required this.label,
-    required this.value,
-    this.targetValue,
-    required this.subtitle,
+    required this.currentValue,
+    required this.remainingValue,
+    required this.targetValue,
+    required this.showRemaining,
+    required this.currentSubtitle,
+    required this.remainingSubtitle,
     required this.accentColor,
     this.unit,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final accentBorder = accentColor.withValues(alpha: 0.22);
+    final displayValue = showRemaining ? remainingValue : currentValue;
+    final subtitle = showRemaining ? remainingSubtitle : currentSubtitle;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.cardDark,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: accentBorder),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            accentColor.withValues(alpha: 0.14),
-            AppTheme.cardDark,
-            AppTheme.cardDark,
-          ],
-          stops: const [0.0, 0.38, 1.0],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: AppTheme.shadowSoft,
-            blurRadius: 18,
-            offset: Offset(0, 10),
+    return Semantics(
+      button: onTap != null,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.cardDark,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: accentBorder),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                accentColor.withValues(alpha: 0.14),
+                AppTheme.cardDark,
+                AppTheme.cardDark,
+              ],
+              stops: const [0.0, 0.38, 1.0],
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppTheme.shadowSoft,
+                blurRadius: 18,
+                offset: Offset(0, 10),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -14,
-            bottom: -18,
-            child: Container(
-              width: 74,
-              height: 74,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: accentColor.withValues(alpha: 0.12),
-                  width: 1.4,
+          child: Stack(
+            children: [
+              Positioned(
+                right: -14,
+                bottom: -18,
+                child: Container(
+                  width: 74,
+                  height: 74,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.12),
+                      width: 1.4,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      label,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: accentColor,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.14),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: Icon(icon, color: AppTheme.textCream, size: 16),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          _CountingNumber(
+                            value: displayValue,
+                            style: GoogleFonts.sora(
+                              color: AppTheme.textCream,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w600,
+                              height: 1.0,
+                            ),
+                          ),
+                          if (!showRemaining) ...[
+                            const SizedBox(width: 5),
+                            Text(
+                              '/$targetValue',
+                              style: GoogleFonts.sora(
+                                color: AppTheme.textSageMuted,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                height: 1.0,
+                              ),
+                            ),
+                          ],
+                          if (unit != null) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              unit!,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textSageMuted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                height: 1.0,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        color: accentColor,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.4,
+                        color: AppTheme.textMain,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        height: 1.25,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: accentColor.withValues(alpha: 0.18),
-                      ),
-                    ),
-                    child: Icon(icon, color: AppTheme.textCream, size: 16),
-                  ),
+                  ],
                 ],
               ),
-              const Spacer(),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      _CountingNumber(
-                        value: value,
-                        style: GoogleFonts.sora(
-                          color: AppTheme.textCream,
-                          fontSize: 30,
-                          fontWeight: FontWeight.w600,
-                          height: 1.0,
-                        ),
-                      ),
-                      if (targetValue != null) ...[
-                        const SizedBox(width: 5),
-                        Text(
-                          '/$targetValue',
-                          style: GoogleFonts.sora(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
-                            height: 1.0,
-                          ),
-                        ),
-                      ],
-                      if (unit != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          unit!,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            height: 1.0,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textMain,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    height: 1.25,
-                  ),
-                ),
-              ],
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -3708,28 +3736,69 @@ class _HealthConnectInlinePrompt extends StatelessWidget {
   }
 }
 
-class _HydrationOverviewCard extends StatelessWidget {
+// ── Hydration Overview Card ────────────────────────────────────────────────
+// Follows the same object philosophy as _CaloriesDisplay:
+//  • ConsumerStatefulWidget manages optimistic local offset
+//  • _HydrationDisplay is a pure stateless display widget
+//  • _AnimatedHydrationBar drives smooth progress animation
+//  • _HydrationAddButton handles press-scale micro-interaction
+class _HydrationOverviewCard extends ConsumerStatefulWidget {
   final int hydrationMl;
   final int targetMl;
-  final double hydrationFraction;
 
   const _HydrationOverviewCard({
     required this.hydrationMl,
     required this.targetMl,
-    required this.hydrationFraction,
   });
 
-  String get _statusLine {
-    final remainingMl = math.max(targetMl - hydrationMl, 0);
-    if (hydrationMl <= 0) return 'Start with a quick 250 ml check-in.';
-    if (remainingMl == 0) return 'Target reached for today.';
-    return '$remainingMl ml to go.';
+  @override
+  ConsumerState<_HydrationOverviewCard> createState() =>
+      _HydrationOverviewCardState();
+}
+
+class _HydrationOverviewCardState
+    extends ConsumerState<_HydrationOverviewCard> {
+  // Optimistic offset — added instantly on tap, cleared when provider syncs.
+  int _localOffset = 0;
+
+  int get _displayMl => widget.hydrationMl + _localOffset;
+  double get _displayFraction => (_displayMl / widget.targetMl).clamp(0.0, 1.0);
+
+  String get _todayDate {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void didUpdateWidget(_HydrationOverviewCard old) {
+    super.didUpdateWidget(old);
+    // Provider updated with the real persisted value — clear local offset.
+    if (old.hydrationMl != widget.hydrationMl) {
+      _localOffset = 0;
+    }
+  }
+
+  void _addWater() {
+    // Instant optimistic update — no spinner needed.
+    setState(() => _localOffset += 250);
+    LogsService.incrementHydration(_todayDate, amountMl: 250)
+        .then((_) {
+          ref.invalidate(homeDashboardProvider);
+          writeHydrationToHC(ml: 250);
+        })
+        .catchError((_) {
+          // Rollback on network failure.
+          if (mounted) {
+            setState(() => _localOffset = math.max(0, _localOffset - 250));
+          }
+        });
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      height: 148,
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
       decoration: BoxDecoration(
         color: AppTheme.cardDark,
         borderRadius: BorderRadius.circular(22),
@@ -3755,123 +3824,186 @@ class _HydrationOverviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 50,
-                height: 50,
-                child: Image.asset('assets/icons/water_drop.png'),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            '$hydrationMl',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.sora(
-                              color: AppTheme.textCream,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w600,
-                              height: 1.0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            'ml',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _statusLine,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
-                        fontSize: 11,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '+250 ml',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: _HydrationDisplay(
+                    ml: _displayMl,
+                    targetMl: widget.targetMl,
                   ),
-                  const SizedBox(height: 10),
-                  const _HydrationQuickAddButton(),
-                ],
-              ),
-            ],
-          ),
-          const Spacer(),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: hydrationFraction,
-              minHeight: 8,
-              backgroundColor: AppTheme.borderDark,
-              valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
+                ),
+                const SizedBox(width: 16),
+                _HydrationAddButton(onTap: _addWater),
+              ],
             ),
           ),
+          const SizedBox(height: 10),
+          _AnimatedHydrationBar(fraction: _displayFraction),
         ],
       ),
     );
   }
 }
 
-class _HydrationQuickAddButton extends ConsumerStatefulWidget {
-  const _HydrationQuickAddButton();
+// Pure display widget — mirrors _CaloriesDisplay in structure.
+class _HydrationDisplay extends StatelessWidget {
+  final int ml;
+  final int targetMl;
+
+  const _HydrationDisplay({required this.ml, required this.targetMl});
 
   @override
-  ConsumerState<_HydrationQuickAddButton> createState() =>
-      _HydrationQuickAddButtonState();
+  Widget build(BuildContext context) {
+    final isDone = ml >= targetMl;
+    final numStyle = GoogleFonts.sora(
+      color: AppTheme.textCream,
+      fontSize: 52,
+      fontWeight: FontWeight.w600,
+      height: 1.0,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            _CountingNumber(value: ml, style: numStyle),
+            const SizedBox(width: 6),
+            Text(
+              '/$targetMl',
+              style: GoogleFonts.sora(
+                color: AppTheme.textSageMuted,
+                fontSize: 22,
+                fontWeight: FontWeight.w400,
+                height: 1.0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        RichText(
+          text: TextSpan(
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSageMuted,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+            ),
+            children: [
+              const TextSpan(text: 'ml '),
+              TextSpan(
+                text: isDone ? 'goal hit' : 'consumed',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _HydrationQuickAddButtonState
-    extends ConsumerState<_HydrationQuickAddButton> {
-  bool _loading = false;
+// Animated progress bar — smoothly tweens to the new fraction on each update.
+class _AnimatedHydrationBar extends StatefulWidget {
+  final double fraction;
 
-  String get _todayDate {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  const _AnimatedHydrationBar({required this.fraction});
+
+  @override
+  State<_AnimatedHydrationBar> createState() => _AnimatedHydrationBarState();
+}
+
+class _AnimatedHydrationBarState extends State<_AnimatedHydrationBar>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _anim = Tween<double>(
+      begin: 0.0,
+      end: widget.fraction,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
   }
 
-  Future<void> _addWater() async {
-    if (_loading) return;
-    setState(() => _loading = true);
-    try {
-      await LogsService.incrementHydration(_todayDate, amountMl: 250);
-      ref.invalidate(homeDashboardProvider);
-      writeHydrationToHC(ml: 250);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _loading = false);
+  @override
+  void didUpdateWidget(_AnimatedHydrationBar old) {
+    super.didUpdateWidget(old);
+    if (old.fraction != widget.fraction) {
+      final from = _anim.value;
+      _anim = Tween<double>(
+        begin: from,
+        end: widget.fraction,
+      ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      _ctrl.forward(from: 0);
     }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: LinearProgressIndicator(
+          value: _anim.value,
+          minHeight: 6,
+          backgroundColor: AppTheme.borderDark,
+          valueColor: AlwaysStoppedAnimation(AppTheme.info),
+        ),
+      ),
+    );
+  }
+}
+
+// + button with press-scale micro-interaction (120 ms, easeOutCubic).
+class _HydrationAddButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _HydrationAddButton({required this.onTap});
+
+  @override
+  State<_HydrationAddButton> createState() => _HydrationAddButtonState();
+}
+
+class _HydrationAddButtonState extends State<_HydrationAddButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 0.88,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -3880,37 +4012,27 @@ class _HydrationQuickAddButtonState
       button: true,
       label: 'Add 250 ml of water',
       child: GestureDetector(
-        onTap: _loading ? null : _addWater,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppTheme.actionSurface.withValues(
-              alpha: _loading ? 0.72 : 0.96,
+        onTapDown: (_) => _ctrl.forward(),
+        onTapUp: (_) {
+          _ctrl.reverse();
+          widget.onTap();
+        },
+        onTapCancel: () => _ctrl.reverse(),
+        child: ScaleTransition(
+          scale: _scale,
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: const BoxDecoration(
+              color: AppTheme.cardRaised,
+              shape: BoxShape.circle,
             ),
-            shape: BoxShape.circle,
-            boxShadow: const [
-              BoxShadow(
-                color: AppTheme.shadowSoft,
-                blurRadius: 14,
-                offset: Offset(0, 8),
-              ),
-            ],
+            child: const Icon(
+              LucideIcons.plus,
+              color: AppTheme.textCream,
+              size: 22,
+            ),
           ),
-          child: _loading
-              ? const Padding(
-                  padding: EdgeInsets.all(10),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.2,
-                    color: AppTheme.actionForeground,
-                  ),
-                )
-              : const Icon(
-                  LucideIcons.plus,
-                  color: AppTheme.actionForeground,
-                  size: 18,
-                ),
         ),
       ),
     );
