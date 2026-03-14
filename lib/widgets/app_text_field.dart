@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 
 /// Shared text-field widget used across diet and workout forms.
 /// Replaces the duplicate _EditField (diet_plan_page) and _Field (workout_page).
@@ -58,7 +58,7 @@ class AppTextField extends StatelessWidget {
         inputFormatters: inputFormatters,
         onChanged: onChanged,
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textCream,
+          color: context.colors.textPrimary,
           fontSize: fontSize,
           fontWeight: fontWeight,
         ),
@@ -67,26 +67,26 @@ class AppTextField extends StatelessWidget {
           hintText: hintText,
           suffixText: suffixText,
           labelStyle: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: context.colors.textMuted,
             fontSize: 12,
           ),
           hintStyle: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: context.colors.textMuted,
             fontSize: 12,
           ),
           filled: true,
-          fillColor: AppTheme.backgroundDark,
+          fillColor: context.colors.backgroundSecondary,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: AppTheme.borderDark),
+            borderSide: BorderSide(color: context.colors.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: AppTheme.borderDark),
+            borderSide: BorderSide(color: context.colors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppTheme.primary),
+            borderSide: BorderSide(color: context.colors.primary),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,

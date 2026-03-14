@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/models/onboarding_projection.dart';
 
 /// The "Aha Moment" screen — shows the user's real projected numbers
@@ -86,10 +86,10 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
   bool get _isGain => widget.targetWeight > widget.currentWeight;
   bool get _isNeutral => !_isLoss && !_isGain;
 
-  Color get _accentColor {
-    if (_isLoss) return AppTheme.success;
-    if (_isGain) return AppTheme.info;
-    return AppTheme.primary;
+  Color _accentColor(BuildContext context) {
+    if (_isLoss) return context.colors.success;
+    if (_isGain) return context.colors.info;
+    return context.colors.primary;
   }
 
   String get _headingLine1 {
@@ -137,20 +137,20 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDeltaHero(),
+                _buildDeltaHero(context),
                 const SizedBox(height: 24),
-                _buildMetricsCard(),
+                _buildMetricsCard(context),
                 const SizedBox(height: 20),
-                _buildSparklineCard(),
+                _buildSparklineCard(context),
                 const SizedBox(height: 20),
-                _buildDisclaimer(),
+                _buildDisclaimer(context),
               ],
             ),
           ),
         ),
         Padding(
           padding: EdgeInsets.fromLTRB(24, 12, 24, bottomPad + 24),
-          child: _buildCTA(),
+          child: _buildCTA(context),
         ),
       ],
     );
@@ -161,7 +161,8 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
 
   // ─── Delta hero ───────────────────────────────────────────────────────────
 
-  Widget _buildDeltaHero() {
+  Widget _buildDeltaHero(BuildContext context) {
+    final accent = _accentColor(context);
     return FadeTransition(
       opacity: _entryController,
       child: Column(
@@ -171,7 +172,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
           Text(
             _headingLine1,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 22,
               fontWeight: FontWeight.w600,
               height: 1.15,
@@ -191,7 +192,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                       TextSpan(
                         text: value.toStringAsFixed(1),
                         style: GoogleFonts.plusJakartaSans(
-                          color: _accentColor,
+                          color: accent,
                           fontSize: 58,
                           fontWeight: FontWeight.w800,
                           height: 1.0,
@@ -200,7 +201,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                       TextSpan(
                         text: ' kg',
                         style: GoogleFonts.plusJakartaSans(
-                          color: _accentColor.withValues(alpha: 0.7),
+                          color: accent.withValues(alpha: 0.7),
                           fontSize: 28,
                           fontWeight: FontWeight.w700,
                           height: 1.0,
@@ -225,7 +226,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                   child: Text(
                     _headingLine3,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
                       height: 1.15,
@@ -239,7 +240,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
             Text(
               'by ${widget.projection.goalDateLabel}.',
               style: GoogleFonts.plusJakartaSans(
-                color: _accentColor,
+                color: accent,
                 fontSize: 32,
                 fontWeight: FontWeight.w800,
                 height: 1.05,
@@ -253,7 +254,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
 
   // ─── Metrics card ─────────────────────────────────────────────────────────
 
-  Widget _buildMetricsCard() {
+  Widget _buildMetricsCard(BuildContext context) {
     final metrics = [
       _Metric(
         icon: LucideIcons.flame,
@@ -288,26 +289,26 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Expanded(child: _buildMetricCell(metrics[0])),
+              Expanded(child: _buildMetricCell(context, metrics[0])),
               const SizedBox(width: 12),
-              Expanded(child: _buildMetricCell(metrics[1])),
+              Expanded(child: _buildMetricCell(context, metrics[1])),
             ],
           ),
           const SizedBox(height: 1),
-          Divider(color: AppTheme.borderDark, height: 24),
+          Divider(color: context.colors.border, height: 24),
           Row(
             children: [
-              Expanded(child: _buildMetricCell(metrics[2])),
+              Expanded(child: _buildMetricCell(context, metrics[2])),
               const SizedBox(width: 12),
-              Expanded(child: _buildMetricCell(metrics[3])),
+              Expanded(child: _buildMetricCell(context, metrics[3])),
             ],
           ),
         ],
@@ -315,7 +316,8 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
     );
   }
 
-  Widget _buildMetricCell(_Metric metric) {
+  Widget _buildMetricCell(BuildContext context, _Metric metric) {
+    final accent = _accentColor(context);
     return AnimatedBuilder(
       animation: _metricsController,
       builder: (context, _) {
@@ -347,10 +349,10 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: _accentColor.withValues(alpha: 0.10),
+                  color: accent.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(metric.icon, color: _accentColor, size: 16),
+                child: Icon(metric.icon, color: accent, size: 16),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -360,7 +362,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                     Text(
                       metric.label,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -369,7 +371,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                     Text(
                       displayValue,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         height: 1.1,
@@ -387,8 +389,9 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
 
   // ─── Sparkline card ───────────────────────────────────────────────────────
 
-  Widget _buildSparklineCard() {
+  Widget _buildSparklineCard(BuildContext context) {
     final series = _weightSeries;
+    final accent = _accentColor(context);
 
     return AnimatedBuilder(
       animation: _chartController,
@@ -403,9 +406,9 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
           child: Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppTheme.cardDark,
+              color: context.colors.card,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.borderDark),
+              border: Border.all(color: context.colors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +416,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                 Text(
                   'WEIGHT PROJECTION',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.4,
@@ -426,9 +429,10 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                     painter: _SparklinePainter(
                       points: series,
                       progress: progress,
-                      lineColor: _accentColor,
-                      fillColor: _accentColor.withValues(alpha: 0.10),
-                      gridColor: AppTheme.borderDark.withValues(alpha: 0.6),
+                      lineColor: accent,
+                      fillColor: accent.withValues(alpha: 0.10),
+                      gridColor: context.colors.border.withValues(alpha: 0.6),
+                      backgroundColor: context.colors.background,
                     ),
                     child: const SizedBox.expand(),
                   ),
@@ -439,7 +443,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                     Text(
                       'Today  ${widget.currentWeight.toStringAsFixed(1)} kg',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -448,7 +452,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
                     Text(
                       '${widget.projection.goalDateLabel}  ${widget.targetWeight.toStringAsFixed(1)} kg',
                       style: GoogleFonts.plusJakartaSans(
-                        color: _accentColor,
+                        color: accent,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
@@ -465,7 +469,7 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
 
   // ─── Disclaimer ───────────────────────────────────────────────────────────
 
-  Widget _buildDisclaimer() {
+  Widget _buildDisclaimer(BuildContext context) {
     return AnimatedBuilder(
       animation: _chartController,
       builder: (context, _) => Opacity(
@@ -476,14 +480,14 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
             Icon(
               LucideIcons.info,
               size: 13,
-              color: AppTheme.textSageMuted.withValues(alpha: 0.45),
+              color: context.colors.textMuted,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Based on your stats with a moderate activity level. Buddy will recalculate once you complete your profile.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted.withValues(alpha: 0.5),
+                  color: context.colors.textMuted,
                   fontSize: 11,
                   height: 1.5,
                 ),
@@ -497,21 +501,22 @@ class _OnboardingAhaMomentPageState extends State<OnboardingAhaMomentPage>
 
   // ─── CTA ─────────────────────────────────────────────────────────────────
 
-  Widget _buildCTA() {
+  Widget _buildCTA(BuildContext context) {
+    final accent = _accentColor(context);
     return GestureDetector(
       onTap: widget.onNext,
       child: Container(
         width: double.infinity,
         height: 56,
         decoration: BoxDecoration(
-          color: _accentColor,
+          color: accent,
           borderRadius: BorderRadius.circular(18),
         ),
         alignment: Alignment.center,
         child: Text(
           'THIS LOOKS ACHIEVABLE',
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.oledBlack,
+            color: context.colors.background,
             fontSize: 14,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.8,
@@ -530,6 +535,7 @@ class _SparklinePainter extends CustomPainter {
   final Color lineColor;
   final Color fillColor;
   final Color gridColor;
+  final Color backgroundColor;
 
   const _SparklinePainter({
     required this.points,
@@ -537,6 +543,7 @@ class _SparklinePainter extends CustomPainter {
     required this.lineColor,
     required this.fillColor,
     required this.gridColor,
+    required this.backgroundColor,
   });
 
   @override
@@ -622,7 +629,7 @@ class _SparklinePainter extends CustomPainter {
       canvas.drawCircle(
         Offset(tipX, tipY),
         3,
-        Paint()..color = AppTheme.oledBlack,
+        Paint()..color = backgroundColor,
       );
     }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/providers/generation_provider.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
@@ -404,6 +405,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     String? signedUrl,
     File? file,
   }) {
+    final colors = context.colors;
     final macros = result['macros'] as Map<String, dynamic>;
     final ingredients =
         (result['ingredients'] as List?)
@@ -418,7 +420,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: colors.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -438,7 +440,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 Text(
                   'PHOTO ANALYSIS',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -451,22 +453,22 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    color: colors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         LucideIcons.sparkles,
                         size: 11,
-                        color: AppTheme.primary,
+                        color: colors.primary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${(confidence * 100).toStringAsFixed(0)}% confident',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.primary,
+                          color: colors.primary,
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                         ),
@@ -497,11 +499,11 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     )
                   : Container(
                       height: 180,
-                      color: AppTheme.primary.withValues(alpha: 0.08),
+                      color: colors.primary.withValues(alpha: 0.08),
                       alignment: Alignment.center,
-                      child: const Icon(
+                      child: Icon(
                         LucideIcons.camera,
-                        color: AppTheme.primary,
+                        color: colors.primary,
                         size: 28,
                       ),
                     ),
@@ -514,25 +516,25 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 _MacroPill(
                   label: 'CAL',
                   value: '$calories',
-                  color: AppTheme.primary,
+                  color: colors.primary,
                 ),
                 const SizedBox(width: 8),
                 _MacroPill(
                   label: 'PROTEIN',
                   value: '${protein.toStringAsFixed(1)}g',
-                  color: AppTheme.info,
+                  color: colors.info,
                 ),
                 const SizedBox(width: 8),
                 _MacroPill(
                   label: 'CARBS',
                   value: '${carbs.toStringAsFixed(1)}g',
-                  color: AppTheme.warning,
+                  color: colors.warning,
                 ),
                 const SizedBox(width: 8),
                 _MacroPill(
                   label: 'FAT',
                   value: '${fat.toStringAsFixed(1)}g',
-                  color: AppTheme.muscleArms,
+                  color: colors.muscleArms,
                 ),
               ],
             ),
@@ -543,7 +545,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
               Text(
                 'DETECTED ITEMS',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: colors.textMuted,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2,
@@ -555,17 +557,17 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         LucideIcons.circle_dot,
                         size: 10,
-                        color: AppTheme.primary,
+                        color: colors.primary,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           ing['name']?.toString() ?? '',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
+                            color: colors.textPrimary,
                             fontSize: 13,
                           ),
                         ),
@@ -573,7 +575,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                       Text(
                         ing['quantity']?.toString() ?? '',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
+                          color: colors.textMuted,
                           fontSize: 12,
                         ),
                       ),
@@ -618,13 +620,13 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppTheme.actionSurface,
+                    color: colors.actionSurface,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'LOG THIS MEAL',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.actionForeground,
+                      color: colors.actionForeground,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 1.1,
                     ),
@@ -727,13 +729,14 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   Future<void> _openReminderSettingsSheet() async {
+    final colors = context.colors;
     var localReminderEnabled = _reminderEnabled;
     var localLeadMinutes = _reminderLeadMinutes;
     var localWorkoutTime = _workoutTime;
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -748,7 +751,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 Text(
                   'REMINDER SETTINGS',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -761,7 +764,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                       child: Text(
                         'Pre-workout reminder',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
+                          color: colors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -769,7 +772,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     ),
                     Switch(
                       value: localReminderEnabled,
-                      activeThumbColor: AppTheme.primary,
+                      activeThumbColor: colors.primary,
                       onChanged: (v) async {
                         setSheetState(() => localReminderEnabled = v);
                         await _updateReminder(enabled: v);
@@ -801,7 +804,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   onTap: () async {
                     final lead = await showModalBottomSheet<int>(
                       context: sheetContext,
-                      backgroundColor: AppTheme.cardDark,
+                      backgroundColor: colors.card,
                       builder: (ctx) => SafeArea(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -811,14 +814,14 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                                   title: Text(
                                     '$m min before',
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textCream,
+                                      color: colors.textPrimary,
                                       fontSize: 13,
                                     ),
                                   ),
                                   trailing: m == localLeadMinutes
-                                      ? const Icon(
+                                      ? Icon(
                                           LucideIcons.check,
-                                          color: AppTheme.primary,
+                                          color: colors.primary,
                                           size: 16,
                                         )
                                       : null,
@@ -845,6 +848,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     ref.listen<GenerationStatus>(generationStatusProvider, (prev, next) {
       if (!(prev?.diet.isDone ?? false) && next.diet.isDone) {
         _loadPlans();
@@ -856,7 +860,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     final fabBottom = 76.0 + bottomInset + 16.0;
 
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: colors.background,
       body: Stack(
         children: [
           Column(
@@ -891,24 +895,24 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: AppTheme.actionSurface,
+                        color: colors.actionSurface,
                         shape: BoxShape.circle,
                       ),
                       child: ExcludeSemantics(
                         child: _isPhotoLogging
-                            ? const Center(
+                            ? Center(
                                 child: SizedBox(
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.5,
-                                    color: AppTheme.actionForeground,
+                                    color: colors.actionForeground,
                                   ),
                                 ),
                               )
-                            : const Icon(
+                            : Icon(
                                 LucideIcons.scan_line,
-                                color: AppTheme.actionForeground,
+                                color: colors.actionForeground,
                                 size: 22,
                               ),
                       ),
@@ -923,6 +927,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   Widget _buildSkeleton() {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -931,9 +936,9 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
           Container(
             height: 104,
             decoration: BoxDecoration(
-              color: AppTheme.cardDark,
+              color: colors.card,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.borderDark),
+              border: Border.all(color: colors.border),
             ),
           ),
           const SizedBox(height: 16),
@@ -967,6 +972,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   Widget _buildHeader() {
+    final colors = context.colors;
     return Container(
       padding: EdgeInsets.fromLTRB(
         24,
@@ -983,7 +989,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 Text(
                   'NUTRITION',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -992,7 +998,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                 Text(
                   'Diet Plan',
                   style: GoogleFonts.sora(
-                    color: AppTheme.textCream,
+                    color: colors.textPrimary,
                     fontSize: 26,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1007,8 +1013,8 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
               icon: Icon(
                 _reminderEnabled ? LucideIcons.bell_ring : LucideIcons.bell,
                 color: _reminderEnabled
-                    ? AppTheme.primary
-                    : AppTheme.textSageMuted,
+                    ? colors.primary
+                    : colors.textMuted,
                 size: 22,
               ),
             ),
@@ -1034,6 +1040,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   Widget _buildPlanContent() {
+    final colors = context.colors;
     final days = (_planData?['days'] as List?) ?? [];
     if (days.isEmpty) return _buildEmptyState();
 
@@ -1090,12 +1097,12 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     width: 58,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primary : AppTheme.cardDark,
+                      color: isSelected ? colors.actionSurface : colors.card,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected
-                            ? AppTheme.primary
-                            : AppTheme.borderDark,
+                            ? colors.actionSurface
+                            : colors.border,
                       ),
                     ),
                     child: Center(
@@ -1104,8 +1111,8 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(
                           color: isSelected
-                              ? AppTheme.oledBlack
-                              : AppTheme.textSageMuted,
+                              ? colors.actionForeground
+                              : colors.textMuted,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.8,
@@ -1156,7 +1163,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   Text(
                     'PHOTO ANALYSIS',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: colors.textMuted,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
@@ -1199,7 +1206,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   Text(
                     'CAPTURED MEALS',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: colors.textMuted,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
@@ -1289,6 +1296,7 @@ class _MacroProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final calProgress = targetCalories > 0
         ? (consumedCalories / targetCalories).clamp(0.0, 1.0)
         : 0.0;
@@ -1297,15 +1305,15 @@ class _MacroProgressCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.95)),
-        gradient: const LinearGradient(
+        border: Border.all(color: colors.border.withValues(alpha: 0.95)),
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+          colors: colors.cardGradient,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+            color: colors.shadowColor,
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -1320,7 +1328,7 @@ class _MacroProgressCard extends StatelessWidget {
               Text(
                 'Daily Macro Progress',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
+                  color: colors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1328,7 +1336,7 @@ class _MacroProgressCard extends StatelessWidget {
               Text(
                 '${consumedCalories.toInt()} / ${targetCalories.toInt()} cal',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.primary,
+                  color: colors.primary,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1341,8 +1349,8 @@ class _MacroProgressCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: calProgress,
               minHeight: 9,
-              backgroundColor: AppTheme.borderDark,
-              color: AppTheme.primary,
+              backgroundColor: colors.border,
+              color: colors.primary,
             ),
           ),
           const SizedBox(height: 12),
@@ -1353,7 +1361,7 @@ class _MacroProgressCard extends StatelessWidget {
                   label: 'Protein',
                   value: consumedProtein,
                   target: targetProtein,
-                  color: AppTheme.primary,
+                  color: colors.primary,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1362,7 +1370,7 @@ class _MacroProgressCard extends StatelessWidget {
                   label: 'Carbs',
                   value: consumedCarbs,
                   target: targetCarbs,
-                  color: AppTheme.macroCarbs,
+                  color: colors.macroCarbs,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1371,7 +1379,7 @@ class _MacroProgressCard extends StatelessWidget {
                   label: 'Fat',
                   value: consumedFat,
                   target: targetFat,
-                  color: AppTheme.textSageMuted,
+                  color: colors.textMuted,
                 ),
               ),
             ],
@@ -1397,6 +1405,7 @@ class _MacroMiniProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final progress = target > 0 ? (value / target).clamp(0.0, 1.0) : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1404,7 +1413,7 @@ class _MacroMiniProgress extends StatelessWidget {
         Text(
           '$label ${value.toInt()}g/${target.toInt()}g',
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: colors.textMuted,
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -1415,7 +1424,7 @@ class _MacroMiniProgress extends StatelessWidget {
           child: LinearProgressIndicator(
             value: progress,
             minHeight: 6,
-            backgroundColor: AppTheme.borderDark,
+            backgroundColor: colors.border,
             color: color,
           ),
         ),
@@ -1439,6 +1448,7 @@ class _SettingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Semantics(
       label: '$title: $value',
       button: true,
@@ -1450,14 +1460,14 @@ class _SettingRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: AppTheme.cardDark,
+              color: colors.card,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.borderDark),
+              border: Border.all(color: colors.border),
             ),
             child: ExcludeSemantics(
               child: Row(
                 children: [
-                  Icon(icon, color: AppTheme.primary, size: 16),
+                  Icon(icon, color: colors.primary, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -1466,7 +1476,7 @@ class _SettingRow extends StatelessWidget {
                         Text(
                           title,
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
+                            color: colors.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1475,16 +1485,16 @@ class _SettingRow extends StatelessWidget {
                         Text(
                           value,
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
+                            color: colors.textMuted,
                             fontSize: 11,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     LucideIcons.chevron_right,
-                    color: AppTheme.textSageMuted,
+                    color: colors.textMuted,
                     size: 16,
                   ),
                 ],
@@ -1582,6 +1592,7 @@ class _MealCardState extends State<_MealCard> {
   }
 
   void _showLogActualSheet() {
+    final colors = context.colors;
     final meal = widget.meal;
     final mealNameCtrl = TextEditingController(
       text:
@@ -1631,7 +1642,7 @@ class _MealCardState extends State<_MealCard> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1772,7 +1783,7 @@ class _MealCardState extends State<_MealCard> {
                 Text(
                   'LOG ACTUAL',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -1803,7 +1814,7 @@ class _MealCardState extends State<_MealCard> {
                                 final choice =
                                     await showModalBottomSheet<ImageSource>(
                                       context: context,
-                                      backgroundColor: AppTheme.cardDark,
+                                      backgroundColor: colors.card,
                                       shape: const RoundedRectangleBorder(
                                         borderRadius: BorderRadius.vertical(
                                           top: Radius.circular(16),
@@ -1814,15 +1825,15 @@ class _MealCardState extends State<_MealCard> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             ListTile(
-                                              leading: const Icon(
+                                              leading: Icon(
                                                 LucideIcons.camera,
-                                                color: AppTheme.primary,
+                                                color: colors.primary,
                                               ),
                                               title: Text(
                                                 'Camera',
                                                 style:
                                                     GoogleFonts.plusJakartaSans(
-                                                      color: AppTheme.textCream,
+                                                      color: colors.textPrimary,
                                                     ),
                                               ),
                                               onTap: () => Navigator.pop(
@@ -1831,15 +1842,15 @@ class _MealCardState extends State<_MealCard> {
                                               ),
                                             ),
                                             ListTile(
-                                              leading: const Icon(
+                                              leading: Icon(
                                                 LucideIcons.image,
-                                                color: AppTheme.primary,
+                                                color: colors.primary,
                                               ),
                                               title: Text(
                                                 'Gallery',
                                                 style:
                                                     GoogleFonts.plusJakartaSans(
-                                                      color: AppTheme.textCream,
+                                                      color: colors.textPrimary,
                                                     ),
                                               ),
                                               onTap: () => Navigator.pop(
@@ -1854,17 +1865,17 @@ class _MealCardState extends State<_MealCard> {
                                 if (choice != null) await pickAndUpload(choice);
                               },
                         icon: isUploading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 14,
                                 height: 14,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppTheme.primary,
+                                  color: colors.primary,
                                 ),
                               )
-                            : const Icon(
+                            : Icon(
                                 LucideIcons.camera,
-                                color: AppTheme.primary,
+                                color: colors.primary,
                                 size: 14,
                               ),
                         label: Text(
@@ -1874,13 +1885,13 @@ class _MealCardState extends State<_MealCard> {
                               ? 'Add Photo'
                               : 'Change Photo',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
+                            color: colors.primary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.primary),
+                          side: BorderSide(color: colors.primary),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
@@ -1894,30 +1905,30 @@ class _MealCardState extends State<_MealCard> {
                       ElevatedButton.icon(
                         onPressed: isAnalyzing ? null : runAnalysis,
                         icon: isAnalyzing
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 14,
                                 height: 14,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppTheme.actionForeground,
+                                  color: colors.actionForeground,
                                 ),
                               )
-                            : const Icon(
+                            : Icon(
                                 LucideIcons.sparkles,
                                 size: 14,
-                                color: AppTheme.actionForeground,
+                                color: colors.actionForeground,
                               ),
                         label: Text(
                           isAnalyzing ? 'Queued…' : 'Analyze',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.actionForeground,
+                            color: colors.actionForeground,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.actionSurface,
-                          foregroundColor: AppTheme.actionForeground,
+                          backgroundColor: colors.actionSurface,
+                          foregroundColor: colors.actionForeground,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
@@ -1935,7 +1946,7 @@ class _MealCardState extends State<_MealCard> {
                   Text(
                     uploadError!,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.error,
+                      color: colors.error,
                       fontSize: 11,
                     ),
                   ),
@@ -1945,12 +1956,12 @@ class _MealCardState extends State<_MealCard> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const SizedBox(
+                      SizedBox(
                         width: 12,
                         height: 12,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppTheme.primary,
+                          color: colors.primary,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -1958,7 +1969,7 @@ class _MealCardState extends State<_MealCard> {
                         child: Text(
                           'AI analysis is running in the background. You can keep editing or close this sheet.',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
+                            color: colors.textMuted,
                             fontSize: 11,
                           ),
                         ),
@@ -1972,7 +1983,7 @@ class _MealCardState extends State<_MealCard> {
                   Text(
                     'AI analysis failed. You can retry or log the meal manually.',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.error,
+                      color: colors.error,
                       fontSize: 11,
                     ),
                   ),
@@ -1982,16 +1993,16 @@ class _MealCardState extends State<_MealCard> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         LucideIcons.sparkles,
                         size: 12,
-                        color: AppTheme.primary,
+                        color: colors.primary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         'AI estimate — ${(aiConfidence! * 100).toStringAsFixed(0)}% confident',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.primary,
+                          color: colors.primary,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -2076,13 +2087,13 @@ class _MealCardState extends State<_MealCard> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: AppTheme.actionSurface,
+                        color: colors.actionSurface,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         'SAVE ACTUAL LOG',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.actionForeground,
+                          color: colors.actionForeground,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.1,
                         ),
@@ -2102,6 +2113,7 @@ class _MealCardState extends State<_MealCard> {
   }
 
   void _showDetailSheet() {
+    final colors = context.colors;
     final meal = widget.meal;
     final name = meal['mealName'] ?? meal['meal_name'] ?? 'Meal';
     final recipe = (meal['recipe'] ?? '').toString();
@@ -2109,7 +2121,7 @@ class _MealCardState extends State<_MealCard> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -2126,7 +2138,7 @@ class _MealCardState extends State<_MealCard> {
             Text(
               name,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: colors.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -2135,7 +2147,7 @@ class _MealCardState extends State<_MealCard> {
             Text(
               'INGREDIENTS',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: colors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 2,
@@ -2145,26 +2157,26 @@ class _MealCardState extends State<_MealCard> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.08),
+                color: colors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppTheme.primary.withValues(alpha: 0.18),
+                  color: colors.primary.withValues(alpha: 0.18),
                 ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
+                  Icon(
                     LucideIcons.scale,
                     size: 14,
-                    color: AppTheme.primary,
+                    color: colors.primary,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _rawMeasurementsNote,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: colors.textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         height: 1.4,
@@ -2179,7 +2191,7 @@ class _MealCardState extends State<_MealCard> {
               Text(
                 'No ingredient details available.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: colors.textMuted,
                   fontSize: 13,
                 ),
               )
@@ -2190,12 +2202,12 @@ class _MealCardState extends State<_MealCard> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
                         child: Icon(
                           LucideIcons.circle_dot,
                           size: 10,
-                          color: AppTheme.primary,
+                          color: colors.primary,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2208,7 +2220,7 @@ class _MealCardState extends State<_MealCard> {
                             Text(
                               ing['name'] ?? '',
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textCream,
+                                color: colors.textPrimary,
                                 fontSize: 13,
                               ),
                             ),
@@ -2218,13 +2230,13 @@ class _MealCardState extends State<_MealCard> {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.primary.withValues(alpha: 0.12),
+                                color: colors.primary.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
                                 'RAW',
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.primary,
+                                  color: colors.primary,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.8,
@@ -2238,7 +2250,7 @@ class _MealCardState extends State<_MealCard> {
                       Text(
                         ing['quantity'] ?? '',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
+                          color: colors.textMuted,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -2252,7 +2264,7 @@ class _MealCardState extends State<_MealCard> {
               Text(
                 'HOW TO MAKE',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: colors.textMuted,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2,
@@ -2263,12 +2275,12 @@ class _MealCardState extends State<_MealCard> {
                 data: recipe,
                 styleSheet: MarkdownStyleSheet(
                   p: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: colors.textMuted,
                     fontSize: 13,
                     height: 1.6,
                   ),
                   listBullet: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: colors.primary,
                     fontSize: 13,
                   ),
                 ),
@@ -2282,6 +2294,7 @@ class _MealCardState extends State<_MealCard> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final meal = widget.meal;
     final mealType = (meal['mealType'] ?? meal['meal_type'] ?? '')
         .toString()
@@ -2305,21 +2318,19 @@ class _MealCardState extends State<_MealCard> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: hasActual
-              ? AppTheme.primary.withValues(alpha: 0.5)
+              ? colors.primary.withValues(alpha: 0.5)
               : _isCompleted
-              ? AppTheme.primary.withValues(alpha: 0.3)
-              : AppTheme.borderDark.withValues(alpha: 0.95),
+              ? colors.primary.withValues(alpha: 0.3)
+              : colors.border.withValues(alpha: 0.95),
         ),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: _isCompleted
-              ? const [Color(0xFF1B1520), Color(0xFF151419), AppTheme.cardDark]
-              : const [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+          colors: colors.cardGradient,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+            color: colors.shadowColor,
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -2346,32 +2357,38 @@ class _MealCardState extends State<_MealCard> {
                             : 'Mark meal as done',
                         button: true,
                         checked: _isCompleted,
-                        child: GestureDetector(
-                          onTap: _toggleDone,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: _isCompleted
-                                  ? AppTheme.primary
-                                  : AppTheme.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: _isCompleted
-                                    ? AppTheme.primary
-                                    : AppTheme.borderDark,
+                        child: SizedBox(
+                          width: AppTheme.minimumTouchTarget,
+                          height: AppTheme.minimumTouchTarget,
+                          child: GestureDetector(
+                            onTap: _toggleDone,
+                            child: Center(
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: _isCompleted
+                                      ? colors.primary
+                                      : colors.primary.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: _isCompleted
+                                        ? colors.primary
+                                        : colors.border,
+                                  ),
+                                ),
+                                child: _isCompleted
+                                    ? ExcludeSemantics(
+                                        child: Icon(
+                                          LucideIcons.check,
+                                          color: colors.background,
+                                          size: 16,
+                                        ),
+                                      )
+                                    : null,
                               ),
                             ),
-                            child: _isCompleted
-                                ? const ExcludeSemantics(
-                                    child: Icon(
-                                      LucideIcons.check,
-                                      color: AppTheme.oledBlack,
-                                      size: 16,
-                                    ),
-                                  )
-                                : null,
                           ),
                         ),
                       ),
@@ -2388,7 +2405,7 @@ class _MealCardState extends State<_MealCard> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primary.withValues(
+                                    color: colors.primary.withValues(
                                       alpha: 0.1,
                                     ),
                                     borderRadius: BorderRadius.circular(4),
@@ -2396,7 +2413,7 @@ class _MealCardState extends State<_MealCard> {
                                   child: Text(
                                     '$mealTime • $mealType',
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.primary,
+                                      color: colors.primary,
                                       fontSize: 8,
                                       fontWeight: FontWeight.w700,
                                       letterSpacing: 1,
@@ -2411,7 +2428,7 @@ class _MealCardState extends State<_MealCard> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.accent.withValues(
+                                      color: colors.accent.withValues(
                                         alpha: 0.2,
                                       ),
                                       borderRadius: BorderRadius.circular(4),
@@ -2419,7 +2436,7 @@ class _MealCardState extends State<_MealCard> {
                                     child: Text(
                                       'ACTUAL',
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textCream,
+                                        color: colors.textPrimary,
                                         fontSize: 8,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 1,
@@ -2428,10 +2445,10 @@ class _MealCardState extends State<_MealCard> {
                                   ),
                                   if (hasPhoto) ...[
                                     const SizedBox(width: 4),
-                                    const Icon(
+                                    Icon(
                                       LucideIcons.camera,
                                       size: 11,
-                                      color: AppTheme.primary,
+                                      color: colors.primary,
                                     ),
                                   ],
                                 ],
@@ -2442,8 +2459,8 @@ class _MealCardState extends State<_MealCard> {
                               name,
                               style: GoogleFonts.plusJakartaSans(
                                 color: _isCompleted
-                                    ? AppTheme.textSageMuted
-                                    : AppTheme.textCream,
+                                    ? colors.textMuted
+                                    : colors.textPrimary,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -2457,10 +2474,10 @@ class _MealCardState extends State<_MealCard> {
                           label: 'Drag to reorder meal',
                           child: ReorderableDragStartListener(
                             index: widget.index,
-                            child: const ExcludeSemantics(
+                            child: ExcludeSemantics(
                               child: Icon(
                                 LucideIcons.grip_vertical,
-                                color: AppTheme.textSageMuted,
+                                color: colors.textMuted,
                                 size: 16,
                               ),
                             ),
@@ -2476,27 +2493,29 @@ class _MealCardState extends State<_MealCard> {
                       Text(
                         '$calories kcal • ${protein.toInt()}g protein',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
+                          color: colors.textMuted,
                           fontSize: 11,
                         ),
                       ),
                       TextButton.icon(
                         onPressed: _showLogActualSheet,
-                        icon: const Icon(
+                        icon: Icon(
                           LucideIcons.pencil_line,
-                          color: AppTheme.primary,
+                          color: colors.primary,
                           size: 14,
                         ),
                         style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.primary,
+                          foregroundColor: colors.primary,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(0, 30),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          minimumSize: const Size(
+                            0,
+                            AppTheme.minimumTouchTarget,
+                          ),
                         ),
                         label: Text(
                           hasActual ? 'Update Actual' : 'Log Actual',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.primary,
+                            color: colors.primary,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
@@ -2528,6 +2547,7 @@ class _PhotoAnalysisCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final signedUrl = analysis['signedUrl'] as String?;
     final status = analysis['aiAnalysisStatus']?.toString() ?? 'pending';
     final result = analysis['analysisResult'] is Map
@@ -2548,19 +2568,19 @@ class _PhotoAnalysisCard extends StatelessWidget {
     final (badgeLabel, badgeColor, message) = switch (status) {
       'completed' => (
         'READY',
-        AppTheme.success,
+        colors.success,
         confidence == null
             ? 'Tap to review this meal.'
             : 'Tap to review. ${(confidence * 100).toStringAsFixed(0)}% confident.',
       ),
       'failed' => (
         'FAILED',
-        AppTheme.error,
+        colors.error,
         'Analysis failed. Retry when you are ready.',
       ),
       _ => (
         'ANALYZING',
-        AppTheme.primary,
+        colors.primary,
         'Processing in the background. You can keep using the app.',
       ),
     };
@@ -2574,14 +2594,14 @@ class _PhotoAnalysisCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+              colors: colors.cardGradient,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+                color: colors.shadowColor,
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -2605,13 +2625,13 @@ class _PhotoAnalysisCard extends StatelessWidget {
                         : Container(
                             height: 160,
                             color: badgeColor.withValues(alpha: 0.06),
-                            child: const Center(
+                            child: Center(
                               child: SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: AppTheme.primary,
+                                  color: colors.primary,
                                 ),
                               ),
                             ),
@@ -2655,19 +2675,19 @@ class _PhotoAnalysisCard extends StatelessWidget {
                                 ? 'Photo analysis failed'
                                 : 'Photo analysis in progress',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: colors.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                         if (!isFailed && !isReady)
-                          const SizedBox(
+                          SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppTheme.primary,
+                              color: colors.primary,
                             ),
                           ),
                       ],
@@ -2676,7 +2696,7 @@ class _PhotoAnalysisCard extends StatelessWidget {
                     Text(
                       message,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: colors.textMuted,
                         fontSize: 11,
                       ),
                     ),
@@ -2689,7 +2709,7 @@ class _PhotoAnalysisCard extends StatelessWidget {
                       Text(
                         '$calories kcal  •  ${protein.toStringAsFixed(1)}g protein  •  ${carbs.toStringAsFixed(1)}g carbs  •  ${fat.toStringAsFixed(1)}g fat',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
+                          color: colors.textPrimary,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -2701,21 +2721,21 @@ class _PhotoAnalysisCard extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: OutlinedButton.icon(
                           onPressed: onRetry,
-                          icon: const Icon(
+                          icon: Icon(
                             LucideIcons.rotate_cw,
-                            color: AppTheme.error,
+                            color: colors.error,
                             size: 14,
                           ),
                           label: Text(
                             'Retry',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.error,
+                              color: colors.error,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppTheme.error),
+                            side: BorderSide(color: colors.error),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,
@@ -2742,6 +2762,7 @@ class _QuickLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     final name = log['mealName']?.toString() ?? 'Meal';
     final calories = (log['calories'] as num?)?.toInt() ?? 0;
     final protein = (log['proteinG'] as num?)?.toDouble() ?? 0;
@@ -2753,15 +2774,15 @@ class _QuickLogCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
-        gradient: const LinearGradient(
+        border: Border.all(color: colors.primary.withValues(alpha: 0.4)),
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+          colors: colors.cardGradient,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+            color: colors.shadowColor,
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -2784,14 +2805,14 @@ class _QuickLogCard extends StatelessWidget {
                     ? child
                     : Container(
                         height: 160,
-                        color: AppTheme.primary.withValues(alpha: 0.06),
-                        child: const Center(
+                        color: colors.primary.withValues(alpha: 0.06),
+                        child: Center(
                           child: SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppTheme.primary,
+                              color: colors.primary,
                             ),
                           ),
                         ),
@@ -2810,22 +2831,22 @@ class _QuickLogCard extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.1),
+                    color: colors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         LucideIcons.camera,
                         size: 9,
-                        color: AppTheme.primary,
+                        color: colors.primary,
                       ),
                       const SizedBox(width: 3),
                       Text(
                         'PHOTO LOG',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.primary,
+                          color: colors.primary,
                           fontSize: 8,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1,
@@ -2839,7 +2860,7 @@ class _QuickLogCard extends StatelessWidget {
                   child: Text(
                     name,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -2855,7 +2876,7 @@ class _QuickLogCard extends StatelessWidget {
             child: Text(
               '$calories kcal  •  ${protein.toStringAsFixed(1)}g protein  •  ${carbs.toStringAsFixed(1)}g carbs  •  ${fat.toStringAsFixed(1)}g fat',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: colors.textMuted,
                 fontSize: 11,
               ),
             ),

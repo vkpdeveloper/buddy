@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:io';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/models/body_measurement.dart';
 import 'package:buddy/models/growth.dart';
 import 'package:buddy/providers/body_provider.dart';
@@ -51,7 +52,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: context.colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -116,7 +117,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: context.colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -132,7 +133,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
     HapticFeedback.mediumImpact();
     showDialog(
       context: context,
-      barrierColor: AppTheme.oledBlack.withValues(alpha: 0.7),
+      barrierColor: context.colors.background.withValues(alpha: 0.7),
       builder: (_) => _XpCelebrationDialog(result: result),
     );
   }
@@ -161,7 +162,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: context.colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -184,7 +185,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                       'Preview your progress card before sharing.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 12,
                       ),
                     ),
@@ -197,10 +198,10 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                                 ? null
                                 : () => Navigator.pop(sheetContext),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: AppTheme.borderDark,
+                              side: BorderSide(
+                                color: context.colors.border,
                               ),
-                              foregroundColor: AppTheme.textSageMuted,
+                              foregroundColor: context.colors.textMuted,
                             ),
                             child: const Text('Close'),
                           ),
@@ -239,16 +240,16 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                                     }
                                   },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.actionSurface,
-                              foregroundColor: AppTheme.actionForeground,
+                              backgroundColor: context.colors.actionSurface,
+                              foregroundColor: context.colors.actionForeground,
                             ),
                             icon: sharing
-                                ? const SizedBox(
+                                ?       SizedBox(
                                     width: 14,
                                     height: 14,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: AppTheme.actionForeground,
+                                      color: context.colors.actionForeground,
                                     ),
                                   )
                                 : const Icon(LucideIcons.send, size: 16),
@@ -272,7 +273,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
     final overviewAsync = ref.watch(growthOverviewProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -283,8 +284,8 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
             ),
             Expanded(
               child: RefreshIndicator(
-                color: AppTheme.primary,
-                backgroundColor: AppTheme.cardDark,
+                color: context.colors.primary,
+                backgroundColor: context.colors.card,
                 onRefresh: _refresh,
                 child: overviewAsync.when(
                   loading: () => ListView(
@@ -476,15 +477,15 @@ class _WeightCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.95)),
-        gradient: const LinearGradient(
+        border: Border.all(color: context.colors.border.withValues(alpha: 0.95)),
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF131318), Color(0xFF14161A), AppTheme.cardDark],
+          colors: context.colors.cardGradient,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.shadowSoft.withValues(alpha: 0.22),
+            color: context.colors.shadowColor,
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -496,7 +497,7 @@ class _WeightCard extends StatelessWidget {
           Text(
             'MY WEIGHT',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
+              color: context.colors.primary,
               fontSize: 9,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.4,
@@ -510,7 +511,7 @@ class _WeightCard extends StatelessWidget {
               Text(
                 currentKg != null ? currentKg!.toStringAsFixed(1) : '—',
                 style: GoogleFonts.sora(
-                  color: AppTheme.textCream,
+                  color: context.colors.textPrimary,
                   fontSize: 26,
                   fontWeight: FontWeight.w600,
                   height: 1,
@@ -520,7 +521,7 @@ class _WeightCard extends StatelessWidget {
               Text(
                 'kg',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -534,15 +535,15 @@ class _WeightCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
                 minHeight: 3,
-                backgroundColor: AppTheme.borderDark,
-                valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
+                backgroundColor: context.colors.border,
+                valueColor: AlwaysStoppedAnimation(context.colors.primary),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Goal ${goalKg!.toStringAsFixed(1)} kg',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 9,
                 fontWeight: FontWeight.w500,
               ),
@@ -553,7 +554,7 @@ class _WeightCard extends StatelessWidget {
             Text(
               'Last: $lastLogDate',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted.withValues(alpha: 0.6),
+                color: context.colors.textMuted,
                 fontSize: 8,
               ),
             ),
@@ -572,23 +573,28 @@ class _StreakCard extends StatelessWidget {
   Widget build(BuildContext context) {
     const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     final today = DateTime.now().weekday; // 1=Mon..7=Sun
+    final completedDotColor = context.colors.xpGold.withValues(
+      alpha: context.colors.isDark ? 0.64 : 0.82,
+    );
+    final idleDotBorderColor = context.colors.textMuted;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.xpGold.withValues(alpha: 0.18)),
+        border: Border.all(color: context.colors.xpGold.withValues(alpha: 0.18)),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppTheme.xpGold.withValues(alpha: 0.07),
-            const Color(0xFF14161A),
-            AppTheme.cardDark,
+            context.colors.xpGold.withValues(alpha: 0.07),
+            context.colors.cardGradientMid,
+            context.colors.card,
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.shadowSoft.withValues(alpha: 0.22),
+            color: context.colors.shadowColor,
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -599,12 +605,12 @@ class _StreakCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.flame, color: AppTheme.xpGold, size: 12),
+              Icon(LucideIcons.flame, color: context.colors.xpGold, size: 12),
               const SizedBox(width: 4),
               Text(
                 'STREAK',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.xpGold,
+                  color: context.colors.xpGold,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.4,
@@ -620,7 +626,7 @@ class _StreakCard extends StatelessWidget {
               Text(
                 '$streak',
                 style: GoogleFonts.sora(
-                  color: AppTheme.textCream,
+                  color: context.colors.textPrimary,
                   fontSize: 26,
                   fontWeight: FontWeight.w600,
                   height: 1,
@@ -630,7 +636,7 @@ class _StreakCard extends StatelessWidget {
               Text(
                 'days',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -649,25 +655,36 @@ class _StreakCard extends StatelessWidget {
                   Text(
                     weekdays[i],
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted.withValues(alpha: 0.6),
+                      color: context.colors.textSecondary,
                       fontSize: 8,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Container(
-                    width: 7,
-                    height: 7,
+                    width: 8,
+                    height: 8,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isToday
-                          ? AppTheme.xpGold
+                          ? context.colors.xpGold
                           : isActive && streak > 0
-                          ? AppTheme.xpGold.withValues(alpha: 0.45)
-                          : AppTheme.borderDark,
+                          ? completedDotColor
+                          : context.colors.card,
+                      border: Border.all(
+                        color: isToday
+                            ? context.colors.xpGold.withValues(
+                                alpha: context.colors.isDark ? 0.38 : 0.26,
+                              )
+                            : isActive && streak > 0
+                            ? completedDotColor
+                            : idleDotBorderColor,
+                        width: isToday ? 1.4 : 1.1,
+                      ),
                       boxShadow: isToday
                           ? [
                               BoxShadow(
-                                color: AppTheme.xpGold.withValues(alpha: 0.5),
+                                color: context.colors.xpGold.withValues(alpha: 0.32),
                                 blurRadius: 6,
                               ),
                             ]
@@ -701,11 +718,11 @@ class _SegmentedSelector extends StatelessWidget {
       height: 38,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.8)),
-        gradient: const LinearGradient(
+        border: Border.all(color: context.colors.border.withValues(alpha: 0.8)),
+        gradient:       LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: AppTheme.cardGradient,
+          colors: context.colors.cardGradient,
         ),
       ),
       child: Row(
@@ -720,12 +737,12 @@ class _SegmentedSelector extends StatelessWidget {
               minWidth: AppTheme.minimumTouchTarget,
               borderRadius: BorderRadius.circular(9),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primary : AppTheme.transparent,
+                color: isSelected ? context.colors.actionSurface : AppTheme.transparent,
                 borderRadius: BorderRadius.circular(9),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: AppTheme.primary.withValues(alpha: 0.3),
+                          color: context.colors.actionSurface.withValues(alpha: 0.2),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -741,8 +758,8 @@ class _SegmentedSelector extends StatelessWidget {
                   labels[i],
                   style: GoogleFonts.plusJakartaSans(
                     color: isSelected
-                        ? AppTheme.oledBlack
-                        : AppTheme.textSageMuted,
+                        ? context.colors.actionForeground
+                        : context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
@@ -788,16 +805,16 @@ class _GoalProgressChartCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppTheme.borderDark.withValues(alpha: 0.95),
+            color: context.colors.border.withValues(alpha: 0.95),
           ),
-          gradient: const LinearGradient(
+          gradient:       LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+            colors: context.colors.cardGradient,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+              color: context.colors.shadowColor,
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -812,7 +829,7 @@ class _GoalProgressChartCard extends StatelessWidget {
                   child: Text(
                     'Weight Progress',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -825,37 +842,45 @@ class _GoalProgressChartCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.14),
+                      color: context.colors.primary.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                        color: AppTheme.primary.withValues(alpha: 0.28),
+                        color: context.colors.primary.withValues(alpha: 0.28),
                       ),
                     ),
                     child: Text(
                       '${progressPct.toStringAsFixed(0)}% of goal',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
+                        color: context.colors.primary,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onEditGoal,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: AppTheme.oledBlack.withValues(alpha: 0.22),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppTheme.textMain.withValues(alpha: 0.16),
+                Semantics(
+                  button: true,
+                  label: 'Edit goal',
+                  child: SizedBox(
+                    width: AppTheme.minimumTouchTarget,
+                    height: AppTheme.minimumTouchTarget,
+                    child: GestureDetector(
+                      onTap: onEditGoal,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: context.colors.background.withValues(alpha: 0.22),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: context.colors.border),
+                          ),
+                          child: Icon(
+                            LucideIcons.pencil,
+                            size: 12,
+                            color: context.colors.textSecondary,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: const Icon(
-                      LucideIcons.pencil,
-                      size: 12,
-                      color: AppTheme.textMain,
                     ),
                   ),
                 ),
@@ -866,7 +891,7 @@ class _GoalProgressChartCard extends StatelessWidget {
               Text(
                 'Log a check-in to start tracking your weight trend.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 12,
                   height: 1.4,
                 ),
@@ -877,7 +902,12 @@ class _GoalProgressChartCard extends StatelessWidget {
               SizedBox(
                 height: 140,
                 child: CustomPaint(
-                  painter: _WeightChartPainter(points: trend, goalKg: goalKg),
+                  painter: _WeightChartPainter(
+                    points: trend,
+                    goalKg: goalKg,
+                    primaryColor: context.colors.primary,
+                    xpGoldColor: context.colors.xpGold,
+                  ),
                   size: const Size(double.infinity, 140),
                 ),
               ),
@@ -889,8 +919,8 @@ class _GoalProgressChartCard extends StatelessWidget {
                     : 'Set a goal weight to track your progress.',
                 style: GoogleFonts.plusJakartaSans(
                   color: hasData
-                      ? AppTheme.textSageMuted
-                      : const Color(0xFF4CAF50),
+                      ? context.colors.textMuted
+                      : context.colors.success,
                   fontSize: 11,
                   fontStyle: hasData ? FontStyle.italic : FontStyle.normal,
                   fontWeight: hasData ? FontWeight.normal : FontWeight.w600,
@@ -936,7 +966,7 @@ class _BaselineWeightChart extends StatelessWidget {
                   (v) => Text(
                     v.toStringAsFixed(1),
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 9,
                     ),
                   ),
@@ -951,6 +981,9 @@ class _BaselineWeightChart extends StatelessWidget {
                 currentKg: currentKg,
                 labels: labels,
                 goalKg: goalKg,
+                borderColor: context.colors.border,
+                xpGoldColor: context.colors.xpGold,
+                textPrimaryColor: context.colors.textPrimary,
               ),
             ),
           ),
@@ -964,11 +997,17 @@ class _BaselineChartPainter extends CustomPainter {
   final double currentKg;
   final List<double> labels;
   final double? goalKg;
+  final Color borderColor;
+  final Color xpGoldColor;
+  final Color textPrimaryColor;
 
   _BaselineChartPainter({
     required this.currentKg,
     required this.labels,
     required this.goalKg,
+    required this.borderColor,
+    required this.xpGoldColor,
+    required this.textPrimaryColor,
   });
 
   @override
@@ -981,7 +1020,7 @@ class _BaselineChartPainter extends CustomPainter {
 
     // Draw dashed grid lines
     final gridPaint = Paint()
-      ..color = AppTheme.borderDark.withValues(alpha: 0.5)
+      ..color = borderColor.withValues(alpha: 0.5)
       ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke;
     for (final v in labels) {
@@ -1001,7 +1040,7 @@ class _BaselineChartPainter extends CustomPainter {
     if (goalKg != null && goalKg! >= minV && goalKg! <= maxV) {
       final goalY = toY(goalKg!);
       final goalPaint = Paint()
-        ..color = AppTheme.xpGold.withValues(alpha: 0.6)
+        ..color = xpGoldColor.withValues(alpha: 0.6)
         ..strokeWidth = 1.2
         ..style = PaintingStyle.stroke;
       double x = 0;
@@ -1021,7 +1060,7 @@ class _BaselineChartPainter extends CustomPainter {
       Offset(0, baseY),
       Offset(size.width, baseY),
       Paint()
-        ..color = AppTheme.textCream
+        ..color = textPrimaryColor
         ..strokeWidth = 1.8
         ..style = PaintingStyle.stroke,
     );
@@ -1035,8 +1074,15 @@ class _BaselineChartPainter extends CustomPainter {
 class _WeightChartPainter extends CustomPainter {
   final List<GrowthTrendPoint> points;
   final double? goalKg;
+  final Color primaryColor;
+  final Color xpGoldColor;
 
-  _WeightChartPainter({required this.points, required this.goalKg});
+  _WeightChartPainter({
+    required this.points,
+    required this.goalKg,
+    required this.primaryColor,
+    required this.xpGoldColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1064,7 +1110,7 @@ class _WeightChartPainter extends CustomPainter {
     if (goalKg != null) {
       final goalY = toY(goalKg!);
       final dashPaint = Paint()
-        ..color = AppTheme.xpGold.withValues(alpha: 0.6)
+        ..color = xpGoldColor.withValues(alpha: 0.6)
         ..strokeWidth = 1.2
         ..style = PaintingStyle.stroke;
       double x = hPad;
@@ -1103,8 +1149,8 @@ class _WeightChartPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppTheme.primary.withValues(alpha: 0.2),
-            AppTheme.primary.withValues(alpha: 0.02),
+            primaryColor.withValues(alpha: 0.2),
+            primaryColor.withValues(alpha: 0.02),
           ],
         ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
     );
@@ -1123,14 +1169,14 @@ class _WeightChartPainter extends CustomPainter {
     canvas.drawPath(
       linePath,
       Paint()
-        ..color = AppTheme.primary
+        ..color = primaryColor
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round,
     );
 
     // Draw last point dot
-    canvas.drawCircle(chartPoints.last, 4, Paint()..color = AppTheme.primary);
+    canvas.drawCircle(chartPoints.last, 4, Paint()..color = primaryColor);
   }
 
   @override
@@ -1151,16 +1197,16 @@ class _ProgressPhotosSection extends ConsumerWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppTheme.borderDark.withValues(alpha: 0.95),
+            color: context.colors.border.withValues(alpha: 0.95),
           ),
-          gradient: const LinearGradient(
+          gradient:       LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+            colors: context.colors.cardGradient,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+              color: context.colors.shadowColor,
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -1172,7 +1218,7 @@ class _ProgressPhotosSection extends ConsumerWidget {
             Text(
               'Progress Photos',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
@@ -1186,7 +1232,7 @@ class _ProgressPhotosSection extends ConsumerWidget {
                   return Text(
                     'No photos yet. Upload a progress photo to get started.',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 12,
                       height: 1.4,
                     ),
@@ -1205,7 +1251,7 @@ class _ProgressPhotosSection extends ConsumerWidget {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: AppTheme.borderDark.withValues(alpha: 0.7),
+                              color: context.colors.border.withValues(alpha: 0.7),
                             ),
                           ),
                           child: ClipRRect(
@@ -1215,10 +1261,10 @@ class _ProgressPhotosSection extends ConsumerWidget {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   Container(
-                                    color: AppTheme.backgroundDark,
-                                    child: const Icon(
+                                    color: context.colors.backgroundSecondary,
+                                    child:       Icon(
                                       LucideIcons.image,
-                                      color: AppTheme.textSageMuted,
+                                      color: context.colors.textMuted,
                                       size: 20,
                                     ),
                                   ),
@@ -1231,17 +1277,17 @@ class _ProgressPhotosSection extends ConsumerWidget {
                           width: 76,
                           height: 76,
                           decoration: BoxDecoration(
-                            color: AppTheme.oledBlack.withValues(alpha: 0.4),
+                            color: context.colors.background.withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: AppTheme.borderDark.withValues(alpha: 0.7),
+                              color: context.colors.border.withValues(alpha: 0.7),
                             ),
                           ),
                           alignment: Alignment.center,
                           child: Text(
                             '+${photos.length - 3}',
                             style: GoogleFonts.sora(
-                              color: AppTheme.textSageMuted,
+                              color: context.colors.textMuted,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -1272,16 +1318,16 @@ class _WeeklyCaloriesSection extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppTheme.borderDark.withValues(alpha: 0.95),
+            color: context.colors.border.withValues(alpha: 0.95),
           ),
-          gradient: const LinearGradient(
+          gradient:       LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+            colors: context.colors.cardGradient,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+              color: context.colors.shadowColor,
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -1293,26 +1339,26 @@ class _WeeklyCaloriesSection extends StatelessWidget {
             Text(
               'Weekly Calories',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 12),
             weeklyAsync.when(
-              loading: () => const SizedBox(
+              loading: () =>       SizedBox(
                 height: 100,
                 child: Center(
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                   ),
                 ),
               ),
               error: (_, _) => Text(
                 'Could not load weekly data.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 12,
                 ),
               ),
@@ -1321,7 +1367,7 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                   return Text(
                     'No calorie data logged for this week.',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 12,
                       height: 1.4,
                     ),
@@ -1341,7 +1387,7 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                         Text(
                           '$totalCal',
                           style: GoogleFonts.sora(
-                            color: AppTheme.textCream,
+                            color: context.colors.textPrimary,
                             fontSize: 30,
                             fontWeight: FontWeight.w600,
                             height: 1,
@@ -1353,7 +1399,7 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                           child: Text(
                             'kcal total',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted,
+                              color: context.colors.textMuted,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -1384,8 +1430,8 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: frac > 0.01
-                                                ? AppTheme.primary
-                                                : AppTheme.borderDark,
+                                                ? context.colors.primary
+                                                : context.colors.border,
                                             borderRadius: BorderRadius.circular(
                                               5,
                                             ),
@@ -1398,7 +1444,7 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                                   Text(
                                     d.dayLabel,
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textSageMuted,
+                                      color: context.colors.textMuted,
                                       fontSize: 9,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1413,7 +1459,7 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        _LegendDot(color: AppTheme.primary, label: 'Calories'),
+                        _LegendDot(color: context.colors.primary, label: 'Calories'),
                       ],
                     ),
                   ],
@@ -1440,14 +1486,21 @@ class _LegendDot extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: color.withValues(alpha: context.colors.isDark ? 0.24 : 0.16),
+            ),
+          ),
         ),
         const SizedBox(width: 4),
         Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: context.colors.textSecondary,
             fontSize: 10,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -1455,18 +1508,51 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
+class _BmiPalette {
+  final Color underweight;
+  final Color healthy;
+  final Color overweight;
+  final Color obese;
+
+  const _BmiPalette({
+    required this.underweight,
+    required this.healthy,
+    required this.overweight,
+    required this.obese,
+  });
+
+  factory _BmiPalette.resolve(AppColorScheme colors) {
+    if (colors.isDark) {
+      return const _BmiPalette(
+        underweight: Color(0xFF88AFCB),
+        healthy: Color(0xFF7FA88E),
+        overweight: Color(0xFFC49C62),
+        obese: Color(0xFFC6847A),
+      );
+    }
+
+    return const _BmiPalette(
+      underweight: Color(0xFF527895),
+      healthy: Color(0xFF4E7C62),
+      overweight: Color(0xFF8C6A33),
+      obese: Color(0xFF96544C),
+    );
+  }
+}
+
 class _BmiCard extends StatelessWidget {
   final double? weightKg;
   final double? heightCm;
-  static const Color _underweightColor = Color(0xFF35B8FF);
-  static const Color _healthyColor = Color(0xFF42C27A);
-  static const Color _overweightColor = Color(0xFFF0BE4C);
-  static const Color _obeseColor = Color(0xFFEB6758);
 
   const _BmiCard({required this.weightKg, required this.heightCm});
 
   @override
   Widget build(BuildContext context) {
+    final bmiPalette = _BmiPalette.resolve(context.colors);
+    final underweightColor = bmiPalette.underweight;
+    final healthyColor = bmiPalette.healthy;
+    final overweightColor = bmiPalette.overweight;
+    final obeseColor = bmiPalette.obese;
     double? bmi;
     if (weightKg != null && heightCm != null && heightCm! > 0) {
       final hm = heightCm! / 100;
@@ -1474,24 +1560,24 @@ class _BmiCard extends StatelessWidget {
     }
 
     String? category;
-    Color categoryColor = AppTheme.textSageMuted;
+    Color categoryColor = context.colors.textMuted;
     double? markerFrac;
     if (bmi != null) {
       if (bmi < 18.5) {
         category = 'Underweight';
-        categoryColor = _underweightColor;
+        categoryColor = underweightColor;
         markerFrac = (bmi / 18.5) * 0.25;
       } else if (bmi < 25) {
         category = 'Healthy';
-        categoryColor = _healthyColor;
+        categoryColor = healthyColor;
         markerFrac = 0.25 + ((bmi - 18.5) / 6.5) * 0.25;
       } else if (bmi < 30) {
         category = 'Overweight';
-        categoryColor = _overweightColor;
+        categoryColor = overweightColor;
         markerFrac = 0.5 + ((bmi - 25) / 5) * 0.25;
       } else {
         category = 'Obese';
-        categoryColor = _obeseColor;
+        categoryColor = obeseColor;
         markerFrac = math.min(0.75 + ((bmi - 30) / 10) * 0.25, 1.0);
       }
     }
@@ -1513,7 +1599,7 @@ class _BmiCard extends StatelessWidget {
                     child: Text(
                       'Your BMI',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1522,20 +1608,24 @@ class _BmiCard extends StatelessWidget {
                   Tooltip(
                     message:
                         'BMI uses your weight and height to estimate your current range.',
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: AppTheme.oledBlack.withValues(alpha: 0.22),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppTheme.textMain.withValues(alpha: 0.16),
+                    child: SizedBox(
+                      width: AppTheme.minimumTouchTarget,
+                      height: AppTheme.minimumTouchTarget,
+                      child: Center(
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: context.colors.background.withValues(alpha: 0.22),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: context.colors.border),
+                          ),
+                          child: Icon(
+                            LucideIcons.info,
+                            size: 14,
+                            color: context.colors.textSecondary,
+                          ),
                         ),
-                      ),
-                      child: const Icon(
-                        LucideIcons.info,
-                        size: 14,
-                        color: AppTheme.textMain,
                       ),
                     ),
                   ),
@@ -1546,7 +1636,7 @@ class _BmiCard extends StatelessWidget {
                 Text(
                   'Add your latest weight and height to calculate your BMI range.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 12,
                     height: 1.45,
                   ),
@@ -1558,7 +1648,7 @@ class _BmiCard extends StatelessWidget {
                     Text(
                       bmi.toStringAsFixed(2),
                       style: GoogleFonts.sora(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 30,
                         fontWeight: FontWeight.w600,
                         height: 1,
@@ -1597,17 +1687,17 @@ class _BmiCard extends StatelessWidget {
                               width: double.infinity,
                               height: 6,
                               child: DecoratedBox(
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.centerLeft,
                                     end: Alignment.centerRight,
                                     colors: [
-                                      _underweightColor,
-                                      _healthyColor,
-                                      _overweightColor,
-                                      _obeseColor,
+                                      underweightColor,
+                                      healthyColor,
+                                      overweightColor,
+                                      obeseColor,
                                     ],
-                                    stops: [0.0, 0.38, 0.68, 1.0],
+                                    stops: const [0.0, 0.38, 0.68, 1.0],
                                   ),
                                 ),
                               ),
@@ -1621,7 +1711,7 @@ class _BmiCard extends StatelessWidget {
                               child: Container(
                                 width: 2,
                                 decoration: BoxDecoration(
-                                  color: AppTheme.textCream,
+                                  color: context.colors.textPrimary,
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
@@ -1638,11 +1728,11 @@ class _BmiCard extends StatelessWidget {
                 child: Wrap(
                   spacing: 14,
                   runSpacing: 8,
-                  children: const [
-                    _LegendDot(color: _underweightColor, label: 'Underweight'),
-                    _LegendDot(color: _healthyColor, label: 'Healthy'),
-                    _LegendDot(color: _overweightColor, label: 'Overweight'),
-                    _LegendDot(color: _obeseColor, label: 'Obese'),
+                  children: [
+                    _LegendDot(color: underweightColor, label: 'Underweight'),
+                    _LegendDot(color: healthyColor, label: 'Healthy'),
+                    _LegendDot(color: overweightColor, label: 'Overweight'),
+                    _LegendDot(color: obeseColor, label: 'Obese'),
                   ],
                 ),
               ),
@@ -1707,7 +1797,7 @@ class _GrowthHeader extends StatelessWidget {
                 Text(
                   'PROGRESS',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2.5,
@@ -1716,7 +1806,7 @@ class _GrowthHeader extends StatelessWidget {
                 Text(
                   'Progress',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1770,14 +1860,14 @@ class _IconAction extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.12),
+              color: context.colors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppTheme.primary.withValues(alpha: 0.25),
+                color: context.colors.primary.withValues(alpha: 0.25),
               ),
             ),
             child: ExcludeSemantics(
-              child: Icon(icon, color: AppTheme.primary, size: 20),
+              child: Icon(icon, color: context.colors.primary, size: 20),
             ),
           ),
         ),
@@ -1816,9 +1906,9 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: context.colors.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.borderDark),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1826,7 +1916,7 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
             Text(
               'PHOTO COMPARISON',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
+                color: context.colors.primary,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.4,
@@ -1837,7 +1927,7 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
               Text(
                 'Add at least 2 progress photos to compare.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 12,
                 ),
               )
@@ -1884,7 +1974,7 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                                 bottom: 0,
                                 child: Container(
                                   width: 2,
-                                  color: AppTheme.textCream.withValues(
+                                  color: context.colors.textPrimary.withValues(
                                     alpha: 0.8,
                                   ),
                                 ),
@@ -1896,12 +1986,12 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                                   width: 28,
                                   height: 28,
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cardDark.withValues(
+                                    color: context.colors.card.withValues(
                                       alpha: 0.92,
                                     ),
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: AppTheme.textCream.withValues(
+                                      color: context.colors.textPrimary.withValues(
                                         alpha: 0.85,
                                       ),
                                     ),
@@ -1909,7 +1999,7 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                                   child: Icon(
                                     Icons.drag_indicator_rounded,
                                     size: 16,
-                                    color: AppTheme.textCream.withValues(
+                                    color: context.colors.textPrimary.withValues(
                                       alpha: 0.9,
                                     ),
                                   ),
@@ -1930,7 +2020,7 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                   Text(
                     'FIRST: ${widget.firstPhoto!.date}',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 10,
                     ),
                   ),
@@ -1938,7 +2028,7 @@ class _PhotoCompareCardState extends State<_PhotoCompareCard> {
                   Text(
                     'LATEST: ${widget.latestPhoto!.date}',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 10,
                     ),
                   ),
@@ -1990,9 +2080,9 @@ class _AchievementsCardState extends State<_AchievementsCard> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: context.colors.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.borderDark),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2002,7 +2092,7 @@ class _AchievementsCardState extends State<_AchievementsCard> {
                 Text(
                   'ACHIEVEMENTS',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.4,
@@ -2013,7 +2103,7 @@ class _AchievementsCardState extends State<_AchievementsCard> {
                   Text(
                     '${unlocked.length} earned',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.xpGold,
+                      color: context.colors.xpGold,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                     ),
@@ -2025,7 +2115,7 @@ class _AchievementsCardState extends State<_AchievementsCard> {
               Text(
                 'Complete workouts and log check-ins to earn achievements.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 11,
                 ),
               ),
@@ -2044,7 +2134,7 @@ class _AchievementsCardState extends State<_AchievementsCard> {
                           ? 'Hide locked'
                           : 'Show all (${locked.length} locked)',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -2055,7 +2145,7 @@ class _AchievementsCardState extends State<_AchievementsCard> {
                           ? LucideIcons.chevron_up
                           : LucideIcons.chevron_down,
                       size: 13,
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                     ),
                   ],
                 ),
@@ -2104,13 +2194,13 @@ class _AchievementGrid extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: unlocked
-                  ? AppTheme.xpGold.withValues(alpha: 0.08)
-                  : AppTheme.backgroundDark,
+                  ? context.colors.xpGold.withValues(alpha: 0.08)
+                  : context.colors.backgroundSecondary,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: unlocked
-                    ? AppTheme.xpGold.withValues(alpha: 0.35)
-                    : AppTheme.borderDark,
+                    ? context.colors.xpGold.withValues(alpha: 0.35)
+                    : context.colors.border,
               ),
             ),
             child: Column(
@@ -2121,8 +2211,8 @@ class _AchievementGrid extends StatelessWidget {
                     Icon(
                       unlocked ? LucideIcons.trophy : LucideIcons.lock,
                       color: unlocked
-                          ? AppTheme.xpGold
-                          : AppTheme.textSageMuted,
+                          ? context.colors.xpGold
+                          : context.colors.textMuted,
                       size: 14,
                     ),
                     const Spacer(),
@@ -2130,8 +2220,8 @@ class _AchievementGrid extends StatelessWidget {
                       '+${item['xpReward'] ?? 0} XP',
                       style: GoogleFonts.plusJakartaSans(
                         color: unlocked
-                            ? AppTheme.xpGold
-                            : AppTheme.textSageMuted,
+                            ? context.colors.xpGold
+                            : context.colors.textMuted,
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
                       ),
@@ -2145,8 +2235,8 @@ class _AchievementGrid extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                     color: unlocked
-                        ? AppTheme.textCream
-                        : AppTheme.textSageMuted,
+                        ? context.colors.textPrimary
+                        : context.colors.textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -2157,7 +2247,7 @@ class _AchievementGrid extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 9,
                   ),
                 ),
@@ -2234,7 +2324,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
           Text(
             'Update Your Targets',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -2243,7 +2333,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
           Text(
             'Set clear targets and we will show your progress after each check-in.',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 12,
               height: 1.3,
             ),
@@ -2258,16 +2348,16 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
             child: ElevatedButton(
               onPressed: _saving ? null : _save,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.actionSurface,
-                foregroundColor: AppTheme.actionForeground,
+                backgroundColor: context.colors.actionSurface,
+                foregroundColor: context.colors.actionForeground,
               ),
               child: _saving
-                  ? const SizedBox(
+                  ?       SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppTheme.actionForeground,
+                        color: context.colors.actionForeground,
                       ),
                     )
                   : const Text('Save Targets'),
@@ -2429,7 +2519,7 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
             Text(
               'LOG MEASUREMENTS ${_currentStep + 1}/${_steps.length}',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
+                color: context.colors.primary,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.4,
@@ -2439,7 +2529,7 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
             Text(
               step.label,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
               ),
@@ -2449,16 +2539,16 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundDark,
+                color: context.colors.backgroundSecondary,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderDark),
+                border: Border.all(color: context.colors.border),
               ),
               child: _selectedPhoto == null
                   ? Row(
                       children: [
-                        const Icon(
+                              Icon(
                           LucideIcons.image,
-                          color: AppTheme.primary,
+                          color: context.colors.primary,
                           size: 16,
                         ),
                         const SizedBox(width: 8),
@@ -2466,7 +2556,7 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
                           child: Text(
                             'Add progress photo for this check-in',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted,
+                              color: context.colors.textMuted,
                               fontSize: 11,
                             ),
                           ),
@@ -2493,7 +2583,7 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
                           child: Text(
                             'Photo attached to this check-in',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: context.colors.textPrimary,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2537,16 +2627,16 @@ class _LogMeasurementSheetState extends State<_LogMeasurementSheet> {
                   child: ElevatedButton(
                     onPressed: _submitting ? null : () => _advance(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.actionSurface,
-                      foregroundColor: AppTheme.actionForeground,
+                      backgroundColor: context.colors.actionSurface,
+                      foregroundColor: context.colors.actionForeground,
                     ),
                     child: _submitting
-                        ? const SizedBox(
+                        ?       SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppTheme.actionForeground,
+                              color: context.colors.actionForeground,
                             ),
                           )
                         : Text(isLast ? 'Submit' : 'Next'),
@@ -2599,19 +2689,19 @@ class _XpCelebrationDialog extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: context.colors.card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.borderDark),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.sparkles, color: AppTheme.primary, size: 28),
+                  Icon(LucideIcons.sparkles, color: context.colors.primary, size: 28),
             const SizedBox(height: 10),
             Text(
               'Check-in logged',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -2620,7 +2710,7 @@ class _XpCelebrationDialog extends StatelessWidget {
             Text(
               '+$totalReward XP',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.xpGold,
+                color: context.colors.xpGold,
                 fontSize: 30,
                 fontWeight: FontWeight.w800,
               ),
@@ -2631,7 +2721,7 @@ class _XpCelebrationDialog extends StatelessWidget {
                 (m) => Text(
                   'Milestone: ${m['label'] ?? m['key']}',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -2644,8 +2734,8 @@ class _XpCelebrationDialog extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.actionSurface,
-                  foregroundColor: AppTheme.actionForeground,
+                  backgroundColor: context.colors.actionSurface,
+                  foregroundColor: context.colors.actionForeground,
                 ),
                 child: const Text('Awesome'),
               ),

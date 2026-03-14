@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/widgets/app_buttons.dart';
 
 /// Self-contained social proof screen for onboarding.
@@ -91,18 +91,18 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
                   Text(
                     'People with a plan actually win.',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 30,
                       fontWeight: FontWeight.w800,
                       height: 1.08,
                     ),
                   ),
                   const SizedBox(height: 32),
-                  _buildComparisonChart(),
+                  _buildComparisonChart(context),
                   const SizedBox(height: 28),
-                  _buildStatsRow(),
+                  _buildStatsRow(context),
                   const SizedBox(height: 24),
-                  _buildSourceNote(),
+                  _buildSourceNote(context),
                 ],
               ),
             ),
@@ -118,7 +118,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
 
   // ─── Comparison bar chart ────────────────────────────────────────────────
 
-  Widget _buildComparisonChart() {
+  Widget _buildComparisonChart(BuildContext context) {
     // Reserve space at top for the value label so the bar never overflows.
     const chartHeight = 220.0;
     const valueLabelReserve = 44.0;
@@ -128,9 +128,9 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +138,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
           Text(
             'CONSISTENCY AFTER 8 WEEKS',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.6,
@@ -165,10 +165,11 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
                   children: [
                     Expanded(
                       child: _buildBar(
+                        context: context,
                         progress: leftProgress,
                         fraction: _leftBarFraction,
                         barAreaHeight: barAreaHeight,
-                        color: AppTheme.textSageMuted.withValues(alpha: 0.30),
+                        color: context.colors.textMuted,
                         valueLabel: '${(_leftBarFraction * 100).round()}%',
                         isWinner: false,
                       ),
@@ -176,10 +177,11 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
                     const SizedBox(width: 14),
                     Expanded(
                       child: _buildBar(
+                        context: context,
                         progress: rightProgress,
                         fraction: _rightBarFraction,
                         barAreaHeight: barAreaHeight,
-                        color: AppTheme.primary,
+                        color: context.colors.primary,
                         valueLabel: '${(_rightBarFraction * 100).round()}%',
                         isWinner: true,
                       ),
@@ -191,7 +193,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
           ),
           const SizedBox(height: 10),
           // Baseline rule
-          Container(height: 1, color: AppTheme.borderDark),
+          Container(height: 1, color: context.colors.border),
           const SizedBox(height: 10),
           // Column labels live below the baseline, not inside the chart SizedBox
           Row(
@@ -201,7 +203,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
                   'On your own',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
@@ -213,7 +215,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
                   'With Buddy',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -227,14 +229,14 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
               Icon(
                 LucideIcons.info,
                 size: 11,
-                color: AppTheme.textSageMuted.withValues(alpha: 0.5),
+                color: context.colors.textMuted,
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Based on internal user data comparing tracked vs untracked users.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted.withValues(alpha: 0.5),
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     height: 1.4,
                   ),
@@ -249,6 +251,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
   }
 
   Widget _buildBar({
+    required BuildContext context,
     required double progress,
     required double fraction,
     required double barAreaHeight,
@@ -271,7 +274,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
             child: Text(
               valueLabel,
               style: GoogleFonts.plusJakartaSans(
-                color: isWinner ? AppTheme.primary : AppTheme.textSageMuted,
+                color: isWinner ? context.colors.primary : context.colors.textMuted,
                 fontSize: isWinner ? 22 : 18,
                 fontWeight: FontWeight.w800,
               ),
@@ -281,7 +284,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
         Container(
           height: barHeight,
           decoration: BoxDecoration(
-            color: isWinner ? AppTheme.primary : color,
+            color: isWinner ? context.colors.primary : color,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
           ),
         ),
@@ -291,7 +294,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
 
   // ─── Stats row ───────────────────────────────────────────────────────────
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(BuildContext context) {
     return Row(
       children: _stats.asMap().entries.map((entry) {
         final index = entry.key;
@@ -319,6 +322,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
                     : displayValue.toStringAsFixed(1);
 
                 return _buildStatCard(
+                  context: context,
                   value: formatted,
                   suffix: stat.suffix,
                   label: stat.label,
@@ -333,6 +337,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
   }
 
   Widget _buildStatCard({
+    required BuildContext context,
     required String value,
     required String suffix,
     required String label,
@@ -343,9 +348,9 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: context.colors.card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.borderDark),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,7 +361,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
                   TextSpan(
                     text: value,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary,
+                      color: context.colors.primary,
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                       height: 1,
@@ -365,7 +370,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
                   TextSpan(
                     text: suffix,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary,
+                      color: context.colors.primary,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -377,7 +382,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
             Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
                 height: 1.4,
@@ -391,7 +396,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
 
   // ─── Source note ─────────────────────────────────────────────────────────
 
-  Widget _buildSourceNote() {
+  Widget _buildSourceNote(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -399,12 +404,12 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: AppTheme.primary.withValues(alpha: 0.10),
+            color: context.colors.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(
+          child: Icon(
             LucideIcons.shield_check,
-            color: AppTheme.primary,
+            color: context.colors.primary,
             size: 16,
           ),
         ),
@@ -413,7 +418,7 @@ class _OnboardingSocialProofPageState extends State<OnboardingSocialProofPage>
           child: Text(
             'These numbers come from users who set a goal and tracked it inside Buddy for at least 8 weeks.',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 12,
               height: 1.55,
             ),

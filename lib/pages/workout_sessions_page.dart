@@ -1,4 +1,5 @@
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/models/workout_session_history.dart';
 import 'package:buddy/services/workout_service.dart';
 import 'package:buddy/widgets/app_buttons.dart';
@@ -150,26 +151,26 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
   Color _sessionAccentColor(String dayLabel) {
     final key = dayLabel.toLowerCase();
     if (key.contains('push') || key.contains('chest')) {
-      return AppTheme.muscleChest;
+      return context.colors.muscleChest;
     }
     if (key.contains('pull') || key.contains('back')) {
-      return AppTheme.muscleBack;
+      return context.colors.muscleBack;
     }
     if (key.contains('legs') || key.contains('lower')) {
-      return AppTheme.muscleLegs;
+      return context.colors.muscleLegs;
     }
     if (key.contains('shoulder')) {
-      return AppTheme.muscleShoulders;
+      return context.colors.muscleShoulders;
     }
     if (key.contains('arms') ||
         key.contains('bicep') ||
         key.contains('tricep')) {
-      return AppTheme.muscleArms;
+      return context.colors.muscleArms;
     }
     if (key.contains('core') || key.contains('full')) {
-      return AppTheme.xpGold;
+      return context.colors.xpGold;
     }
-    return AppTheme.primary;
+    return context.colors.primary;
   }
 
   WorkoutSessionHistoryPoint? _peakPoint(
@@ -197,7 +198,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
     final hasData = _history != null;
 
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -233,7 +234,10 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
                   children: [
                     Text(
                       'Workout Sessions',
-                      style: AppTheme.displayStyle(fontSize: 28),
+                      style: AppTheme.displayStyle(
+                        fontSize: 28,
+                        color: context.colors.textPrimary,
+                      ),
                     ),
                   ],
                 ),
@@ -242,7 +246,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 child: _isRefreshing
-                    ? const SizedBox(
+                    ? SizedBox(
                         key: ValueKey('refreshing'),
                         width: AppTheme.minimumTouchTarget,
                         height: AppTheme.minimumTouchTarget,
@@ -252,7 +256,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppTheme.primary,
+                              color: context.colors.primary,
                             ),
                           ),
                         ),
@@ -287,13 +291,13 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
   }
 
   Widget _buildLoadingState() {
-    return const Center(
+    return Center(
       child: SizedBox(
         width: 24,
         height: 24,
         child: CircularProgressIndicator(
           strokeWidth: 2.2,
-          color: AppTheme.primary,
+          color: context.colors.primary,
         ),
       ),
     );
@@ -306,25 +310,25 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: AppCard(
-            borderColor: AppTheme.error.withValues(alpha: 0.28),
-            colors: const [
-              Color(0xFF191214),
-              Color(0xFF141417),
-              AppTheme.cardDark,
-            ],
+            borderColor: context.colors.error.withValues(alpha: 0.28),
+            colors: context.colors.tintedCardGradient([
+              context.colors.error.withValues(alpha: 0.14),
+              context.colors.card,
+              context.colors.card,
+            ]),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   LucideIcons.circle_alert,
-                  color: AppTheme.error,
+                  color: context.colors.error,
                   size: 24,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'Could not load session history',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -334,7 +338,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
                 Text(
                   _error ?? 'Unknown error',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 12,
                     height: 1.5,
                   ),
@@ -360,8 +364,8 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
     final bottomInset = MediaQuery.paddingOf(context).bottom + 24;
 
     return RefreshIndicator(
-      color: AppTheme.primary,
-      backgroundColor: AppTheme.cardDark,
+      color: context.colors.primary,
+      backgroundColor: context.colors.card,
       onRefresh: () => _loadHistory(),
       child: CustomScrollView(
         physics: const BouncingScrollPhysics(
@@ -468,7 +472,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
         detail: volumePeak == null
             ? 'Load increases as you complete more work.'
             : 'Peak ${_formatCompactNumber(volumePeak.value)} on ${volumePeak.label}',
-        accentColor: AppTheme.warning,
+        accentColor: context.colors.warning,
         points: history.series.volume,
         emptyMessage: 'Complete a couple of sessions to unlock this trend.',
       ),
@@ -479,7 +483,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
         detail: durationPeak == null
             ? 'Average ${_formatDuration(history.summary.avgDurationSeconds)} per session'
             : 'Average ${_formatDuration(history.summary.avgDurationSeconds)} per session. Peak ${_formatDuration(durationPeak.value.round())} on ${durationPeak.label}',
-        accentColor: AppTheme.info,
+        accentColor: context.colors.info,
         points: history.series.duration,
         emptyMessage: 'Buddy will plot your completed workout time here.',
       ),
@@ -491,7 +495,7 @@ class _WorkoutSessionsPageState extends State<WorkoutSessionsPage> {
         detail: frequencyPeak == null
             ? '${_formatPercent(history.summary.consistencyScore)} of days included a session'
             : '${_formatPercent(history.summary.consistencyScore)} of days included a session. Best $bucketLabel: ${frequencyPeak.value.round()} sessions',
-        accentColor: AppTheme.success,
+        accentColor: context.colors.success,
         points: history.series.frequency,
         emptyMessage: 'Cadence appears after you log more than one session.',
       ),
@@ -564,18 +568,20 @@ class _RangeChip extends StatelessWidget {
       borderRadius: borderRadius,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: selected ? AppTheme.actionSurface : AppTheme.cardDark,
+        color: selected ? context.colors.actionSurface : context.colors.card,
         borderRadius: borderRadius,
         border: Border.all(
           color: selected
-              ? AppTheme.textMain.withValues(alpha: 0.35)
-              : AppTheme.borderDark,
+              ? context.colors.textSecondary.withValues(alpha: 0.35)
+              : context.colors.border,
         ),
       ),
       child: Text(
         label,
         style: GoogleFonts.plusJakartaSans(
-          color: selected ? AppTheme.actionForeground : AppTheme.textSageMuted,
+          color: selected
+              ? context.colors.actionForeground
+              : context.colors.textMuted,
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.2,
@@ -617,15 +623,19 @@ class _OverviewCard extends StatelessWidget {
           ? '$rangeTitle. ${summary.totalSessions} sessions logged. ${formatPercent(summary.consistencyScore)} consistency. ${summary.currentStreak} day streak.'
           : '$rangeTitle. No completed sessions yet.',
       child: AppCard(
-        borderColor: AppTheme.warning.withValues(alpha: 0.24),
-        colors: const [Color(0xFF201813), Color(0xFF16171A), AppTheme.cardDark],
+        borderColor: context.colors.warning.withValues(alpha: 0.24),
+        colors: context.colors.tintedCardGradient([
+          context.colors.warning.withValues(alpha: 0.12),
+          context.colors.card,
+          context.colors.card,
+        ]),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               rangeTitle.toUpperCase(),
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.warning,
+                color: context.colors.warning,
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.4,
@@ -644,7 +654,7 @@ class _OverviewCard extends StatelessWidget {
                       Text(
                         hasSessions ? '${summary.totalSessions}' : '0',
                         style: GoogleFonts.sora(
-                          color: AppTheme.textCream,
+                          color: context.colors.textPrimary,
                           fontSize: 48,
                           fontWeight: FontWeight.w600,
                           height: 1,
@@ -655,7 +665,7 @@ class _OverviewCard extends StatelessWidget {
                         child: Text(
                           hasSessions ? 'sessions' : 'sessions logged',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
@@ -671,7 +681,7 @@ class _OverviewCard extends StatelessWidget {
             Text(
               subtitle,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textMain,
+                color: context.colors.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 height: 1.55,
@@ -735,7 +745,7 @@ class _OverviewStat extends StatelessWidget {
         Text(
           label.toUpperCase(),
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: context.colors.textMuted,
             fontSize: 9,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.2,
@@ -745,7 +755,7 @@ class _OverviewStat extends StatelessWidget {
         Text(
           value,
           style: GoogleFonts.sora(
-            color: AppTheme.textCream,
+            color: context.colors.textPrimary,
             fontSize: 24,
             fontWeight: FontWeight.w600,
             height: 1.05,
@@ -768,9 +778,11 @@ class _StreakBadge extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 92),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: AppTheme.oledBlack.withValues(alpha: 0.28),
+        color: context.colors.background.withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.success.withValues(alpha: 0.32)),
+        border: Border.all(
+          color: context.colors.success.withValues(alpha: 0.32),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -778,7 +790,7 @@ class _StreakBadge extends StatelessWidget {
           Text(
             '$value',
             style: GoogleFonts.sora(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 26,
               fontWeight: FontWeight.w600,
               height: 1,
@@ -788,7 +800,7 @@ class _StreakBadge extends StatelessWidget {
           Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.1,
@@ -820,15 +832,17 @@ class _InlineErrorBanner extends StatelessWidget {
         borderRadius: borderRadius,
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
-          color: AppTheme.errorBg.withValues(alpha: 0.18),
+          color: context.colors.errorBg.withValues(alpha: 0.18),
           borderRadius: borderRadius,
-          border: Border.all(color: AppTheme.error.withValues(alpha: 0.28)),
+          border: Border.all(
+            color: context.colors.error.withValues(alpha: 0.28),
+          ),
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               LucideIcons.circle_alert,
-              color: AppTheme.error,
+              color: context.colors.error,
               size: 16,
             ),
             const SizedBox(width: 10),
@@ -836,7 +850,7 @@ class _InlineErrorBanner extends StatelessWidget {
               child: Text(
                 message,
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textMain,
+                  color: context.colors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -846,7 +860,7 @@ class _InlineErrorBanner extends StatelessWidget {
             Text(
               'RETRY',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.1,
@@ -873,7 +887,7 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title,
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textCream,
+            color: context.colors.textPrimary,
             fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
@@ -882,7 +896,7 @@ class _SectionHeader extends StatelessWidget {
         Text(
           subtitle,
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: context.colors.textMuted,
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
@@ -918,7 +932,7 @@ class _TrendCard extends StatelessWidget {
       label: '$title. $value. $detail',
       child: AppCard(
         borderColor: accentColor.withValues(alpha: 0.24),
-        colors: const [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+        colors: context.colors.cardGradient,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -935,7 +949,7 @@ class _TrendCard extends StatelessWidget {
             Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
@@ -944,7 +958,7 @@ class _TrendCard extends StatelessWidget {
             Text(
               value,
               style: GoogleFonts.sora(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 28,
                 fontWeight: FontWeight.w600,
                 height: 1.05,
@@ -954,7 +968,7 @@ class _TrendCard extends StatelessWidget {
             Text(
               detail,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 height: 1.45,
@@ -968,7 +982,7 @@ class _TrendCard extends StatelessWidget {
                   child: Text(
                     emptyMessage,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
@@ -986,6 +1000,8 @@ class _TrendCard extends StatelessWidget {
                         painter: _TrendChartPainter(
                           points: points.map((point) => point.value).toList(),
                           color: accentColor,
+                          borderColor: context.colors.border,
+                          cardRaisedColor: context.colors.cardRaised,
                         ),
                         child: const SizedBox.expand(),
                       ),
@@ -998,7 +1014,7 @@ class _TrendCard extends StatelessWidget {
                         child: Text(
                           points.first.label,
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1007,7 +1023,7 @@ class _TrendCard extends StatelessWidget {
                       Text(
                         points.last.label,
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
+                          color: context.colors.textMuted,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1106,7 +1122,7 @@ class _SessionHistoryCard extends StatelessWidget {
                       Text(
                         formatDate(session.date),
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
+                          color: context.colors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -1120,16 +1136,16 @@ class _SessionHistoryCard extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.oledBlack.withValues(alpha: 0.28),
+                    color: context.colors.background.withValues(alpha: 0.28),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: AppTheme.xpGold.withValues(alpha: 0.28),
+                      color: context.colors.xpGold.withValues(alpha: 0.28),
                     ),
                   ),
                   child: Text(
                     '+${formatCompactNumber(session.xpEarned)} XP',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.xpGold,
+                      color: context.colors.xpGold,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1189,13 +1205,13 @@ class _SessionMetric extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundDark.withValues(alpha: 0.55),
+        color: context.colors.backgroundSecondary.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.8)),
+        border: Border.all(color: context.colors.border.withValues(alpha: 0.8)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppTheme.textSageMuted, size: 14),
+          Icon(icon, color: context.colors.textMuted, size: 14),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1204,7 +1220,7 @@ class _SessionMetric extends StatelessWidget {
                 Text(
                   label.toUpperCase(),
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 8,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.1,
@@ -1214,7 +1230,7 @@ class _SessionMetric extends StatelessWidget {
                 Text(
                   value,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1231,8 +1247,15 @@ class _SessionMetric extends StatelessWidget {
 class _TrendChartPainter extends CustomPainter {
   final List<double> points;
   final Color color;
+  final Color borderColor;
+  final Color cardRaisedColor;
 
-  const _TrendChartPainter({required this.points, required this.color});
+  const _TrendChartPainter({
+    required this.points,
+    required this.color,
+    required this.borderColor,
+    required this.cardRaisedColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1244,7 +1267,7 @@ class _TrendChartPainter extends CustomPainter {
     const horizontalInset = 4.0;
 
     final guidePaint = Paint()
-      ..color = AppTheme.borderDark.withValues(alpha: 0.95)
+      ..color = borderColor.withValues(alpha: 0.95)
       ..strokeWidth = 1;
 
     for (var i = 1; i <= 3; i++) {
@@ -1298,7 +1321,7 @@ class _TrendChartPainter extends CustomPainter {
     final lastY = size.height - (lastNormalized * (size.height - 8)) - 4;
 
     final outerDotPaint = Paint()..color = color;
-    final innerDotPaint = Paint()..color = AppTheme.cardRaised;
+    final innerDotPaint = Paint()..color = cardRaisedColor;
 
     canvas.drawCircle(Offset(lastX, lastY), 5, outerDotPaint);
     canvas.drawCircle(Offset(lastX, lastY), 2.4, innerDotPaint);

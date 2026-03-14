@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/pages/onboarding_screen.dart';
 import 'package:buddy/services/auth_service.dart';
@@ -115,7 +116,7 @@ class _LoginPageState extends State<LoginPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -129,7 +130,7 @@ class _LoginPageState extends State<LoginPage>
 
           // Multi-stop gradient overlay — preserves image at top,
           // creates a solid readable base for the CTA at the bottom
-          const ExcludeSemantics(
+          ExcludeSemantics(
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -137,12 +138,12 @@ class _LoginPageState extends State<LoginPage>
                   end: Alignment.bottomCenter,
                   colors: [
                     AppTheme.transparent,
-                    AppTheme.scrimSoft,
-                    AppTheme.scrimHeavy,
-                    AppTheme.scrimDense,
-                    AppTheme.oledBlack,
+                    context.colors.scrimSoft,
+                    context.colors.scrimHeavy,
+                    context.colors.scrimDense,
+                    context.colors.background,
                   ],
-                  stops: [0.0, 0.3, 0.55, 0.75, 1.0],
+                  stops: const [0.0, 0.3, 0.55, 0.75, 1.0],
                 ),
               ),
             ),
@@ -165,7 +166,7 @@ class _LoginPageState extends State<LoginPage>
                       Text(
                         'Buddy',
                         style: GoogleFonts.sora(
-                          color: AppTheme.textCream,
+                          color: context.colors.textPrimary,
                           fontSize: 52,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.5,
@@ -178,7 +179,7 @@ class _LoginPageState extends State<LoginPage>
                       Text.rich(
                         TextSpan(
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textMain.withValues(alpha: 0.72),
+                            color: context.colors.textSecondary,
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                             height: 1.6,
@@ -192,7 +193,7 @@ class _LoginPageState extends State<LoginPage>
                             TextSpan(
                               text: 'clear and consistent',
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textCream,
+                                color: context.colors.textPrimary,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -203,14 +204,14 @@ class _LoginPageState extends State<LoginPage>
                       const SizedBox(height: 40),
 
                       // Google sign-in button
-                      _buildGoogleButton(),
+                      _buildGoogleButton(context),
 
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 14),
                         Text(
                           _errorMessage!,
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.error,
+                            color: context.colors.error,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -225,7 +226,7 @@ class _LoginPageState extends State<LoginPage>
                         child: Text(
                           'By continuing you agree to our Terms & Privacy Policy',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             fontSize: 11,
                             letterSpacing: 0.3,
                           ),
@@ -244,7 +245,7 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  Widget _buildGoogleButton() {
+  Widget _buildGoogleButton(BuildContext context) {
     return Semantics(
       button: true,
       enabled: !_loading,
@@ -253,22 +254,22 @@ class _LoginPageState extends State<LoginPage>
         width: double.infinity,
         height: 56,
         child: Material(
-          color: AppTheme.actionSurface,
+          color: context.colors.actionSurface,
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
             onTap: _loading ? null : _signInWithGoogle,
             borderRadius: BorderRadius.circular(14),
-            splashColor: AppTheme.actionForeground.withValues(alpha: 0.06),
-            highlightColor: AppTheme.actionForeground.withValues(alpha: 0.03),
+            splashColor: context.colors.actionForeground.withValues(alpha: 0.06),
+            highlightColor: context.colors.actionForeground.withValues(alpha: 0.03),
             child: Center(
               child: _loading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.actionForeground,
+                          context.colors.actionForeground,
                         ),
                       ),
                     )
@@ -280,7 +281,7 @@ class _LoginPageState extends State<LoginPage>
                         Text(
                           'Continue with Google',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.actionForeground,
+                            color: context.colors.actionForeground,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.1,

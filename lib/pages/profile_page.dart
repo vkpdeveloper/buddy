@@ -5,12 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/models/gamification.dart';
 import 'package:buddy/pages/daily_goals_page.dart';
 import 'package:buddy/pages/login_page.dart';
 import 'package:buddy/providers/progress_provider.dart';
+import 'package:buddy/providers/theme_provider.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/profile_service.dart';
 import 'package:buddy/providers/health_provider.dart';
@@ -187,7 +189,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: context.colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -202,7 +204,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 Text(
                   'REMINDER SETTINGS',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: ctx.colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -215,7 +217,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                       child: Text(
                         'Pre-workout reminder',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
+                          color: ctx.colors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -223,7 +225,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                     ),
                     Switch(
                       value: localEnabled,
-                      activeThumbColor: AppTheme.primary,
+                      activeThumbColor: ctx.colors.primary,
                       onChanged: (v) async {
                         setS(() => localEnabled = v);
                         await _updateReminder(enabled: v);
@@ -255,7 +257,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   onTap: () async {
                     final lead = await showModalBottomSheet<int>(
                       context: ctx,
-                      backgroundColor: AppTheme.cardDark,
+                      backgroundColor: ctx.colors.card,
                       builder: (innerCtx) => SafeArea(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -265,14 +267,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                                   title: Text(
                                     '$m min before',
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textCream,
+                                      color: innerCtx.colors.textPrimary,
                                       fontSize: 13,
                                     ),
                                   ),
                                   trailing: m == localLead
-                                      ? const Icon(
+                                      ? Icon(
                                           LucideIcons.check,
-                                          color: AppTheme.primary,
+                                          color: innerCtx.colors.primary,
                                           size: 16,
                                         )
                                       : null,
@@ -323,7 +325,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: _cardDecoration(),
+        decoration: _cardDecoration(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -331,16 +333,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     LucideIcons.heart_pulse,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     size: 16,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Health Connect',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -361,13 +363,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                         ),
                         decoration: BoxDecoration(
                           color: granted
-                              ? AppTheme.primary.withValues(alpha: 0.12)
-                              : AppTheme.error.withValues(alpha: 0.12),
+                              ? context.colors.primary.withValues(alpha: 0.12)
+                              : context.colors.error.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: granted
-                                ? AppTheme.primary.withValues(alpha: 0.4)
-                                : AppTheme.error.withValues(alpha: 0.4),
+                                ? context.colors.primary.withValues(alpha: 0.4)
+                                : context.colors.error.withValues(alpha: 0.4),
                           ),
                         ),
                         child: Row(
@@ -378,8 +380,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                                   ? LucideIcons.circle_check
                                   : LucideIcons.circle_x,
                               color: granted
-                                  ? AppTheme.success
-                                  : AppTheme.error,
+                                  ? context.colors.success
+                                  : context.colors.error,
                               size: 12,
                             ),
                             const SizedBox(width: 4),
@@ -387,8 +389,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                               granted ? 'Connected' : 'Disconnected',
                               style: GoogleFonts.plusJakartaSans(
                                 color: granted
-                                    ? AppTheme.success
-                                    : AppTheme.error,
+                                    ? context.colors.success
+                                    : context.colors.error,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -407,7 +409,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 ],
               ),
             ),
-            const Divider(color: AppTheme.borderDark, height: 1),
+            Divider(color: context.colors.border, height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: permissionAsync.when(
@@ -419,7 +421,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                             ? 'Steps, heart rate, sleep, calories & more are syncing.'
                             : 'Connect to sync health data like steps, sleep, and calories.',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
+                          color: context.colors.textMuted,
                           fontSize: 12,
                         ),
                       ),
@@ -438,16 +440,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                                 horizontal: 12,
                                 vertical: 6,
                               ),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              backgroundColor: AppTheme.primary.withValues(
+                              minimumSize: const Size(
+                                0,
+                                AppTheme.minimumTouchTarget,
+                              ),
+                              backgroundColor: context.colors.primary.withValues(
                                 alpha: 0.1,
                               ),
-                              foregroundColor: AppTheme.primary,
+                              foregroundColor: context.colors.primary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                                 side: BorderSide(
-                                  color: AppTheme.primary.withValues(
+                                  color: context.colors.primary.withValues(
                                     alpha: 0.3,
                                   ),
                                 ),
@@ -470,7 +474,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 error: (error, stackTrace) => Text(
                   'Could not check Health Connect status.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -486,12 +490,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: ctx.colors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Sign out?',
           style: GoogleFonts.sora(
-            color: AppTheme.textCream,
+            color: ctx.colors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -499,7 +503,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
         content: Text(
           'You\'ll need to sign in again to access your account.',
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: ctx.colors.textMuted,
             fontSize: 13,
           ),
         ),
@@ -508,7 +512,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+              style: GoogleFonts.plusJakartaSans(color: ctx.colors.textMuted),
             ),
           ),
           TextButton(
@@ -516,7 +520,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             child: Text(
               'Sign Out',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.error,
+                color: ctx.colors.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -544,7 +548,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -560,13 +564,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             const SizedBox(height: 12),
             _animated(4, _buildDailyGoalsCard()),
             const SizedBox(height: 12),
-            _animated(5, _buildNotificationsCard()),
+            _animated(5, _buildAppearanceCard()),
             const SizedBox(height: 12),
-            _animated(6, _buildHealthConnectCard()),
+            _animated(6, _buildNotificationsCard()),
             const SizedBox(height: 12),
-            _animated(7, _buildAccountCard()),
+            _animated(7, _buildHealthConnectCard()),
+            const SizedBox(height: 12),
+            _animated(8, _buildAccountCard()),
             const SizedBox(height: 24),
-            _animated(8, _buildSignOutButton()),
+            _animated(9, _buildSignOutButton()),
             SizedBox(height: bottomPad + 32),
           ],
         ),
@@ -600,11 +606,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppTheme.primary.withValues(alpha: 0.08),
-            AppTheme.oledBlack,
+            context.colors.primary.withValues(alpha: 0.08),
+            context.colors.background,
           ],
         ),
-        border: const Border(bottom: BorderSide(color: AppTheme.borderDark)),
+        border: Border(bottom: BorderSide(color: context.colors.border)),
       ),
       child: Column(
         children: [
@@ -631,8 +637,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   builder: (context, value, _) => CircularProgressIndicator(
                     value: value,
                     strokeWidth: 3.5,
-                    backgroundColor: AppTheme.borderDark,
-                    valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
+                    backgroundColor: context.colors.border,
+                    valueColor: AlwaysStoppedAnimation(context.colors.xpGold),
                     strokeCap: StrokeCap.round,
                   ),
                 ),
@@ -642,26 +648,26 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 height: 100,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.cardRaised,
-                  border: Border.all(color: AppTheme.borderDark, width: 1.5),
+                  color: context.colors.cardRaised,
+                  border: Border.all(color: context.colors.border, width: 1.5),
                 ),
                 child: ClipOval(
                   child: photoURL != null && photoURL.isNotEmpty
                       ? Image.network(
                           photoURL,
                           fit: BoxFit.cover,
-                          errorBuilder: (ctx, err, st) => const Center(
+                          errorBuilder: (ctx, err, st) => Center(
                             child: Icon(
                               LucideIcons.user,
-                              color: AppTheme.textSageMuted,
+                              color: ctx.colors.textMuted,
                               size: 42,
                             ),
                           ),
                         )
-                      : const Center(
+                      : Center(
                           child: Icon(
                             LucideIcons.user,
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             size: 42,
                           ),
                         ),
@@ -677,16 +683,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.oledBlack,
+                    color: context.colors.background,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: AppTheme.xpGold.withValues(alpha: 0.7),
+                      color: context.colors.xpGold.withValues(alpha: 0.7),
                     ),
                   ),
                   child: Text(
                     'LVL $level',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.xpGold,
+                      color: context.colors.xpGold,
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.5,
@@ -701,7 +707,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
           Text(
             displayName,
             style: GoogleFonts.sora(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w600,
             ),
@@ -710,7 +716,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
           Text(
             email,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -720,7 +726,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             Text(
               memberSince,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted.withValues(alpha: 0.75),
+                color: context.colors.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0.5,
@@ -739,28 +745,28 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-        decoration: _cardDecoration(),
+        decoration: _cardDecoration(context),
         child: Column(
           children: [
             Row(
               children: [
                 _StatPill(
                   icon: LucideIcons.flame,
-                  iconColor: AppTheme.warning,
+                  iconColor: context.colors.warning,
                   label: 'Streak',
                   value: '${progress.currentStreak}d',
                 ),
                 const SizedBox(width: 8),
                 _StatPill(
                   icon: LucideIcons.shield,
-                  iconColor: AppTheme.primary,
+                  iconColor: context.colors.primary,
                   label: 'Level',
                   value: '${progress.currentLevel} · ${progress.levelLabel}',
                 ),
                 const SizedBox(width: 8),
                 _StatPill(
                   icon: LucideIcons.zap,
-                  iconColor: AppTheme.xpGold,
+                  iconColor: context.colors.xpGold,
                   label: 'Total XP',
                   value: '${progress.totalXp}',
                 ),
@@ -773,7 +779,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 Text(
                   'Progress to ${_nextLevelLabel(progress.currentLevel)}',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
@@ -785,7 +791,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   builder: (context, value, _) => Text(
                     '${(value * 100).toInt()}%',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.xpGold,
+                      color: context.colors.xpGold,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -803,8 +809,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 child: LinearProgressIndicator(
                   value: value,
                   minHeight: 5,
-                  backgroundColor: AppTheme.borderDark,
-                  valueColor: const AlwaysStoppedAnimation(AppTheme.xpGold),
+                  backgroundColor: context.colors.border,
+                  valueColor: AlwaysStoppedAnimation(context.colors.xpGold),
                 ),
               ),
             ),
@@ -813,16 +819,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     LucideIcons.trophy,
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     size: 12,
                   ),
                   const SizedBox(width: 5),
                   Text(
                     '${progress.totalWorkoutsCompleted} total workouts completed',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
@@ -849,7 +855,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             ? Text(
                 'Complete your fitness profile to see details here.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 13,
                 ),
               )
@@ -971,21 +977,21 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             MaterialPageRoute(builder: (_) => const DailyGoalsPage()),
           ),
           child: Container(
-            decoration: _cardDecoration(),
+            decoration: _cardDecoration(context),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     LucideIcons.target,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     size: 16,
                   ),
                   const SizedBox(width: 10),
                   Text(
                     'Daily Goals',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -994,14 +1000,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   Text(
                     'Steps · Sleep · Water',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 11,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(
+                  Icon(
                     LucideIcons.chevron_right,
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     size: 16,
                   ),
                 ],
@@ -1013,13 +1019,55 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     );
   }
 
+  // ── Appearance card ───────────────────────────────────────────────────────
+
+  Widget _buildAppearanceCard() {
+    final themeMode = ref.watch(themeProvider);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: _cardDecoration(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Row(
+                children: [
+                  Icon(LucideIcons.palette, color: context.colors.primary, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Appearance',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: context.colors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: context.colors.border, height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: _ThemeModeSelector(
+                current: themeMode,
+                onChanged: (mode) => ref.read(themeProvider.notifier).setMode(mode),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Notifications card ────────────────────────────────────────────────────
 
   Widget _buildNotificationsCard() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: _cardDecoration(),
+        decoration: _cardDecoration(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1029,14 +1077,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 children: [
                   Icon(
                     _reminderEnabled ? LucideIcons.bell_ring : LucideIcons.bell,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     size: 16,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Workout Reminders',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1044,7 +1092,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 ],
               ),
             ),
-            const Divider(color: AppTheme.borderDark, height: 1),
+            Divider(color: context.colors.border, height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
               child: Row(
@@ -1056,7 +1104,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                         Text(
                           'Daily pre-workout reminder',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
+                            color: context.colors.textPrimary,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1072,7 +1120,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                                 ? '${_workoutTime.format(context)} · $_reminderLeadMinutes min before'
                                 : 'Tap to enable',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted,
+                              color: context.colors.textMuted,
                               fontSize: 11,
                             ),
                           ),
@@ -1082,7 +1130,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   ),
                   Switch(
                     value: _reminderEnabled,
-                    activeThumbColor: AppTheme.primary,
+                    activeThumbColor: context.colors.primary,
                     onChanged: (v) => _updateReminder(enabled: v),
                   ),
                 ],
@@ -1095,8 +1143,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Divider(
-                          color: AppTheme.borderDark,
+                        Divider(
+                          color: context.colors.border,
                           height: 1,
                           indent: 16,
                           endIndent: 16,
@@ -1104,22 +1152,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                         ListTile(
                           dense: true,
                           onTap: _openReminderSheet,
-                          leading: const Icon(
+                          leading: Icon(
                             LucideIcons.settings_2,
-                            color: AppTheme.primary,
+                            color: context.colors.primary,
                             size: 16,
                           ),
                           title: Text(
                             'Configure reminder time',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: context.colors.textPrimary,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          trailing: const Icon(
+                          trailing: Icon(
                             LucideIcons.chevron_right,
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             size: 16,
                           ),
                         ),
@@ -1140,23 +1188,23 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        decoration: _cardDecoration(),
+        decoration: _cardDecoration(context),
         child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     LucideIcons.settings,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     size: 16,
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Account',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1164,39 +1212,39 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                 ],
               ),
             ),
-            const Divider(color: AppTheme.borderDark, height: 1),
+            Divider(color: context.colors.border, height: 1),
             _accountRow(LucideIcons.shield, 'Privacy Policy', () {}),
-            const Divider(
-              color: AppTheme.borderDark,
+            Divider(
+              color: context.colors.border,
               height: 1,
               indent: 16,
               endIndent: 16,
             ),
             _accountRow(LucideIcons.message_circle, 'Send Feedback', () {}),
-            const Divider(
-              color: AppTheme.borderDark,
+            Divider(
+              color: context.colors.border,
               height: 1,
               indent: 16,
               endIndent: 16,
             ),
             ListTile(
               dense: true,
-              leading: const Icon(
+              leading: Icon(
                 LucideIcons.info,
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 size: 16,
               ),
               title: Text(
                 'App Version',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 13,
                 ),
               ),
               trailing: Text(
                 '1.0.0',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 12,
                 ),
               ),
@@ -1211,18 +1259,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
     return ListTile(
       dense: true,
       onTap: onTap,
-      leading: Icon(icon, color: AppTheme.primary, size: 16),
+      leading: Icon(icon, color: context.colors.primary, size: 16),
       title: Text(
         title,
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textCream,
+          color: context.colors.textPrimary,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         LucideIcons.chevron_right,
-        color: AppTheme.textSageMuted,
+        color: context.colors.textMuted,
         size: 16,
       ),
     );
@@ -1247,8 +1295,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             ),
           ),
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.error,
-            side: BorderSide(color: AppTheme.error.withValues(alpha: 0.5)),
+            foregroundColor: context.colors.error,
+            side: BorderSide(color: context.colors.error.withValues(alpha: 0.5)),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -1271,12 +1319,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
       padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
       child: Row(
         children: [
-          Icon(icon, color: AppTheme.primary, size: 14),
+          Icon(icon, color: context.colors.primary, size: 14),
           const SizedBox(width: 10),
           Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -1285,7 +1333,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
             child: Text(
               value,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -1419,17 +1467,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
 
 // ── Shared card decoration ──────────────────────────────────────────────────
 
-BoxDecoration _cardDecoration() => BoxDecoration(
+BoxDecoration _cardDecoration(BuildContext context) => BoxDecoration(
   borderRadius: BorderRadius.circular(20),
-  border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.95)),
-  gradient: const LinearGradient(
+  border: Border.all(color: context.colors.border.withValues(alpha: 0.95)),
+  gradient: LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+    colors: context.colors.cardGradient,
   ),
   boxShadow: [
     BoxShadow(
-      color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+      color: context.colors.shadowColor,
       blurRadius: 20,
       offset: const Offset(0, 10),
     ),
@@ -1457,9 +1505,9 @@ class _StatPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          color: AppTheme.cardRaised,
+          color: context.colors.cardRaised,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.borderDark),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1469,7 +1517,7 @@ class _StatPill extends StatelessWidget {
             Text(
               value,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -1479,7 +1527,7 @@ class _StatPill extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
               ),
@@ -1507,7 +1555,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: _cardDecoration(),
+      decoration: _cardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1515,12 +1563,12 @@ class _SectionCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Row(
               children: [
-                Icon(icon, color: AppTheme.primary, size: 16),
+                Icon(icon, color: context.colors.primary, size: 16),
                 const SizedBox(width: 8),
                 Text(
                   title,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1528,17 +1576,17 @@ class _SectionCard extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(color: AppTheme.borderDark, height: 1),
+          Divider(color: context.colors.border, height: 1),
           if (isLoading)
-            const Padding(
-              padding: EdgeInsets.all(20),
+            Padding(
+              padding: const EdgeInsets.all(20),
               child: Center(
                 child: SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                   ),
                 ),
               ),
@@ -1580,14 +1628,14 @@ class _SettingRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: AppTheme.cardDark,
+              color: context.colors.card,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.borderDark),
+              border: Border.all(color: context.colors.border),
             ),
             child: ExcludeSemantics(
               child: Row(
                 children: [
-                  Icon(icon, color: AppTheme.primary, size: 16),
+                  Icon(icon, color: context.colors.primary, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -1596,7 +1644,7 @@ class _SettingRow extends StatelessWidget {
                         Text(
                           title,
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
+                            color: context.colors.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1604,21 +1652,113 @@ class _SettingRow extends StatelessWidget {
                         Text(
                           value,
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             fontSize: 11,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     LucideIcons.chevron_right,
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     size: 14,
                   ),
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeModeSelector extends StatelessWidget {
+  final ThemeMode current;
+  final ValueChanged<ThemeMode> onChanged;
+  const _ThemeModeSelector({required this.current, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _ThemeModeOption(
+          icon: LucideIcons.sun,
+          label: 'Light',
+          isSelected: current == ThemeMode.light,
+          onTap: () => onChanged(ThemeMode.light),
+        ),
+        const SizedBox(width: 8),
+        _ThemeModeOption(
+          icon: LucideIcons.moon,
+          label: 'Dark',
+          isSelected: current == ThemeMode.dark,
+          onTap: () => onChanged(ThemeMode.dark),
+        ),
+        const SizedBox(width: 8),
+        _ThemeModeOption(
+          icon: LucideIcons.monitor,
+          label: 'System',
+          isSelected: current == ThemeMode.system,
+          onTap: () => onChanged(ThemeMode.system),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemeModeOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const _ThemeModeOption({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: AppPressable(
+        onPressed: onTap,
+        semanticsLabel: '$label theme',
+        selected: isSelected,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? context.colors.primary.withValues(alpha: 0.15)
+                : context.colors.cardRaised,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? context.colors.primary.withValues(alpha: 0.4)
+                  : context.colors.border,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? context.colors.primary : context.colors.textMuted,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? context.colors.primary : context.colors.textMuted,
+                ),
+              ),
+            ],
           ),
         ),
       ),

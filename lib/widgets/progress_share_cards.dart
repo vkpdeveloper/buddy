@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/models/growth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -76,9 +76,9 @@ class GrowthShareCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+                color: AppColorScheme.dark.backgroundSecondary.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.borderDark),
+                border: Border.all(color: AppColorScheme.dark.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +88,7 @@ class GrowthShareCard extends StatelessWidget {
                       Text(
                         'Weight Trend',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
+                          color: AppColorScheme.dark.textPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -100,10 +100,10 @@ class GrowthShareCard extends StatelessWidget {
                             : '${trendDelta >= 0 ? '+' : ''}${trendDelta.toStringAsFixed(1)} kg',
                         style: GoogleFonts.plusJakartaSans(
                           color: trendDelta == null
-                              ? AppTheme.textSageMuted
+                              ? AppColorScheme.dark.textMuted
                               : trendDelta <= 0
-                              ? AppTheme.primary
-                              : AppTheme.warning,
+                              ? AppColorScheme.dark.primary
+                              : AppColorScheme.dark.warning,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
@@ -115,7 +115,7 @@ class GrowthShareCard extends StatelessWidget {
                     child: CustomPaint(
                       painter: _SparklinePainter(
                         points: trend.map((point) => point.value).toList(),
-                        lineColor: AppTheme.primary,
+                        lineColor: AppColorScheme.dark.primary,
                       ),
                       child: const SizedBox.expand(),
                     ),
@@ -206,9 +206,9 @@ class WorkoutShareCard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+              color: AppColorScheme.dark.backgroundSecondary.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.borderDark),
+              border: Border.all(color: AppColorScheme.dark.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,7 +216,7 @@ class WorkoutShareCard extends StatelessWidget {
                 Text(
                   'Level $newLevel · $levelLabel',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: AppColorScheme.dark.primary,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -226,7 +226,7 @@ class WorkoutShareCard extends StatelessWidget {
                   Text(
                     'No new achievements this session. Keep stacking sessions.',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: AppColorScheme.dark.textMuted,
                       fontSize: 11,
                     ),
                   )
@@ -243,16 +243,16 @@ class WorkoutShareCard extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.xpGold.withValues(alpha: 0.15),
+                              color: AppColorScheme.dark.xpGold.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
-                                color: AppTheme.xpGold.withValues(alpha: 0.35),
+                                color: AppColorScheme.dark.xpGold.withValues(alpha: 0.35),
                               ),
                             ),
                             child: Text(
                               name,
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.xpGold,
+                                color: AppColorScheme.dark.xpGold,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -293,14 +293,14 @@ class _ShareCardShell extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppTheme.backgroundDark,
-              AppTheme.cardDark,
-              AppTheme.backgroundDark.withValues(alpha: 0.95),
+              AppColorScheme.dark.backgroundSecondary,
+              AppColorScheme.dark.card,
+              AppColorScheme.dark.backgroundSecondary.withValues(alpha: 0.95),
             ],
           ),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: AppTheme.borderDark.withValues(alpha: 0.85),
+            color: AppColorScheme.dark.border.withValues(alpha: 0.85),
           ),
         ),
         padding: const EdgeInsets.all(18),
@@ -310,7 +310,7 @@ class _ShareCardShell extends StatelessWidget {
             Text(
               badge,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
+                color: AppColorScheme.dark.primary,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 2,
@@ -322,7 +322,7 @@ class _ShareCardShell extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.sora(
-                color: AppTheme.textCream,
+                color: AppColorScheme.dark.textPrimary,
                 fontSize: 34,
                 fontWeight: FontWeight.w600,
               ),
@@ -330,7 +330,7 @@ class _ShareCardShell extends StatelessWidget {
             Text(
               subtitle,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: AppColorScheme.dark.textMuted,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -341,7 +341,7 @@ class _ShareCardShell extends StatelessWidget {
             Text(
               'Made with Buddy',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: AppColorScheme.dark.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -369,21 +369,21 @@ class _ShareMetricBlock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+        color: AppColorScheme.dark.backgroundSecondary.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: AppColorScheme.dark.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppTheme.primary, size: 16),
+          Icon(icon, color: AppColorScheme.dark.primary, size: 16),
           const SizedBox(height: 8),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
+              color: AppColorScheme.dark.textPrimary,
               fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
@@ -394,7 +394,7 @@ class _ShareMetricBlock extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: AppColorScheme.dark.textMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,
             ),

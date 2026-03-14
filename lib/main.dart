@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:buddy/config/env.dart';
+import 'package:buddy/providers/theme_provider.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'app_theme.dart';
 import 'pages/splash_screen.dart';
@@ -30,6 +31,7 @@ void main() async {
   await SoLoud.instance.init();
   await NotificationService.initialize();
 
+  // Transparent bars; icon brightness is handled per-theme via MaterialApp.
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: AppTheme.transparent,
@@ -37,8 +39,6 @@ void main() async {
       systemNavigationBarDividerColor: AppTheme.transparent,
       systemStatusBarContrastEnforced: false,
       systemNavigationBarContrastEnforced: false,
-      systemNavigationBarIconBrightness: Brightness.light,
-      statusBarIconBrightness: Brightness.light,
     ),
   );
 
@@ -47,14 +47,17 @@ void main() async {
   runApp(ProviderScope(child: const HealthBiometricsApp()));
 }
 
-class HealthBiometricsApp extends StatelessWidget {
+class HealthBiometricsApp extends ConsumerWidget {
   const HealthBiometricsApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeProvider);
     return MaterialApp(
       title: 'Buddy',
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       home: const _AuthGate(),
       debugShowCheckedModeBanner: false,
     );
@@ -71,10 +74,7 @@ class _AuthGate extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: AppTheme.oledBlack,
-            body: SizedBox.shrink(),
-          );
+          return const Scaffold(body: SizedBox.shrink());
         }
         final isSignedIn = snapshot.hasData && snapshot.data != null;
         return isSignedIn ? const SplashScreen() : const LoginPage();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/models/exercise_catalog.dart';
 import 'package:buddy/services/workout_service.dart';
@@ -28,7 +29,7 @@ Future<void> showExerciseLibrarySheet(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppTheme.cardDark,
+    backgroundColor: context.colors.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -153,7 +154,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.borderDark,
+                  color: context.colors.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -167,7 +168,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                         ? 'Swap Exercise'
                         : 'Exercise Library',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
@@ -209,21 +210,21 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppTheme.primary
-                            : AppTheme.backgroundDark,
+                            ? context.colors.actionSurface
+                            : context.colors.backgroundSecondary,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
                           color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
+                              ? context.colors.actionSurface
+                              : context.colors.border,
                         ),
                       ),
                       child: Text(
                         group,
                         style: GoogleFonts.plusJakartaSans(
                           color: isSelected
-                              ? AppTheme.oledBlack
-                              : AppTheme.textSageMuted,
+                              ? context.colors.actionForeground
+                              : context.colors.textMuted,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -243,8 +244,8 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
 
   Widget _buildBody(ScrollController scrollCtrl, double bottomPad) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primary),
+      return Center(
+        child: CircularProgressIndicator(color: context.colors.primary),
       );
     }
 
@@ -289,7 +290,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
+                            color: context.colors.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
@@ -301,16 +302,16 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                           children: [
                             _chip(
                               item.muscleGroup,
-                              foregroundColor: AppTheme.textMain,
+                              foregroundColor: context.colors.textSecondary,
                               emphasis: true,
                             ),
                             _chip(
                               item.equipment,
-                              foregroundColor: AppTheme.textSageMuted,
+                              foregroundColor: context.colors.textMuted,
                             ),
                             _chip(
                               item.category,
-                              foregroundColor: AppTheme.textMain,
+                              foregroundColor: context.colors.textSecondary,
                             ),
                           ],
                         ),
@@ -319,7 +320,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                           Text(
                             item.description,
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textMain,
+                              color: context.colors.textSecondary,
                               fontSize: 11,
                               height: 1.4,
                             ),
@@ -338,7 +339,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                         _actionButton(
                           label: 'Copy video link for ${item.name}',
                           icon: LucideIcons.youtube,
-                          foregroundColor: AppTheme.textMain,
+                          foregroundColor: context.colors.textSecondary,
                           onPressed: () => _copyVideoLink(item),
                         ),
                         const SizedBox(height: 8),
@@ -350,7 +351,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                         icon: widget.replaceExerciseId != null
                             ? LucideIcons.refresh_cw
                             : LucideIcons.plus,
-                        foregroundColor: AppTheme.textSageMuted,
+                        foregroundColor: context.colors.textMuted,
                         onPressed: _isAdding
                             ? null
                             : () => _selectExercise(item),
@@ -390,7 +391,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
               title,
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -400,7 +401,7 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
               body,
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 12,
                 height: 1.4,
               ),
@@ -414,14 +415,14 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
                 borderRadius: BorderRadius.circular(16),
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
-                  color: AppTheme.cardRaised,
+                  color: context.colors.cardRaised,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.borderDark),
+                  border: Border.all(color: context.colors.border),
                 ),
                 child: Text(
                   actionLabel,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -450,10 +451,10 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
         minWidth: AppTheme.minimumTouchTarget,
         borderRadius: BorderRadius.circular(AppTheme.minimumTouchTarget),
         decoration: BoxDecoration(
-          color: AppTheme.oledBlack.withValues(alpha: 0.18),
+          color: context.colors.background.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(AppTheme.minimumTouchTarget),
           border: Border.all(
-            color: AppTheme.borderDark.withValues(alpha: 0.95),
+            color: context.colors.border.withValues(alpha: 0.95),
           ),
         ),
         child: isLoading
@@ -489,13 +490,13 @@ class _ExerciseLibrarySheetState extends State<_ExerciseLibrarySheet> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: emphasis
-            ? AppTheme.primary.withValues(alpha: 0.1)
-            : AppTheme.oledBlack.withValues(alpha: 0.16),
+            ? context.colors.primary.withValues(alpha: 0.1)
+            : context.colors.background.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(7),
         border: Border.all(
           color: emphasis
-              ? AppTheme.primary.withValues(alpha: 0.22)
-              : AppTheme.borderDark.withValues(alpha: 0.9),
+              ? context.colors.primary.withValues(alpha: 0.22)
+              : context.colors.border.withValues(alpha: 0.9),
         ),
       ),
       child: Padding(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/models/pr.dart';
 import 'package:buddy/services/workout_service.dart';
 import 'package:buddy/services/logs_service.dart';
@@ -226,11 +227,11 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: context.colors.card,
         title: Text(
           'Adjust Your Plan',
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textCream,
+            color: context.colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -241,7 +242,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             Text(
               'Got any injuries or things you want to avoid? Tell us and we\'ll rework your workouts around them.',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 13,
               ),
             ),
@@ -250,25 +251,25 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               controller: ctrl,
               maxLines: 3,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 13,
               ),
               decoration: InputDecoration(
                 hintText:
                     'e.g. bad knee, no overhead pressing, keep it short...',
                 hintStyle: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 12,
                 ),
                 filled: true,
-                fillColor: AppTheme.backgroundDark,
+                fillColor: context.colors.backgroundSecondary,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.borderDark),
+                  borderSide: BorderSide(color: context.colors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.borderDark),
+                  borderSide: BorderSide(color: context.colors.border),
                 ),
               ),
             ),
@@ -279,7 +280,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+              style: GoogleFonts.plusJakartaSans(color: context.colors.textMuted),
             ),
           ),
           TextButton(
@@ -287,7 +288,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             child: Text(
               'Update My Plan',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
+                color: context.colors.primary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -323,18 +324,18 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: context.colors.card,
         title: Text(
           'Remove Exercise?',
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textCream,
+            color: context.colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           'Remove $exerciseName from this day? This cannot be undone.',
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: context.colors.textMuted,
             fontSize: 13,
           ),
         ),
@@ -343,7 +344,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+              style: GoogleFonts.plusJakartaSans(color: context.colors.textMuted),
             ),
           ),
           TextButton(
@@ -351,7 +352,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             child: Text(
               'Remove',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.error,
+                color: context.colors.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -402,7 +403,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     });
 
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: Column(
         children: [
           _buildHeader(),
@@ -446,9 +447,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               child: Container(
                 height: 110,
                 decoration: BoxDecoration(
-                  color: AppTheme.cardDark,
+                  color: context.colors.card,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.borderDark),
+                  border: Border.all(color: context.colors.border),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
@@ -513,7 +514,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 Text(
                   'TRAINING',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -522,7 +523,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 Text(
                   'Workout Plan',
                   style: GoogleFonts.sora(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 26,
                     fontWeight: FontWeight.w600,
                   ),
@@ -547,25 +548,25 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.xpGold.withValues(alpha: 0.12),
+                        color: context.colors.xpGold.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: AppTheme.xpGold.withValues(alpha: 0.35),
+                          color: context.colors.xpGold.withValues(alpha: 0.35),
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                                Icon(
                             LucideIcons.flame,
-                            color: AppTheme.xpGold,
+                            color: context.colors.xpGold,
                             size: 13,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '$streak',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.xpGold,
+                              color: context.colors.xpGold,
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                             ),
@@ -614,7 +615,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 child: Text(
                   planTitle,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -623,7 +624,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               ),
               const SizedBox(width: 10),
               _regenLoading
-                  ? const SizedBox(
+                  ?       SizedBox(
                       width: AppTheme.minimumTouchTarget,
                       height: AppTheme.minimumTouchTarget,
                       child: Center(
@@ -632,7 +633,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppTheme.primary,
+                            color: context.colors.primary,
                           ),
                         ),
                       ),
@@ -660,22 +661,22 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 ),
                 borderRadius: BorderRadius.circular(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.cardDark,
+                  color: context.colors.card,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.borderDark),
+                  border: Border.all(color: context.colors.border),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                          Icon(
                       LucideIcons.history,
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       size: 13,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       'SESSIONS',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.1,
@@ -734,18 +735,18 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? (isRest
-                                  ? AppTheme.textSageMuted.withValues(
+                                  ? context.colors.textMuted.withValues(
                                       alpha: 0.2,
                                     )
-                                  : AppTheme.primary)
-                            : AppTheme.cardDark,
+                                  : context.colors.actionSurface)
+                            : context.colors.card,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isSelected
                               ? (isRest
-                                    ? AppTheme.textSageMuted
-                                    : AppTheme.primary)
-                              : AppTheme.borderDark,
+                                    ? context.colors.textMuted
+                                    : context.colors.actionSurface)
+                              : context.colors.border,
                         ),
                       ),
                       child: Column(
@@ -756,9 +757,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                             style: GoogleFonts.plusJakartaSans(
                               color: isSelected
                                   ? (isRest
-                                        ? AppTheme.textSageMuted
-                                        : AppTheme.oledBlack)
-                                  : AppTheme.textSageMuted,
+                                        ? context.colors.textMuted
+                                        : context.colors.actionForeground)
+                                  : context.colors.textMuted,
                               fontSize: 8,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 1,
@@ -770,9 +771,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                             style: GoogleFonts.plusJakartaSans(
                               color: isSelected
                                   ? (isRest
-                                        ? AppTheme.textSageMuted
-                                        : AppTheme.oledBlack)
-                                  : AppTheme.textSageMuted,
+                                        ? context.colors.textMuted
+                                        : context.colors.actionForeground)
+                                  : context.colors.textMuted,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.5,
@@ -831,20 +832,16 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: AppTheme.borderDark.withValues(alpha: 0.95),
+                  color: context.colors.border.withValues(alpha: 0.95),
                 ),
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1A151B),
-                    Color(0xFF14161A),
-                    AppTheme.cardDark,
-                  ],
+                  colors: context.colors.cardGradient,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+                    color: context.colors.shadowColor,
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -856,12 +853,12 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: AppTheme.textSageMuted.withValues(alpha: 0.1),
+                      color: context.colors.textMuted.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child:       Icon(
                       LucideIcons.moon,
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       size: 32,
                     ),
                   ),
@@ -869,7 +866,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   Text(
                     'Rest Day',
                     style: GoogleFonts.sora(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 28,
                       fontWeight: FontWeight.w600,
                     ),
@@ -878,7 +875,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   Text(
                     'Recovery is where the gains happen.\nLet your muscles rebuild and come back stronger.',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 13,
                       height: 1.6,
                     ),
@@ -890,7 +887,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             const SizedBox(height: 20),
             _buildRestActionCard(
               icon: LucideIcons.activity,
-              iconColor: AppTheme.primary,
+              iconColor: context.colors.primary,
               title: 'Stretch Flow Timer',
               subtitle: _stretchSecondsLeft > 0
                   ? 'Remaining ${_formatCountdown(_stretchSecondsLeft)}'
@@ -901,7 +898,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             const SizedBox(height: 10),
             _buildRestActionCard(
               icon: LucideIcons.droplets,
-              iconColor: AppTheme.info,
+              iconColor: context.colors.info,
               title: 'Hydration Quick Log',
               subtitle: 'Today: $_todayHydrationMl ml logged',
               cta: _isHydrationLogging ? 'Logging...' : '+250 ml',
@@ -911,14 +908,14 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             Text(
               'TODAY\'S FOCUS',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.5,
               ),
             ),
             const SizedBox(height: 10),
-            ..._recoveryTips.map(
+            ..._recoveryTips(context.colors).map(
               (tip) => Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.symmetric(
@@ -928,20 +925,16 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: AppTheme.borderDark.withValues(alpha: 0.95),
+                    color: context.colors.border.withValues(alpha: 0.95),
                   ),
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF1A151B),
-                      Color(0xFF14161A),
-                      AppTheme.cardDark,
-                    ],
+                    colors: context.colors.cardGradient,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+                      color: context.colors.shadowColor,
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -966,7 +959,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                           Text(
                             tip.title,
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: context.colors.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
@@ -975,7 +968,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                           Text(
                             tip.subtitle,
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted,
+                              color: context.colors.textMuted,
                               fontSize: 11,
                             ),
                           ),
@@ -1007,7 +1000,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                           ? 'About ${_formatDurationCompact(estimatedDurationSeconds)} to complete'
                           : 'Estimated workout time unavailable',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1062,13 +1055,13 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                             color:
                                 isTodayPlanDay &&
                                     sessionState == _TodayWorkoutState.completed
-                                ? AppTheme.cardDark
-                                : AppTheme.actionSurface,
+                                ? context.colors.card
+                                : context.colors.actionSurface,
                             borderRadius: BorderRadius.circular(12),
                             border:
                                 isTodayPlanDay &&
                                     sessionState == _TodayWorkoutState.completed
-                                ? Border.all(color: AppTheme.borderDark)
+                                ? Border.all(color: context.colors.border)
                                 : null,
                           ),
                           child: Row(
@@ -1084,8 +1077,8 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                     isTodayPlanDay &&
                                         sessionState ==
                                             _TodayWorkoutState.completed
-                                    ? AppTheme.primary
-                                    : AppTheme.actionForeground,
+                                    ? context.colors.primary
+                                    : context.colors.actionForeground,
                                 size: 16,
                               ),
                               const SizedBox(width: 5),
@@ -1104,8 +1097,8 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                                       isTodayPlanDay &&
                                           sessionState ==
                                               _TodayWorkoutState.completed
-                                      ? AppTheme.primary
-                                      : AppTheme.actionForeground,
+                                      ? context.colors.primary
+                                      : context.colors.actionForeground,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1,
@@ -1156,23 +1149,23 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.cardRaised,
+                  color: context.colors.cardRaised,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.borderDark),
+                  border: Border.all(color: context.colors.border),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                          Icon(
                       LucideIcons.plus,
-                      color: AppTheme.primary,
+                      color: context.colors.primary,
                       size: 16,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Add from library',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1312,9 +1305,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Row(
         children: [
@@ -1335,7 +1328,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 Text(
                   title,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1344,7 +1337,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 Text(
                   subtitle,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 11,
                   ),
                 ),
@@ -1364,19 +1357,19 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 ),
                 decoration: BoxDecoration(
                   color: onTap == null
-                      ? AppTheme.borderDark
+                      ? context.colors.border
                       : iconColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: onTap == null
-                        ? AppTheme.borderDark
+                        ? context.colors.border
                         : iconColor.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Text(
                   cta,
                   style: GoogleFonts.plusJakartaSans(
-                    color: onTap == null ? AppTheme.textSageMuted : iconColor,
+                    color: onTap == null ? context.colors.textMuted : iconColor,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
@@ -1406,30 +1399,30 @@ class _RecoveryTip {
   });
 }
 
-const _recoveryTips = [
+List<_RecoveryTip> _recoveryTips(AppColorScheme c) => [
   _RecoveryTip(
     icon: LucideIcons.activity,
     title: 'Light Stretching',
     subtitle: '10–15 min to ease muscle tension',
-    color: AppTheme.primary,
+    color: c.primary,
   ),
   _RecoveryTip(
     icon: LucideIcons.droplets,
     title: 'Stay Hydrated',
     subtitle: 'Aim for at least 2–3 litres today',
-    color: AppTheme.info,
+    color: c.info,
   ),
   _RecoveryTip(
     icon: LucideIcons.bed,
     title: 'Prioritise Sleep',
     subtitle: '7–9 hours for optimal recovery',
-    color: AppTheme.levelArc,
+    color: c.levelArc,
   ),
   _RecoveryTip(
     icon: LucideIcons.salad,
     title: 'Eat Well',
     subtitle: 'Protein and whole foods fuel repair',
-    color: AppTheme.accent,
+    color: c.accent,
   ),
 ];
 
@@ -1478,7 +1471,7 @@ class _ExerciseCard extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: context.colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1499,7 +1492,7 @@ class _ExerciseCard extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.borderDark,
+                  color: context.colors.border,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1508,7 +1501,7 @@ class _ExerciseCard extends StatelessWidget {
             Text(
               exercise['name'] ?? 'Exercise',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -1558,14 +1551,14 @@ class _ExerciseCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
-                  color: AppTheme.actionSurface,
+                  color: context.colors.actionSurface,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   'SAVE',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.actionForeground,
+                    color: context.colors.actionForeground,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
                   ),
@@ -1590,7 +1583,7 @@ class _ExerciseCard extends StatelessWidget {
     final restSecs = (restRaw is int)
         ? restRaw
         : int.tryParse('$restRaw') ?? 60;
-    final accentColor = _muscleAccentColor(muscle);
+    final accentColor = _muscleAccentColor(muscle, context.colors);
     final isTimeBased = RegExp(
       r'\d+\s*(s|sec|min)',
       caseSensitive: false,
@@ -1610,7 +1603,7 @@ class _ExerciseCard extends StatelessWidget {
       background: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: AppTheme.deleteAction,
+          color: context.colors.deleteAction,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1618,12 +1611,12 @@ class _ExerciseCard extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            const Icon(LucideIcons.trash_2, color: AppTheme.error, size: 14),
+                  Icon(LucideIcons.trash_2, color: context.colors.error, size: 14),
             const SizedBox(width: 6),
             Text(
               'DELETE',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.error,
+                color: context.colors.error,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
@@ -1635,7 +1628,7 @@ class _ExerciseCard extends StatelessWidget {
       secondaryBackground: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: AppTheme.swapAction,
+          color: context.colors.swapAction,
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1643,16 +1636,16 @@ class _ExerciseCard extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            const Icon(
+                  Icon(
               LucideIcons.refresh_cw,
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               size: 14,
             ),
             const SizedBox(width: 6),
             Text(
               'SWAP',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1,
@@ -1666,14 +1659,14 @@ class _ExerciseCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: accentColor.withValues(alpha: 0.32)),
-          gradient: const LinearGradient(
+          gradient:       LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+            colors: context.colors.cardGradient,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+              color: context.colors.shadowColor,
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -1722,7 +1715,7 @@ class _ExerciseCard extends StatelessWidget {
                               Text(
                                 name,
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textCream,
+                                  color: context.colors.textPrimary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   height: 1.2,
@@ -1762,7 +1755,7 @@ class _ExerciseCard extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 2),
                           child: Icon(
                             LucideIcons.pencil,
-                            color: AppTheme.textSageMuted.withValues(
+                            color: context.colors.textMuted.withValues(
                               alpha: 0.45,
                             ),
                             size: 13,
@@ -1778,7 +1771,7 @@ class _ExerciseCard extends StatelessWidget {
                         horizontal: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.backgroundDark.withValues(alpha: 0.5),
+                        color: context.colors.backgroundSecondary.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(11),
                       ),
                       child: Row(
@@ -1791,22 +1784,22 @@ class _ExerciseCard extends StatelessWidget {
                           Container(
                             width: 1,
                             height: 26,
-                            color: AppTheme.borderDark,
+                            color: context.colors.border,
                           ),
                           _StatBlock(
                             value: reps,
                             label: isTimeBased ? 'DURATION' : 'REPS',
-                            color: AppTheme.textCream,
+                            color: context.colors.textPrimary,
                           ),
                           Container(
                             width: 1,
                             height: 26,
-                            color: AppTheme.borderDark,
+                            color: context.colors.border,
                           ),
                           _StatBlock(
                             value: _formatRest(restSecs),
                             label: 'REST',
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                           ),
                         ],
                       ),
@@ -1816,9 +1809,9 @@ class _ExerciseCard extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 8),
                       child: Row(
                         children: [
-                          const Icon(
+                                Icon(
                             LucideIcons.trophy,
-                            color: AppTheme.xpGold,
+                            color: context.colors.xpGold,
                             size: 11,
                           ),
                           const SizedBox(width: 5),
@@ -1828,8 +1821,8 @@ class _ExerciseCard extends StatelessWidget {
                                 : 'No PR yet',
                             style: GoogleFonts.plusJakartaSans(
                               color: pr != null
-                                  ? AppTheme.xpGold.withValues(alpha: 0.85)
-                                  : AppTheme.textSageMuted.withValues(
+                                  ? context.colors.xpGold.withValues(alpha: 0.85)
+                                  : context.colors.textMuted.withValues(
                                       alpha: 0.45,
                                     ),
                               fontSize: 10,
@@ -1885,15 +1878,15 @@ class _SupersetPairCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
-          gradient: const LinearGradient(
+          border: Border.all(color: context.colors.primary.withValues(alpha: 0.35)),
+          gradient:       LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A151B), Color(0xFF14161A), AppTheme.cardDark],
+            colors: context.colors.cardGradient,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+              color: context.colors.shadowColor,
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -1909,23 +1902,23 @@ class _SupersetPairCard extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  color: context.colors.primary.withValues(alpha: 0.1),
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(19),
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                          Icon(
                       LucideIcons.zap,
-                      color: AppTheme.primary,
+                      color: context.colors.primary,
                       size: 12,
                     ),
                     const SizedBox(width: 5),
                     Text(
                       'SUPERSET',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
+                        color: context.colors.primary,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.5,
@@ -1953,18 +1946,18 @@ class _SupersetPairCard extends StatelessWidget {
                       width: 22,
                       height: 22,
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withValues(alpha: 0.12),
+                        color: context.colors.primary.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child:       Icon(
                         LucideIcons.arrow_down,
-                        color: AppTheme.primary,
+                        color: context.colors.primary,
                         size: 12,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Container(height: 1, color: AppTheme.borderDark),
+                      child: Container(height: 1, color: context.colors.border),
                     ),
                   ],
                 ),
@@ -2014,7 +2007,7 @@ class _SupersetExerciseRow extends StatelessWidget {
     final restSecs = (restRaw is int)
         ? restRaw
         : int.tryParse('$restRaw') ?? 60;
-    final accentColor = _muscleAccentColor(muscle);
+    final accentColor = _muscleAccentColor(muscle, context.colors);
 
     return Semantics(
       label:
@@ -2050,7 +2043,7 @@ class _SupersetExerciseRow extends StatelessWidget {
                     Text(
                       name,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -2061,7 +2054,7 @@ class _SupersetExerciseRow extends StatelessWidget {
                         Text(
                           '$sets × $reps  ·  rest ${_formatRest(restSecs)}',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             fontSize: 11,
                           ),
                         ),
@@ -2071,16 +2064,16 @@ class _SupersetExerciseRow extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(
+                                Icon(
                             LucideIcons.trophy,
-                            color: AppTheme.xpGold,
+                            color: context.colors.xpGold,
                             size: 10,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'PR: ${pr!.weightKg}kg × ${pr!.reps}',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.xpGold.withValues(alpha: 0.8),
+                              color: context.colors.xpGold.withValues(alpha: 0.8),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2099,21 +2092,21 @@ class _SupersetExerciseRow extends StatelessWidget {
   }
 }
 
-Color _muscleAccentColor(String muscleGroup) {
+Color _muscleAccentColor(String muscleGroup, AppColorScheme c) {
   final key = muscleGroup.toLowerCase();
-  if (key.contains('chest')) return AppTheme.muscleChest;
-  if (key.contains('back')) return AppTheme.muscleBack;
+  if (key.contains('chest')) return c.muscleChest;
+  if (key.contains('back')) return c.muscleBack;
   if (key.contains('leg') || key.contains('quad') || key.contains('ham')) {
-    return AppTheme.muscleLegs;
+    return c.muscleLegs;
   }
   if (key.contains('shoulder') || key.contains('delt')) {
-    return AppTheme.muscleShoulders;
+    return c.muscleShoulders;
   }
   if (key.contains('arm') || key.contains('bicep') || key.contains('tricep')) {
-    return AppTheme.muscleArms;
+    return c.muscleArms;
   }
-  if (key.contains('core') || key.contains('abs')) return AppTheme.xpGold;
-  return AppTheme.primary;
+  if (key.contains('core') || key.contains('abs')) return c.xpGold;
+  return c.primary;
 }
 
 class _StatBlock extends StatelessWidget {
@@ -2145,7 +2138,7 @@ class _StatBlock extends StatelessWidget {
           Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted.withValues(alpha: 0.75),
+              color: context.colors.textMuted,
               fontSize: 8,
               fontWeight: FontWeight.w600,
               letterSpacing: 1,

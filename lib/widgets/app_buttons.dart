@@ -1,3 +1,4 @@
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -49,7 +50,7 @@ class AppPressable extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: minHeight, minWidth: minWidth),
         child: Material(
-          color: Colors.transparent,
+          color: AppTheme.transparent,
           borderRadius: resolvedBorderRadius,
           clipBehavior: Clip.antiAlias,
           child: Ink(
@@ -124,13 +125,13 @@ class AppPrimaryButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isLoading)
-                    const SizedBox(
+                    SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.actionForeground,
+                          context.colors.actionForeground,
                         ),
                       ),
                     )
@@ -175,7 +176,7 @@ class AppBackButton extends StatelessWidget {
         semanticsLabel: 'Go back',
         child: Icon(
           icon,
-          color: color ?? AppTheme.textCream,
+          color: color ?? context.colors.textPrimary,
           size: iconSize,
         ),
       ),
@@ -217,13 +218,13 @@ class AppSurfaceIconButton extends StatelessWidget {
         minWidth: size,
         borderRadius: resolvedBorderRadius,
         decoration: BoxDecoration(
-          color: backgroundColor ?? AppTheme.cardDark,
+          color: backgroundColor ?? context.colors.card,
           borderRadius: resolvedBorderRadius,
-          border: Border.all(color: AppTheme.borderDark),
+          border: Border.all(color: context.colors.border),
         ),
         child: Icon(
           icon,
-          color: foregroundColor ?? AppTheme.textCream,
+          color: foregroundColor ?? context.colors.textPrimary,
           size: iconSize,
         ),
       ),

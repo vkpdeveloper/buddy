@@ -7,6 +7,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/utils/motion_preferences.dart';
 import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/services/buddy_service.dart';
@@ -236,23 +237,23 @@ class _BuddyChatPageState extends State<BuddyChatPage>
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
-      appBar: _buildAppBar(),
+      backgroundColor: context.colors.background,
+      appBar: _buildAppBar(context),
       body: FadeTransition(
         opacity: _fadeIn,
         child: Column(
           children: [
             Expanded(child: _buildMessageList()),
-            _buildInputBar(bottomPad),
+            _buildInputBar(context, bottomPad),
           ],
         ),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       elevation: 0,
       leading: AppBackButton(
         onPressed: () => Navigator.pop(context),
@@ -268,6 +269,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
                 style: AppTheme.displayStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
+                  color: context.colors.textPrimary,
                 ),
               ),
               if (_isStreaming)
@@ -282,7 +284,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
                     'Thinking…',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11,
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -295,7 +297,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
         preferredSize: const Size.fromHeight(1),
         child: Container(
           height: 1,
-          color: AppTheme.borderDark.withValues(alpha: 0.5),
+          color: context.colors.border.withValues(alpha: 0.5),
         ),
       ),
     );
@@ -343,28 +345,24 @@ class _BuddyChatPageState extends State<BuddyChatPage>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
-                color: AppTheme.borderDark.withValues(alpha: 0.95),
+                color: context.colors.border.withValues(alpha: 0.95),
               ),
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A151B),
-                  Color(0xFF14161A),
-                  AppTheme.cardDark,
-                ],
+                colors: context.colors.cardGradient,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.shadowSoft.withValues(alpha: 0.28),
+                  color: context.colors.shadowColor,
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
               ],
             ),
-            child: const Icon(
+            child: Icon(
               LucideIcons.brain,
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               size: 34,
             ),
           ),
@@ -374,6 +372,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
             style: AppTheme.displayStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
+              color: context.colors.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
@@ -382,6 +381,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
             style: AppTheme.displayStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
+              color: context.colors.textPrimary,
             ),
           ),
           const SizedBox(height: 10),
@@ -390,7 +390,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               height: 1.6,
             ),
           ),
@@ -410,13 +410,13 @@ class _BuddyChatPageState extends State<BuddyChatPage>
     );
   }
 
-  Widget _buildInputBar(double bottomPad) {
+  Widget _buildInputBar(BuildContext context, double bottomPad) {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomPad),
       decoration: BoxDecoration(
-        color: AppTheme.oledBlack,
+        color: context.colors.background,
         border: Border(
-          top: BorderSide(color: AppTheme.borderDark.withValues(alpha: 0.5)),
+          top: BorderSide(color: context.colors.border.withValues(alpha: 0.5)),
         ),
       ),
       child: Row(
@@ -426,12 +426,12 @@ class _BuddyChatPageState extends State<BuddyChatPage>
             child: Container(
               constraints: const BoxConstraints(minHeight: 48, maxHeight: 130),
               decoration: BoxDecoration(
-                color: AppTheme.cardRaised,
+                color: context.colors.cardRaised,
                 borderRadius: BorderRadius.circular(26),
                 border: Border.all(
                   color: _isStreaming
-                      ? AppTheme.borderDark.withValues(alpha: 0.4)
-                      : AppTheme.borderDark,
+                      ? context.colors.border.withValues(alpha: 0.4)
+                      : context.colors.border,
                 ),
               ),
               child: Semantics(
@@ -445,7 +445,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
                   textInputAction: TextInputAction.newline,
                   enabled: !_isStreaming,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     height: 1.5,
                   ),
@@ -454,7 +454,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
                         ? 'Buddy is thinking…'
                         : 'Ask Buddy something…',
                     hintStyle: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 14,
                     ),
                     border: InputBorder.none,
@@ -513,19 +513,19 @@ class _UserBubble extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: AppTheme.cardRaised,
+            color: context.colors.cardRaised,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(20),
               topRight: Radius.circular(20),
               bottomLeft: Radius.circular(20),
               bottomRight: Radius.circular(5),
             ),
-            border: Border.all(color: AppTheme.borderDark),
+            border: Border.all(color: context.colors.border),
           ),
           child: Text(
             content,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 14,
               height: 1.55,
             ),
@@ -580,7 +580,7 @@ class _ErrorBubble extends StatelessWidget {
                 Text(
                   content,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 14,
                     height: 1.55,
                   ),
@@ -594,23 +594,23 @@ class _ErrorBubble extends StatelessWidget {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardRaised,
+                      color: context.colors.cardRaised,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.borderDark),
+                      border: Border.all(color: context.colors.border),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           LucideIcons.rotate_ccw,
                           size: 12,
-                          color: AppTheme.textSageMuted,
+                          color: context.colors.textMuted,
                         ),
                         const SizedBox(width: 5),
                         Text(
                           'Retry',
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -637,7 +637,7 @@ class _MarkdownContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = GoogleFonts.plusJakartaSans(
-      color: AppTheme.textMain,
+      color: context.colors.textSecondary,
       fontSize: 14,
       height: 1.65,
     );
@@ -647,56 +647,56 @@ class _MarkdownContent extends StatelessWidget {
       styleSheet: MarkdownStyleSheet(
         p: base,
         strong: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textCream,
+          color: context.colors.textPrimary,
           fontSize: 14,
           fontWeight: FontWeight.w600,
           height: 1.65,
         ),
         em: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textMain,
+          color: context.colors.textSecondary,
           fontSize: 14,
           fontStyle: FontStyle.italic,
           height: 1.65,
         ),
-        h1: AppTheme.displayStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        h2: AppTheme.displayStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        h1: AppTheme.displayStyle(fontSize: 18, fontWeight: FontWeight.w700, color: context.colors.textPrimary),
+        h2: AppTheme.displayStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.colors.textPrimary),
         h3: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textCream,
+          color: context.colors.textPrimary,
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
         listBullet: base,
         code: GoogleFonts.sourceCodePro(
-          color: AppTheme.textCream,
-          backgroundColor: AppTheme.cardRaised,
+          color: context.colors.textPrimary,
+          backgroundColor: context.colors.cardRaised,
           fontSize: 13,
         ),
         codeblockDecoration: BoxDecoration(
-          color: AppTheme.cardRaised,
+          color: context.colors.cardRaised,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.borderDark),
+          border: Border.all(color: context.colors.border),
         ),
         blockquoteDecoration: BoxDecoration(
           border: Border(
             left: BorderSide(
-              color: AppTheme.borderDark.withValues(alpha: 0.8),
+              color: context.colors.border.withValues(alpha: 0.8),
               width: 3,
             ),
           ),
         ),
         blockquote: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textSageMuted,
+          color: context.colors.textMuted,
           fontSize: 13,
           fontStyle: FontStyle.italic,
           height: 1.6,
         ),
         tableHead: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textCream,
+          color: context.colors.textPrimary,
           fontSize: 13,
           fontWeight: FontWeight.w600,
         ),
         tableBody: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textMain,
+          color: context.colors.textSecondary,
           fontSize: 13,
         ),
       ),
@@ -744,9 +744,9 @@ class _ToolStatusBubbleState extends State<_ToolStatusBubble>
             animation: _ctrl,
             builder: (_, _) => Transform.rotate(
               angle: _ctrl.value * 2 * math.pi,
-              child: const Icon(
+              child: Icon(
                 LucideIcons.loader_circle,
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 size: 13,
               ),
             ),
@@ -755,7 +755,7 @@ class _ToolStatusBubbleState extends State<_ToolStatusBubble>
           Text(
             widget.label,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 13,
               height: 1.4,
             ),
@@ -803,7 +803,7 @@ class _AnimatedDots extends AnimatedWidget {
           width: 7,
           height: 7,
           decoration: BoxDecoration(
-            color: AppTheme.textSageMuted.withValues(alpha: opacity),
+            color: context.colors.textMuted.withValues(alpha: opacity),
             shape: BoxShape.circle,
           ),
         );
@@ -861,7 +861,7 @@ class _BlinkingCursorState extends State<_BlinkingCursor>
         width: 2,
         height: 14,
         decoration: BoxDecoration(
-          color: AppTheme.textSageMuted,
+          color: context.colors.textMuted,
           borderRadius: BorderRadius.circular(1),
         ),
       );
@@ -872,7 +872,7 @@ class _BlinkingCursorState extends State<_BlinkingCursor>
         width: 2,
         height: 14,
         decoration: BoxDecoration(
-          color: AppTheme.textSageMuted,
+          color: context.colors.textMuted,
           borderRadius: BorderRadius.circular(1),
         ),
       ),
@@ -895,14 +895,14 @@ class _SuggestionChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       borderRadius: BorderRadius.circular(22),
       decoration: BoxDecoration(
-        color: AppTheme.cardRaised,
+        color: context.colors.cardRaised,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Text(
         text,
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.textMain,
+          color: context.colors.textSecondary,
           fontSize: 13,
           height: 1.4,
         ),
@@ -927,10 +927,10 @@ class _SendButton extends StatelessWidget {
       minWidth: 48,
       borderRadius: BorderRadius.circular(24),
       decoration: BoxDecoration(
-        color: isStreaming ? AppTheme.cardRaised : AppTheme.textCream,
+        color: isStreaming ? context.colors.cardRaised : context.colors.actionSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isStreaming ? AppTheme.borderDark : AppTheme.transparent,
+          color: isStreaming ? context.colors.border : AppTheme.transparent,
         ),
       ),
       child: AnimatedContainer(
@@ -940,9 +940,9 @@ class _SendButton extends StatelessWidget {
         alignment: Alignment.center,
         child: isStreaming
             ? const _SpinnerIcon()
-            : const Icon(
+            : Icon(
                 LucideIcons.arrow_up,
-                color: AppTheme.oledBlack,
+                color: context.colors.background,
                 size: 20,
               ),
       ),
@@ -982,9 +982,9 @@ class _SpinnerIconState extends State<_SpinnerIcon>
       animation: _ctrl,
       builder: (_, _) => Transform.rotate(
         angle: _ctrl.value * 2 * math.pi,
-        child: const Icon(
+        child: Icon(
           LucideIcons.loader_circle,
-          color: AppTheme.textSageMuted,
+          color: context.colors.textMuted,
           size: 20,
         ),
       ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/services/targets_service.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
@@ -78,7 +78,7 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: Column(
         children: [
           // Header
@@ -93,7 +93,7 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
                 Text(
                   'Daily Goals',
                   style: GoogleFonts.sora(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -101,16 +101,16 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
               ],
             ),
           ),
-          const Divider(color: AppTheme.borderDark, height: 1),
+          Divider(color: context.colors.border, height: 1),
           if (_loading)
-            const Expanded(
+            Expanded(
               child: Center(
                 child: SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                   ),
                 ),
               ),
@@ -130,8 +130,8 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
                       min: 2000,
                       max: 25000,
                       divisions: 46,
-                      activeColor: AppTheme.primary,
-                      inactiveColor: AppTheme.borderDark,
+                      activeColor: context.colors.primary,
+                      inactiveColor: context.colors.border,
                       onChanged: (v) =>
                           setState(() => _stepGoal = (v / 500).round() * 500.0),
                     ),
@@ -147,8 +147,8 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
                       min: 4.0,
                       max: 12.0,
                       divisions: 16,
-                      activeColor: AppTheme.primary,
-                      inactiveColor: AppTheme.borderDark,
+                      activeColor: context.colors.primary,
+                      inactiveColor: context.colors.border,
                       onChanged: (v) =>
                           setState(() => _sleepTarget = (v * 2).round() / 2.0),
                     ),
@@ -165,8 +165,8 @@ class _DailyGoalsPageState extends ConsumerState<DailyGoalsPage> {
                       min: 1000,
                       max: 5000,
                       divisions: 16,
-                      activeColor: AppTheme.primary,
-                      inactiveColor: AppTheme.borderDark,
+                      activeColor: context.colors.primary,
+                      inactiveColor: context.colors.border,
                       onChanged: (v) => setState(
                         () => _waterTargetMl = (v / 250).round() * 250.0,
                       ),
@@ -211,12 +211,12 @@ class _GoalCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: AppTheme.primary, size: 16),
+              Icon(icon, color: context.colors.primary, size: 16),
               const SizedBox(width: 8),
               Text(
                 label.toUpperCase(),
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5,
@@ -229,7 +229,7 @@ class _GoalCard extends StatelessWidget {
                     TextSpan(
                       text: displayValue,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -237,7 +237,7 @@ class _GoalCard extends StatelessWidget {
                     TextSpan(
                       text: '  $unit',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 11,
                       ),
                     ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:buddy/app_color_scheme.dart';
 
 /// WCAG contrast ratios (against oledBlack #000000 unless noted):
 ///   AA  normal text ≥ 4.5:1 | large text / non-text UI ≥ 3.0:1
@@ -136,6 +137,51 @@ class AppTheme {
         foregroundColor: actionForeground,
       ),
       appBarTheme: const AppBarTheme(backgroundColor: oledBlack, elevation: 0),
+      extensions: const [AppColorScheme.dark],
+    );
+  }
+
+  static ThemeData get lightTheme {
+    const lightPrimary = Color(0xFF5E6470);
+    const lightAccent = Color(0xFF8A9098);
+    const lightActionSurface = Color(0xFF000000);
+    const lightActionForeground = Color(0xFFFFFFFF);
+    const lightCard = Color(0xFFFFFFFF);
+    const lightBackground = Color(0xFFF5F2EE);
+
+    return ThemeData(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: lightBackground,
+      primaryColor: lightPrimary,
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(
+        ThemeData(brightness: Brightness.light).textTheme,
+      ),
+      colorScheme: const ColorScheme.light(
+        primary: lightPrimary,
+        secondary: lightAccent,
+        surface: lightCard,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: lightActionSurface,
+          foregroundColor: lightActionForeground,
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: lightActionSurface,
+          foregroundColor: lightActionForeground,
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: lightActionSurface,
+        foregroundColor: lightActionForeground,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: lightBackground,
+        elevation: 0,
+      ),
+      extensions: const [AppColorScheme.light],
     );
   }
 

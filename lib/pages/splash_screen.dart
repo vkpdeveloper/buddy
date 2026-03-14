@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/pages/home_page.dart';
 import 'package:buddy/pages/onboarding_screen.dart';
 import 'package:buddy/services/auth_service.dart';
@@ -50,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: Column(
         children: [
           Expanded(
@@ -58,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Text(
                 'Buddy',
                 style: GoogleFonts.sora(
-                  color: AppTheme.textCream,
+                  color: context.colors.textPrimary,
                   fontSize: 40,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
@@ -72,8 +72,8 @@ class _SplashScreenState extends State<SplashScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
               child: LinearProgressIndicator(
                 minHeight: 2,
-                backgroundColor: AppTheme.borderDark,
-                color: AppTheme.textSageMuted,
+                backgroundColor: context.colors.border,
+                color: context.colors.textMuted,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

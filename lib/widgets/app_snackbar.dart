@@ -1,4 +1,4 @@
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,30 +19,32 @@ class AppSnackbar {
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
 
+    final colors = context.colors;
+
     final (icon, iconColor, bgColor, borderColor) = switch (type) {
       AppSnackbarType.info => (
         LucideIcons.info,
-        AppTheme.info,
-        AppTheme.info.withValues(alpha: 0.08),
-        AppTheme.info.withValues(alpha: 0.35),
+        colors.info,
+        colors.info.withValues(alpha: 0.08),
+        colors.info.withValues(alpha: 0.35),
       ),
       AppSnackbarType.success => (
         LucideIcons.circle_check,
-        AppTheme.success,
-        AppTheme.success.withValues(alpha: 0.08),
-        AppTheme.success.withValues(alpha: 0.35),
+        colors.success,
+        colors.success.withValues(alpha: 0.08),
+        colors.success.withValues(alpha: 0.35),
       ),
       AppSnackbarType.warning => (
         LucideIcons.triangle_alert,
-        AppTheme.warning,
-        AppTheme.warning.withValues(alpha: 0.08),
-        AppTheme.warning.withValues(alpha: 0.35),
+        colors.warning,
+        colors.warning.withValues(alpha: 0.08),
+        colors.warning.withValues(alpha: 0.35),
       ),
       AppSnackbarType.error => (
         LucideIcons.circle_x,
-        AppTheme.error,
-        AppTheme.error.withValues(alpha: 0.08),
-        AppTheme.error.withValues(alpha: 0.35),
+        colors.error,
+        colors.error.withValues(alpha: 0.08),
+        colors.error.withValues(alpha: 0.35),
       ),
     };
 
@@ -53,7 +55,7 @@ class AppSnackbar {
         elevation: 0,
         dismissDirection: DismissDirection.horizontal,
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: colors.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
           side: BorderSide(color: borderColor),
@@ -76,7 +78,7 @@ class AppSnackbar {
               child: Text(
                 message,
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
+                  color: colors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),

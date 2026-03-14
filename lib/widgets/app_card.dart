@@ -1,4 +1,4 @@
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:flutter/material.dart';
 
 class AppCard extends StatelessWidget {
@@ -26,10 +26,10 @@ class AppCard extends StatelessWidget {
     return Container(
       margin: margin,
       padding: padding,
-      decoration: AppTheme.cardDecoration(
+      decoration: context.colors.cardDecoration(
         radius: radius,
         borderColor: borderColor,
-        colors: colors ?? AppTheme.cardGradient,
+        gradientColors: colors ?? context.colors.cardGradient,
         withShadow: withShadow,
       ),
       child: child,

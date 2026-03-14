@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/widgets/app_buttons.dart';
 
 /// The welcome screen.
@@ -65,9 +66,9 @@ class _OnboardingHeroPageState extends State<OnboardingHeroPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Spacer(),
-          _buildHeadline(),
+          _buildHeadline(context),
           const Spacer(),
-          _buildCTABlock(),
+          _buildCTABlock(context),
         ],
       ),
     );
@@ -75,7 +76,7 @@ class _OnboardingHeroPageState extends State<OnboardingHeroPage>
 
   // ─── Headline ─────────────────────────────────────────────────────────────
 
-  Widget _buildHeadline() {
+  Widget _buildHeadline(BuildContext context) {
     return _SlideUp(
       controller: _headlineController,
       child: Column(
@@ -84,7 +85,7 @@ class _OnboardingHeroPageState extends State<OnboardingHeroPage>
           Text(
             'Eat better.\nTrain smarter.\nSee real results.',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 34,
               fontWeight: FontWeight.w800,
               height: 1.08,
@@ -94,7 +95,7 @@ class _OnboardingHeroPageState extends State<OnboardingHeroPage>
           Text(
             'Answer a few quick questions and Buddy will build your custom plan.',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 14,
               fontWeight: FontWeight.w500,
               height: 1.5,
@@ -107,7 +108,7 @@ class _OnboardingHeroPageState extends State<OnboardingHeroPage>
 
   // ─── CTA block ────────────────────────────────────────────────────────────
 
-  Widget _buildCTABlock() {
+  Widget _buildCTABlock(BuildContext context) {
     return FadeTransition(
       opacity: _ctaController,
       child: Column(
@@ -125,17 +126,17 @@ class _OnboardingHeroPageState extends State<OnboardingHeroPage>
                 double.infinity,
                 AppTheme.minimumTouchTarget,
               ),
-              foregroundColor: AppTheme.textSageMuted,
+              foregroundColor: context.colors.textMuted,
             ),
             icon: const Icon(LucideIcons.log_out, size: 14),
             label: Text(
               'Not you? Sign out',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 decoration: TextDecoration.underline,
-                decorationColor: AppTheme.textSageMuted,
+                decorationColor: context.colors.textMuted,
               ),
             ),
           ),

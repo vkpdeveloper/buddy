@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/utils/motion_preferences.dart';
 
 class ShimmerBox extends StatefulWidget {
   final double width;
   final double height;
   final double borderRadius;
-  final Color baseColor;
-  final Color highlightColor;
+  final Color? baseColor;
+  final Color? highlightColor;
 
   const ShimmerBox({
     super.key,
     required this.width,
     required this.height,
     this.borderRadius = 8.0,
-    this.baseColor = AppTheme.cardDark,
-    this.highlightColor = AppTheme.cardRaised,
+    this.baseColor,
+    this.highlightColor,
   });
 
   @override
@@ -59,6 +59,8 @@ class _ShimmerBoxState extends State<ShimmerBox>
 
   @override
   Widget build(BuildContext context) {
+    final baseColor = widget.baseColor ?? context.colors.card;
+    final highlightColor = widget.highlightColor ?? context.colors.cardRaised;
     return ExcludeSemantics(
       child: AnimatedBuilder(
         animation: _controller,
@@ -74,9 +76,9 @@ class _ShimmerBoxState extends State<ShimmerBox>
                 end: Alignment.bottomRight,
                 stops: [gradientStop - 0.3, gradientStop, gradientStop + 0.3],
                 colors: [
-                  widget.baseColor,
-                  widget.highlightColor,
-                  widget.baseColor,
+                  baseColor,
+                  highlightColor,
+                  baseColor,
                 ],
               ),
             ),

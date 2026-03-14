@@ -7,6 +7,7 @@ import 'package:health/health.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/models/gamification.dart';
 import 'package:buddy/models/pr.dart';
@@ -840,7 +841,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: context.colors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -873,7 +874,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       'Preview your workout card before sharing.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 12,
                       ),
                     ),
@@ -886,10 +887,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 ? null
                                 : () => Navigator.pop(sheetContext),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: AppTheme.borderDark,
+                              side: BorderSide(
+                                color: context.colors.border,
                               ),
-                              foregroundColor: AppTheme.textSageMuted,
+                              foregroundColor: context.colors.textMuted,
                             ),
                             child: const Text('Close'),
                           ),
@@ -928,16 +929,16 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     }
                                   },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.actionSurface,
-                              foregroundColor: AppTheme.actionForeground,
+                              backgroundColor: context.colors.actionSurface,
+                              foregroundColor: context.colors.actionForeground,
                             ),
                             icon: sharing
-                                ? const SizedBox(
+                                ?       SizedBox(
                                     width: 14,
                                     height: 14,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: AppTheme.actionForeground,
+                                      color: context.colors.actionForeground,
                                     ),
                                   )
                                 : const Icon(LucideIcons.send, size: 16),
@@ -1454,31 +1455,31 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: context.colors.card,
         title: Text(
           title,
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textCream,
+            color: context.colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           body,
-          style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+          style: GoogleFonts.plusJakartaSans(color: context.colors.textMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+              style: GoogleFonts.plusJakartaSans(color: context.colors.textMuted),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               actionLabel,
-              style: GoogleFonts.plusJakartaSans(color: AppTheme.accent),
+              style: GoogleFonts.plusJakartaSans(color: context.colors.accent),
             ),
           ),
         ],
@@ -1492,7 +1493,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     final added = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.cardDark,
+      backgroundColor: context.colors.card,
       builder: (context) => SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
@@ -1508,7 +1509,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               Text(
                 'Session note',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
+                  color: context.colors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1518,21 +1519,21 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 maxLines: 4,
                 autofocus: true,
                 onChanged: (value) => noteText = value,
-                style: GoogleFonts.plusJakartaSans(color: AppTheme.textCream),
+                style: GoogleFonts.plusJakartaSans(color: context.colors.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'How does this session feel?',
                   hintStyle: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                   ),
                   filled: true,
-                  fillColor: AppTheme.backgroundDark,
+                  fillColor: context.colors.backgroundSecondary,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppTheme.borderDark),
+                    borderSide: BorderSide(color: context.colors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppTheme.borderDark),
+                    borderSide: BorderSide(color: context.colors.border),
                   ),
                 ),
               ),
@@ -1548,8 +1549,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                     Navigator.pop(context, true);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.actionSurface,
-                    foregroundColor: AppTheme.actionForeground,
+                    backgroundColor: context.colors.actionSurface,
+                    foregroundColor: context.colors.actionForeground,
                   ),
                   child: const Text('Save note'),
                 ),
@@ -1590,7 +1591,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     final streak = ref.watch(progressProvider).asData?.value.currentStreak ?? 0;
 
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: Stack(
         children: [
           AnimatedContainer(
@@ -1601,12 +1602,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 radius: 1.2,
                 colors: [
                   (_phase == _WorkoutPhase.rest
-                          ? AppTheme.phaseRest
+                          ? context.colors.phaseRest
                           : _phase == _WorkoutPhase.completed
-                          ? AppTheme.phaseCompleted
-                          : AppTheme.phaseExercise)
+                          ? context.colors.phaseCompleted
+                          : context.colors.phaseExercise)
                       .withValues(alpha: 0.8),
-                  AppTheme.oledBlack,
+                  context.colors.background,
                 ],
               ),
             ),
@@ -1660,12 +1661,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.15),
+                color: context.colors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child:       Icon(
                 LucideIcons.dumbbell,
-                color: AppTheme.primary,
+                color: context.colors.primary,
                 size: 48,
               ),
             ),
@@ -1674,7 +1675,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           Text(
             widget.dayLabel.toUpperCase(),
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
+              color: context.colors.primary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 3,
@@ -1684,7 +1685,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           Text(
             'Today\'s Session',
             style: GoogleFonts.sora(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 32,
               fontWeight: FontWeight.w600,
             ),
@@ -1693,7 +1694,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           Text(
             '${widget.exercises.length} exercises — let\'s make it count',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 13,
             ),
           ),
@@ -1719,7 +1720,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           Text(
             title.toUpperCase(),
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.primary,
+              color: context.colors.primary,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 2.2,
@@ -1729,7 +1730,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           Text(
             subtitle,
             style: GoogleFonts.sora(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 30,
               fontWeight: FontWeight.w600,
             ),
@@ -1738,7 +1739,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
           Text(
             '$completed/${items.length} blocks complete',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textSageMuted,
+              color: context.colors.textMuted,
               fontSize: 13,
             ),
           ),
@@ -1762,12 +1763,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardDark,
+                      color: context.colors.card,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: checks[i]
-                            ? AppTheme.primary
-                            : AppTheme.borderDark,
+                            ? context.colors.primary
+                            : context.colors.border,
                       ),
                     ),
                     child: ExcludeSemantics(
@@ -1776,8 +1777,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                           Icon(
                             checks[i] ? LucideIcons.check : LucideIcons.circle,
                             color: checks[i]
-                                ? AppTheme.primary
-                                : AppTheme.textSageMuted,
+                                ? context.colors.primary
+                                : context.colors.textMuted,
                             size: 18,
                           ),
                           const SizedBox(width: 10),
@@ -1785,7 +1786,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                             child: Text(
                               items[i],
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textCream,
+                                color: context.colors.textPrimary,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1805,8 +1806,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               onPressed: onDone,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: AppTheme.actionSurface,
-                foregroundColor: AppTheme.actionForeground,
+                backgroundColor: context.colors.actionSurface,
+                foregroundColor: context.colors.actionForeground,
               ),
               child: Text(
                 cta,
@@ -1831,19 +1832,19 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AppTheme.cardDark,
+            color: context.colors.card,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.borderDark),
+            border: Border.all(color: context.colors.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.pause, color: AppTheme.accent, size: 40),
+                    Icon(LucideIcons.pause, color: context.colors.accent, size: 40),
               const SizedBox(height: 12),
               Text(
                 'Workout Paused',
                 style: GoogleFonts.sora(
-                  color: AppTheme.textCream,
+                  color: context.colors.textPrimary,
                   fontSize: 30,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1852,7 +1853,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               Text(
                 '$name • set ${_setIndex + 1}',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 13,
                 ),
               ),
@@ -1862,8 +1863,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 child: ElevatedButton(
                   onPressed: _resumeSession,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.actionSurface,
-                    foregroundColor: AppTheme.actionForeground,
+                    backgroundColor: context.colors.actionSurface,
+                    foregroundColor: context.colors.actionForeground,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: Text(
@@ -1934,7 +1935,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                             icon: LucideIcons.x,
                             onPressed: () => Navigator.pop(context),
                             iconSize: 20,
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                           ),
                           const Spacer(),
                           if (streak >= 3)
@@ -1944,25 +1945,25 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.xpGold.withValues(alpha: 0.15),
+                                color: context.colors.xpGold.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: AppTheme.xpGold.withValues(alpha: 0.4),
+                                  color: context.colors.xpGold.withValues(alpha: 0.4),
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(
+                                        Icon(
                                     LucideIcons.flame,
-                                    color: AppTheme.xpGold,
+                                    color: context.colors.xpGold,
                                     size: 14,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '$streak',
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.xpGold,
+                                      color: context.colors.xpGold,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -1974,7 +1975,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                             Text(
                               '${_exerciseIndex + 1} / ${widget.exercises.length}',
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textSageMuted,
+                                color: context.colors.textMuted,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1996,12 +1997,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cardDark,
+                                  color: context.colors.card,
                                   borderRadius: BorderRadius.circular(30),
                                   border: Border.all(
                                     color: _isMuted
-                                        ? AppTheme.borderDark
-                                        : AppTheme.primary,
+                                        ? context.colors.border
+                                        : context.colors.primary,
                                   ),
                                 ),
                                 child: ExcludeSemantics(
@@ -2012,8 +2013,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                             ? LucideIcons.volume_x
                                             : LucideIcons.volume_2,
                                         color: _isMuted
-                                            ? AppTheme.textSageMuted
-                                            : AppTheme.primary,
+                                            ? context.colors.textMuted
+                                            : context.colors.primary,
                                         size: 16,
                                       ),
                                       const SizedBox(width: 6),
@@ -2021,8 +2022,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                         _isMuted ? 'Muted' : 'Voice On',
                                         style: GoogleFonts.plusJakartaSans(
                                           color: _isMuted
-                                              ? AppTheme.textSageMuted
-                                              : AppTheme.primary,
+                                              ? context.colors.textMuted
+                                              : context.colors.primary,
                                           fontSize: 11,
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -2053,25 +2054,25 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cardDark,
+                                    color: context.colors.card,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AppTheme.borderDark,
+                                      color: context.colors.border,
                                     ),
                                   ),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Icon(
+                                            Icon(
                                         LucideIcons.pause,
-                                        color: AppTheme.textCream,
+                                        color: context.colors.textPrimary,
                                         size: 16,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
                                         'Pause',
                                         style: GoogleFonts.plusJakartaSans(
-                                          color: AppTheme.textCream,
+                                          color: context.colors.textPrimary,
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -2094,10 +2095,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cardDark,
+                                  color: context.colors.card,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: AppTheme.borderDark,
+                                    color: context.colors.border,
                                   ),
                                 ),
                                 child: ExcludeSemantics(
@@ -2106,7 +2107,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     children: [
                                       Icon(
                                         hrTrendIcon,
-                                        color: AppTheme.accent,
+                                        color: context.colors.accent,
                                         size: 16,
                                       ),
                                       const SizedBox(width: 6),
@@ -2116,7 +2117,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                               ? 'HR unavailable'
                                               : '$_heartRateBpm bpm • $_heartRateZone',
                                           style: GoogleFonts.plusJakartaSans(
-                                            color: AppTheme.textCream,
+                                            color: context.colors.textPrimary,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -2145,19 +2146,19 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.cardDark,
+                                  color: context.colors.card,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: AppTheme.borderDark,
+                                    color: context.colors.border,
                                   ),
                                 ),
                                 child: ExcludeSemantics(
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(
+                                            Icon(
                                         LucideIcons.notebook_pen,
-                                        color: AppTheme.textCream,
+                                        color: context.colors.textPrimary,
                                         size: 16,
                                       ),
                                       const SizedBox(width: 6),
@@ -2166,7 +2167,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                             ? 'Notes'
                                             : 'Notes ${_sessionNotes.length}',
                                         style: GoogleFonts.plusJakartaSans(
-                                          color: AppTheme.textCream,
+                                          color: context.colors.textPrimary,
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -2201,19 +2202,19 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 vertical: 7,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.accent.withValues(alpha: 0.12),
+                                color: context.colors.accent.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: AppTheme.accent.withValues(alpha: 0.3),
+                                  color: context.colors.accent.withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(
+                                        Icon(
                                     LucideIcons.link_2,
-                                    color: AppTheme.accent,
+                                    color: context.colors.accent,
                                     size: 13,
                                   ),
                                   const SizedBox(width: 6),
@@ -2221,7 +2222,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     child: Text(
                                       label,
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.accent,
+                                        color: context.colors.accent,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.5,
@@ -2245,14 +2246,14 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       ),
                       decoration: BoxDecoration(
                         color: isRest
-                            ? AppTheme.accent.withValues(alpha: 0.15)
-                            : AppTheme.primary.withValues(alpha: 0.15),
+                            ? context.colors.accent.withValues(alpha: 0.15)
+                            : context.colors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         isRest ? 'REST' : 'SET ${_setIndex + 1} OF $sets',
                         style: GoogleFonts.plusJakartaSans(
-                          color: isRest ? AppTheme.accent : AppTheme.primary,
+                          color: isRest ? context.colors.accent : context.colors.primary,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
@@ -2285,10 +2286,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                                   as int))
                                         : null,
                                     strokeWidth: 5,
-                                    backgroundColor: AppTheme.borderDark,
+                                    backgroundColor: context.colors.border,
                                     color: isRest
-                                        ? AppTheme.accent
-                                        : AppTheme.primary,
+                                        ? context.colors.accent
+                                        : context.colors.primary,
                                     strokeCap: StrokeCap.round,
                                   ),
                                 ),
@@ -2299,7 +2300,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   Text(
                                     _timerSeconds > 0 ? '$_timerSeconds' : '0',
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textCream,
+                                      color: context.colors.textPrimary,
                                       fontSize: 64,
                                       fontWeight: FontWeight.w200,
                                       letterSpacing: -2,
@@ -2308,7 +2309,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   Text(
                                     'seconds',
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textSageMuted,
+                                      color: context.colors.textMuted,
                                       fontSize: 11,
                                     ),
                                   ),
@@ -2332,7 +2333,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.sora(
-                                  color: AppTheme.textCream,
+                                  color: context.colors.textPrimary,
                                   fontSize: 30,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -2342,7 +2343,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                               Text(
                                 '$reps reps',
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.primary,
+                                  color: context.colors.primary,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -2355,16 +2356,16 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.cardDark,
+                                    color: context.colors.card,
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
-                                      color: AppTheme.borderDark,
+                                      color: context.colors.border,
                                     ),
                                   ),
                                   child: Text(
                                     muscle.toUpperCase(),
                                     style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textSageMuted,
+                                      color: context.colors.textMuted,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
                                       letterSpacing: 1.5,
@@ -2388,30 +2389,30 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                           ),
                           onChanged: (_) => _syncSessionLog(force: true),
                           style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.textCream,
+                            color: context.colors.textPrimary,
                           ),
                           decoration: InputDecoration(
                             labelText: 'Set weight (kg)',
                             labelStyle: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted,
+                              color: context.colors.textMuted,
                             ),
-                            prefixIcon: const Icon(
+                            prefixIcon:       Icon(
                               LucideIcons.dumbbell,
-                              color: AppTheme.textSageMuted,
+                              color: context.colors.textMuted,
                               size: 16,
                             ),
                             filled: true,
-                            fillColor: AppTheme.cardDark,
+                            fillColor: context.colors.card,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
-                                color: AppTheme.borderDark,
+                                color: context.colors.border,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
-                                color: AppTheme.borderDark,
+                                color: context.colors.border,
                               ),
                             ),
                           ),
@@ -2431,8 +2432,8 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 : 'No PR yet',
                             style: GoogleFonts.plusJakartaSans(
                               color: pr != null
-                                  ? AppTheme.primary.withValues(alpha: 0.8)
-                                  : AppTheme.textSageMuted.withValues(
+                                  ? context.colors.primary.withValues(alpha: 0.8)
+                                  : context.colors.textMuted.withValues(
                                       alpha: 0.5,
                                     ),
                               fontSize: 11,
@@ -2445,7 +2446,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       Text(
                         'Rest',
                         style: GoogleFonts.sora(
-                          color: AppTheme.textCream,
+                          color: context.colors.textPrimary,
                           fontSize: 36,
                           fontWeight: FontWeight.w600,
                         ),
@@ -2454,7 +2455,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       Text(
                         'Recovery time — breathe',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
+                          color: context.colors.textMuted,
                           fontSize: 13,
                         ),
                       ),
@@ -2466,7 +2467,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       Text(
                         'Completed $completedForExercise/$sets sets',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted,
+                          color: context.colors.textMuted,
                           fontSize: 12,
                         ),
                       ),
@@ -2478,9 +2479,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.cardDark,
+                            color: context.colors.card,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.borderDark),
+                            border: Border.all(color: context.colors.border),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -2489,7 +2490,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                               Text(
                                 'NEXT UP',
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textSageMuted,
+                                  color: context.colors.textMuted,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1.5,
@@ -2501,7 +2502,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 widget.exercises[_exerciseIndex + 1]['name'] ??
                                     '',
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textCream,
+                                  color: context.colors.textPrimary,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   height: 1,
@@ -2523,9 +2524,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppTheme.cardDark.withValues(alpha: 0.84),
+                          color: context.colors.card.withValues(alpha: 0.84),
                           borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppTheme.borderDark),
+                          border: Border.all(color: context.colors.border),
                         ),
                         child: Column(
                           children: [
@@ -2542,11 +2543,11 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                           onTap: _doneExercise,
                                           child: Container(
                                             decoration: BoxDecoration(
-                                              color: AppTheme.backgroundDark,
+                                              color: context.colors.backgroundSecondary,
                                               borderRadius:
                                                   BorderRadius.circular(12),
                                               border: Border.all(
-                                                color: AppTheme.borderDark,
+                                                color: context.colors.border,
                                               ),
                                             ),
                                             alignment: Alignment.center,
@@ -2554,7 +2555,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                               'DONE ✓',
                                               style:
                                                   GoogleFonts.plusJakartaSans(
-                                                    color: AppTheme.textCream,
+                                                    color: context.colors.textPrimary,
                                                     fontWeight: FontWeight.w700,
                                                     letterSpacing: 1.2,
                                                   ),
@@ -2591,14 +2592,14 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                         },
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: AppTheme.primary.withValues(
+                                            color: context.colors.primary.withValues(
                                               alpha: 0.2,
                                             ),
                                             borderRadius: BorderRadius.circular(
                                               12,
                                             ),
                                             border: Border.all(
-                                              color: AppTheme.primary
+                                              color: context.colors.primary
                                                   .withValues(alpha: 0.45),
                                             ),
                                           ),
@@ -2608,7 +2609,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                                 ? 'SKIP REST →'
                                                 : 'SKIP SET →',
                                             style: GoogleFonts.plusJakartaSans(
-                                              color: AppTheme.textCream,
+                                              color: context.colors.textPrimary,
                                               fontWeight: FontWeight.w700,
                                               letterSpacing: 1.2,
                                             ),
@@ -2628,11 +2629,11 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 onPressed: _skipCurrentExerciseCompletely,
                                 style: OutlinedButton.styleFrom(
                                   side: BorderSide(
-                                    color: AppTheme.accent.withValues(
+                                    color: context.colors.accent.withValues(
                                       alpha: 0.55,
                                     ),
                                   ),
-                                  backgroundColor: AppTheme.oledBlack,
+                                  backgroundColor: context.colors.background,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -2640,7 +2641,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 child: Text(
                                   'SKIP EXERCISE',
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted,
+                                    color: context.colors.textMuted,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 1.3,
                                   ),
@@ -2683,18 +2684,18 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
               _SetStatus.pending => LucideIcons.circle,
             };
             final color = switch (status) {
-              _SetStatus.completed => AppTheme.primary,
-              _SetStatus.skipped => AppTheme.accent,
+              _SetStatus.completed => context.colors.primary,
+              _SetStatus.skipped => context.colors.accent,
               _SetStatus.pending =>
                 isCurrent
-                    ? AppTheme.textCream
-                    : AppTheme.textSageMuted.withValues(alpha: 0.5),
+                    ? context.colors.textPrimary
+                    : context.colors.textMuted,
             };
             return Container(
               width: 26,
               height: 26,
               decoration: BoxDecoration(
-                color: AppTheme.cardDark,
+                color: context.colors.card,
                 shape: BoxShape.circle,
                 border: Border.all(color: color.withValues(alpha: 0.9)),
               ),
@@ -2717,14 +2718,14 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
             padding: const EdgeInsets.symmetric(horizontal: 3),
             child: Icon(
               LucideIcons.x,
-              color: AppTheme.xpGold.withValues(alpha: 0.5),
+              color: context.colors.xpGold.withValues(alpha: 0.5),
               size: 10,
             ),
           );
         }
         final color = result == true
-            ? AppTheme.primary
-            : AppTheme.textSageMuted.withValues(alpha: 0.4);
+            ? context.colors.primary
+            : context.colors.textMuted;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 3),
           child: Container(
@@ -2770,12 +2771,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withValues(alpha: 0.15),
+                        color: context.colors.primary.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child:       Icon(
                         LucideIcons.trophy,
-                        color: AppTheme.primary,
+                        color: context.colors.primary,
                         size: 44,
                       ),
                     ),
@@ -2783,7 +2784,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                     Text(
                       'WORKOUT COMPLETE',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
+                        color: context.colors.primary,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 3,
@@ -2793,7 +2794,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                     Text(
                       widget.dayLabel,
                       style: GoogleFonts.sora(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 30,
                         fontWeight: FontWeight.w600,
                       ),
@@ -2838,9 +2839,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardDark,
+                      color: context.colors.card,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.borderDark),
+                      border: Border.all(color: context.colors.border),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2851,7 +2852,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                             Text(
                               'XP EARNED',
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textSageMuted,
+                                color: context.colors.textMuted,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 1.5,
@@ -2862,7 +2863,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                   ? 'Calculating...'
                                   : '+$_displayXp XP',
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.xpGold,
+                                color: context.colors.xpGold,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -2875,9 +2876,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
                               value: _xpBarCtrl.value.clamp(0.0, 1.0),
-                              backgroundColor: AppTheme.borderDark,
-                              valueColor: const AlwaysStoppedAnimation(
-                                AppTheme.xpGold,
+                              backgroundColor: context.colors.border,
+                              valueColor:       AlwaysStoppedAnimation(
+                                context.colors.xpGold,
                               ),
                               minHeight: 6,
                             ),
@@ -2888,13 +2889,13 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                           ],
                         ] else if (!_gamificationLoaded) ...[
                           const SizedBox(height: 10),
-                          const Center(
+                                Center(
                             child: SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: AppTheme.xpGold,
+                                color: context.colors.xpGold,
                               ),
                             ),
                           ),
@@ -2974,10 +2975,10 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.cardDark,
+                    color: context.colors.card,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppTheme.xpGold.withValues(alpha: 0.35),
+                      color: context.colors.xpGold.withValues(alpha: 0.35),
                     ),
                   ),
                   child: Column(
@@ -2985,16 +2986,16 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                     children: [
                       Row(
                         children: [
-                          const Icon(
+                                Icon(
                             LucideIcons.trophy,
-                            color: AppTheme.xpGold,
+                            color: context.colors.xpGold,
                             size: 14,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'NEW PERSONAL RECORDS',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.xpGold,
+                              color: context.colors.xpGold,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1.5,
@@ -3013,7 +3014,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                                 child: Text(
                                   pr.exerciseNameDisplay,
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textCream,
+                                    color: context.colors.textPrimary,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -3023,7 +3024,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                               Text(
                                 '${pr.weightKg % 1 == 0 ? pr.weightKg.toInt() : pr.weightKg}kg × ${pr.reps}',
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.xpGold,
+                                  color: context.colors.xpGold,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -3050,25 +3051,25 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardDark,
+                      color: context.colors.card,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.borderDark),
+                      border: Border.all(color: context.colors.border),
                     ),
                     alignment: Alignment.center,
                     child: ExcludeSemantics(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                                Icon(
                             LucideIcons.share_2,
                             size: 16,
-                            color: AppTheme.textCream,
+                            color: context.colors.textPrimary,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'SHARE PROGRESS',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: context.colors.textPrimary,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1.5,
                             ),
@@ -3094,7 +3095,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     decoration: BoxDecoration(
-                      color: AppTheme.actionSurface,
+                      color: context.colors.actionSurface,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     alignment: Alignment.center,
@@ -3102,7 +3103,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                       child: Text(
                         'DONE',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.actionForeground,
+                          color: context.colors.actionForeground,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2,
                         ),
@@ -3122,9 +3123,9 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.4)),
+        border: Border.all(color: context.colors.primary.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -3132,12 +3133,12 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppTheme.primary.withValues(alpha: 0.15),
+              color: context.colors.primary.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child:       Icon(
               LucideIcons.trending_up,
-              color: AppTheme.primary,
+              color: context.colors.primary,
               size: 22,
             ),
           ),
@@ -3149,7 +3150,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 Text(
                   'LEVEL UP',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -3159,7 +3160,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 Text(
                   'You\'re now ${result.levelLabel}',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -3167,7 +3168,7 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
                 Text(
                   'Level ${result.newLevel}',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 12,
                   ),
                 ),
@@ -3184,19 +3185,19 @@ class _ActiveWorkoutPageState extends ConsumerState<ActiveWorkoutPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(LucideIcons.flame, color: AppTheme.xpGold, size: 20),
+                Icon(LucideIcons.flame, color: context.colors.xpGold, size: 20),
           const SizedBox(width: 8),
           Text(
             '$streak day streak',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.xpGold,
+              color: context.colors.xpGold,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -3221,16 +3222,16 @@ class _StatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: context.colors.card,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.borderDark),
+          border: Border.all(color: context.colors.border),
         ),
         child: Column(
           children: [
             Text(
               value,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -3239,7 +3240,7 @@ class _StatCard extends StatelessWidget {
             Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -3285,7 +3286,7 @@ class _XpBreakdownRow extends StatelessWidget {
             (p) => Text(
               '${p.$1} +${p.$2}',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 11,
               ),
             ),
@@ -3305,9 +3306,9 @@ class _AchievementCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.xpGold.withValues(alpha: 0.4)),
+        border: Border.all(color: context.colors.xpGold.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -3315,12 +3316,12 @@ class _AchievementCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppTheme.xpGold.withValues(alpha: 0.15),
+              color: context.colors.xpGold.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child:       Icon(
               LucideIcons.trophy,
-              color: AppTheme.xpGold,
+              color: context.colors.xpGold,
               size: 20,
             ),
           ),
@@ -3332,7 +3333,7 @@ class _AchievementCard extends StatelessWidget {
                 Text(
                   'ACHIEVEMENT UNLOCKED',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.xpGold,
+                    color: context.colors.xpGold,
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5,
@@ -3342,7 +3343,7 @@ class _AchievementCard extends StatelessWidget {
                 Text(
                   achievement.name,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -3353,7 +3354,7 @@ class _AchievementCard extends StatelessWidget {
           Text(
             '+${achievement.xpReward} XP',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.xpGold,
+              color: context.colors.xpGold,
               fontSize: 13,
               fontWeight: FontWeight.w700,
             ),

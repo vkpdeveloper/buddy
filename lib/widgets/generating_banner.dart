@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/providers/generation_provider.dart';
 
 /// A subtle animated banner shown while diet/workout plans are being generated.
@@ -37,9 +37,9 @@ class GeneratingBanner extends ConsumerWidget {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppTheme.primary.withValues(alpha: 0.12),
+          color: context.colors.primary.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+          border: Border.all(color: context.colors.primary.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -49,7 +49,7 @@ class GeneratingBanner extends ConsumerWidget {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                  valueColor: AlwaysStoppedAnimation<Color>(context.colors.primary),
                 ),
               ),
             ),
@@ -61,7 +61,7 @@ class GeneratingBanner extends ConsumerWidget {
                   Text(
                     label,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary,
+                      color: context.colors.primary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -72,9 +72,9 @@ class GeneratingBanner extends ConsumerWidget {
                     child: LinearProgressIndicator(
                       minHeight: 4,
                       value: (progress / 100).clamp(0, 1).toDouble(),
-                      backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+                      backgroundColor: context.colors.primary.withValues(alpha: 0.12),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        AppTheme.primary,
+                        context.colors.primary,
                       ),
                     ),
                   ),
@@ -82,7 +82,7 @@ class GeneratingBanner extends ConsumerWidget {
                   Text(
                     '${progress.clamp(0, 100)}% ready',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/models/onboarding_projection.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/services/auth_service.dart';
@@ -410,18 +411,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardDark,
+        backgroundColor: context.colors.card,
         title: Text(
           'Sign Out',
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textCream,
+            color: context.colors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),
         content: Text(
           'Are you sure you want to sign out?',
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: context.colors.textMuted,
             fontSize: 13,
           ),
         ),
@@ -430,7 +431,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.plusJakartaSans(color: AppTheme.textSageMuted),
+              style: GoogleFonts.plusJakartaSans(color: context.colors.textMuted),
             ),
           ),
           TextButton(
@@ -438,7 +439,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: Text(
               'Sign Out',
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.error,
+                color: context.colors.error,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -715,7 +716,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     final topPad = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -737,11 +738,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         context,
                         const Duration(milliseconds: 200),
                       ),
-                      child: const Padding(
+                      child:       Padding(
                         padding: EdgeInsets.only(right: 14),
                         child: Icon(
                           LucideIcons.chevron_left,
-                          color: AppTheme.textSageMuted,
+                          color: context.colors.textMuted,
                           size: 22,
                         ),
                       ),
@@ -792,9 +793,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       height: 10,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppTheme.cardDark,
+          color: context.colors.card,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppTheme.borderDark.withValues(alpha: 0.9)),
+          border: Border.all(color: context.colors.border.withValues(alpha: 0.9)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(1.5),
@@ -805,7 +806,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: AppTheme.borderDark.withValues(alpha: 0.42),
+                        color: context.colors.border.withValues(alpha: 0.42),
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
@@ -815,11 +816,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     curve: Curves.easeOutCubic,
                     width: constraints.maxWidth * _stepperProgress,
                     decoration: BoxDecoration(
-                      color: AppTheme.actionSurface,
+                      color: context.colors.actionSurface,
                       borderRadius: BorderRadius.circular(999),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.actionSurface.withValues(alpha: 0.18),
+                          color: context.colors.actionSurface.withValues(alpha: 0.18),
                           blurRadius: 10,
                           offset: const Offset(0, 0),
                         ),
@@ -844,7 +845,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final bottomPad = MediaQuery.paddingOf(context).bottom;
     final hasFailed = status.hasFailed;
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(24, 24, 24, bottomPad + 24),
@@ -860,7 +861,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       Text(
                         'You\'re on track',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textCream,
+                          color: context.colors.textPrimary,
                           fontSize: 34,
                           fontWeight: FontWeight.w800,
                           height: 1.02,
@@ -881,17 +882,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             vertical: 14,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.error.withValues(alpha: 0.12),
+                            color: context.colors.error.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                              color: AppTheme.error.withValues(alpha: 0.35),
+                              color: context.colors.error.withValues(alpha: 0.35),
                             ),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 LucideIcons.triangle_alert,
-                                color: AppTheme.error,
+                                color: context.colors.error,
                                 size: 18,
                               ),
                               const SizedBox(width: 12),
@@ -899,7 +900,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 child: Text(
                                   'Plan setup paused. Retry now, or open Buddy and pick it back up inside.',
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textCream,
+                                    color: context.colors.textPrimary,
                                     fontSize: 12,
                                     height: 1.45,
                                     fontWeight: FontWeight.w600,
@@ -921,7 +922,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             child: Text(
                               _quotes[_quoteIndex],
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.primary,
+                                color: context.colors.primary,
                                 fontSize: 13,
                                 letterSpacing: 0.4,
                                 fontWeight: FontWeight.w600,
@@ -949,7 +950,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: Text(
                       'Open my app for now',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -967,7 +968,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'Jump in now. We\'ll finish the rest in the background.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 11,
                     height: 1.5,
                   ),
@@ -1002,7 +1003,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.cardRaised, AppTheme.cardDark, AppTheme.oledBlack],
+          colors: [context.colors.cardRaised, context.colors.card, context.colors.background],
         ),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: accent.withValues(alpha: 0.22)),
@@ -1050,7 +1051,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     _buildGeneratingInfoPill(
                       icon: LucideIcons.sparkles,
                       label: '${status.overallProgressPercent}% built',
-                      tint: AppTheme.textCream,
+                      tint: context.colors.textPrimary,
                     ),
                   ],
                 ),
@@ -1058,7 +1059,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'This is where we\'re aiming',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.2,
@@ -1073,7 +1074,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     return Text(
                       '${value.toStringAsFixed(1)} kg',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 38,
                         fontWeight: FontWeight.w800,
                         height: 0.96,
@@ -1085,7 +1086,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   _generationTargetLine(targetWeight, projection),
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 13,
                     height: 1.45,
                   ),
@@ -1103,7 +1104,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           points: weightSeries,
                           progress: progress,
                           lineColor: accent,
-                          gridColor: AppTheme.borderDark.withValues(alpha: 0.9),
+                          gridColor: context.colors.border.withValues(alpha: 0.9),
+                          backgroundColor: context.colors.background,
                         ),
                         child: const SizedBox.expand(),
                       );
@@ -1116,7 +1118,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     Text(
                       'Today',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1125,7 +1127,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     Text(
                       projection.goalDateLabel,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textSageMuted,
+                        color: context.colors.textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1140,18 +1142,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.oledBlack.withValues(alpha: 0.44),
+                    color: context.colors.background.withValues(alpha: 0.44),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.borderDark),
+                    border: Border.all(color: context.colors.border),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         _generationStatusIcon(status),
                         color: hasFailed
-                            ? AppTheme.error
+                            ? context.colors.error
                             : status.isDone
-                            ? AppTheme.success
+                            ? context.colors.success
                             : accent,
                         size: 16,
                       ),
@@ -1165,7 +1167,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: context.colors.textPrimary,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -1183,7 +1185,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     value: (status.overallProgressPercent / 100)
                         .clamp(0, 1)
                         .toDouble(),
-                    backgroundColor: AppTheme.borderDark,
+                    backgroundColor: context.colors.border,
                     valueColor: AlwaysStoppedAnimation<Color>(accent),
                   ),
                 ),
@@ -1198,24 +1200,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget _buildGeneratingInfoPill({
     required IconData icon,
     required String label,
-    Color tint = AppTheme.primary,
+    Color? tint,
   }) {
+    final resolvedTint = tint ?? context.colors.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.oledBlack.withValues(alpha: 0.36),
+        color: context.colors.background.withValues(alpha: 0.36),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: tint.withValues(alpha: 0.18)),
+        border: Border.all(color: resolvedTint.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: tint, size: 13),
+          Icon(icon, color: resolvedTint, size: 13),
           const SizedBox(width: 8),
           Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              color: tint,
+              color: resolvedTint,
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
@@ -1227,9 +1230,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Color _projectionTrendColor(double targetWeight) {
     final delta = targetWeight - _weight;
-    if (delta < 0) return AppTheme.success;
-    if (delta > 0) return AppTheme.info;
-    return AppTheme.textCream;
+    if (delta < 0) return context.colors.success;
+    if (delta > 0) return context.colors.info;
+    return context.colors.textPrimary;
   }
 
   String _generationTargetLine(
@@ -1293,7 +1296,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final projection = _submittedProjection ?? _projection;
     final bottomPad = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      backgroundColor: AppTheme.oledBlack,
+      backgroundColor: context.colors.background,
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(24, 24, 24, bottomPad + 24),
@@ -1304,12 +1307,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.16),
+                  color: context.colors.primary.withValues(alpha: 0.16),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child:       Icon(
                   LucideIcons.badge_check,
-                  color: AppTheme.primary,
+                  color: context.colors.primary,
                   size: 28,
                 ),
               ),
@@ -1317,7 +1320,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               Text(
                 'Your plan is ready',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textCream,
+                  color: context.colors.textPrimary,
                   fontSize: 32,
                   fontWeight: FontWeight.w800,
                   height: 1.05,
@@ -1361,7 +1364,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: Text(
                     'Adjust my pace',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1380,9 +1383,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Row(
         children: [
@@ -1390,7 +1393,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -1401,7 +1404,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             child: Text(
               value,
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
@@ -1458,7 +1461,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'What usually trips you up?',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -1486,17 +1489,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.primary.withValues(alpha: 0.08),
+                            color: context.colors.primary.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: AppTheme.primary.withValues(alpha: 0.20),
+                              color: context.colors.primary.withValues(alpha: 0.20),
                             ),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 LucideIcons.sparkles,
-                                color: AppTheme.primary,
+                                color: context.colors.primary,
                                 size: 13,
                               ),
                               const SizedBox(width: 10),
@@ -1516,7 +1519,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     _ => 'Buddy adapts to what holds you back.',
                                   },
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.primary,
+                                    color: context.colors.primary,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                     height: 1.4,
@@ -1556,7 +1559,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'Sync your health data.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
                     height: 1.04,
@@ -1593,7 +1596,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ? 'Buddy will use this data the next time it updates your plan.'
                     : 'Takes less than a minute. You can change this later.',
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.textSageMuted,
+                  color: context.colors.textMuted,
                   fontSize: 11,
                   height: 1.5,
                 ),
@@ -1606,7 +1609,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: Text(
                     'I\'ll do this later',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1634,11 +1637,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       borderRadius: BorderRadius.circular(18),
       decoration: BoxDecoration(
         color: isSelected
-            ? AppTheme.primary.withValues(alpha: 0.12)
-            : AppTheme.cardDark,
+            ? context.colors.primary.withValues(alpha: 0.12)
+            : context.colors.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+          color: isSelected ? context.colors.primary : context.colors.border,
           width: isSelected ? 1.5 : 1,
         ),
       ),
@@ -1651,7 +1654,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   title,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1660,7 +1663,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   subtitle,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 12,
                     height: 1.45,
                   ),
@@ -1670,9 +1673,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
           const SizedBox(width: 12),
           if (isSelected)
-            const Icon(
+                  Icon(
               LucideIcons.circle_check,
-              color: AppTheme.primary,
+              color: context.colors.primary,
               size: 20,
             ),
         ],
@@ -1702,9 +1705,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         children: [
@@ -1715,7 +1718,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'WHAT GETS SYNCED',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.4,
@@ -1730,7 +1733,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         width: 7,
                         height: 7,
                         decoration: BoxDecoration(
-                          color: AppTheme.success,
+                          color: context.colors.success,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1740,8 +1743,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       'Apple Health',
                       style: GoogleFonts.plusJakartaSans(
                         color: _isConnected
-                            ? AppTheme.success
-                            : AppTheme.textSageMuted,
+                            ? context.colors.success
+                            : context.colors.textMuted,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1751,7 +1754,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ],
             ),
           ),
-          const Divider(color: AppTheme.borderDark, height: 1),
+          Divider(color: context.colors.border, height: 1),
           for (var i = 0; i < rows.length; i++) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -1761,16 +1764,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppTheme.primary.withValues(alpha: 0.10),
+                      color: context.colors.primary.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(rows[i].$1, color: AppTheme.primary, size: 17),
+                    child: Icon(rows[i].$1, color: context.colors.primary, size: 17),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     rows[i].$2,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textCream,
+                      color: context.colors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1779,7 +1782,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Text(
                     rows[i].$3,
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary,
+                      color: context.colors.primary,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1788,8 +1791,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
             ),
             if (i < rows.length - 1)
-              const Divider(
-                color: AppTheme.borderDark,
+                    Divider(
+                color: context.colors.border,
                 height: 1,
                 indent: 18,
                 endIndent: 18,
@@ -1805,9 +1808,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1824,13 +1827,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             'Recovery context built into your plan',
           ),
           const SizedBox(height: 16),
-          const Divider(color: AppTheme.borderDark, height: 1),
+          Divider(color: context.colors.border, height: 1),
           const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(
+                    Icon(
                 LucideIcons.shield_check,
-                color: AppTheme.primary,
+                color: context.colors.primary,
                 size: 14,
               ),
               const SizedBox(width: 8),
@@ -1838,7 +1841,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: Text(
                   'Private and reversible — Buddy only reads, never writes to Health.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 11,
                     height: 1.4,
                   ),
@@ -1858,17 +1861,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: AppTheme.primary.withValues(alpha: 0.10),
+            color: context.colors.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: AppTheme.primary, size: 17),
+          child: Icon(icon, color: context.colors.primary, size: 17),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             title,
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -1961,7 +1964,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'What\'s your #1 goal right now?',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -1990,13 +1993,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     borderRadius: BorderRadius.circular(18),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppTheme.primary.withValues(alpha: 0.12)
-                          : AppTheme.cardDark,
+                          ? context.colors.primary.withValues(alpha: 0.12)
+                          : context.colors.card,
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: isSelected
-                            ? AppTheme.primary
-                            : AppTheme.borderDark,
+                            ? context.colors.primary
+                            : context.colors.border,
                         width: isSelected ? 1.5 : 1,
                       ),
                     ),
@@ -2013,8 +2016,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   g.$2,
                                   style: GoogleFonts.plusJakartaSans(
                                     color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
+                                        ? context.colors.textPrimary
+                                        : context.colors.textMuted,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -2022,7 +2025,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 Text(
                                   isSelected ? g.$5 : g.$3,
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted,
+                                    color: context.colors.textMuted,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -2033,13 +2036,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             Container(
                               width: 20,
                               height: 20,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primary,
+                              decoration:       BoxDecoration(
+                                color: context.colors.primary,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child:       Icon(
                                 LucideIcons.check,
-                                color: AppTheme.oledBlack,
+                                color: context.colors.background,
                                 size: 12,
                               ),
                             ),
@@ -2080,7 +2083,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'Tell us about yourself.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -2090,7 +2093,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'BIOLOGICAL SEX',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -2108,7 +2111,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'BIRTH YEAR',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -2155,17 +2158,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       borderRadius: BorderRadius.circular(borderRadius),
       decoration: BoxDecoration(
         color: isSelected
-            ? AppTheme.primary.withValues(alpha: 0.12)
-            : AppTheme.cardDark,
+            ? context.colors.primary.withValues(alpha: 0.12)
+            : context.colors.card,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
-          color: isSelected ? AppTheme.primary : AppTheme.borderDark,
+          color: isSelected ? context.colors.primary : context.colors.border,
           width: isSelected ? 2 : 1,
         ),
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.14),
+                  color: context.colors.primary.withValues(alpha: 0.14),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -2182,7 +2185,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(borderRadius - 1),
                   child: ColoredBox(
-                    color: AppTheme.oledBlack,
+                    color: context.colors.background,
                     child: Padding(
                       padding: imagePadding,
                       child: Image.asset(
@@ -2192,7 +2195,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         errorBuilder: (context, error, _) => Center(
                           child: Icon(
                             LucideIcons.user,
-                            color: AppTheme.textSageMuted,
+                            color: context.colors.textMuted,
                             size: subtitle == null ? 36 : 28,
                           ),
                         ),
@@ -2213,7 +2216,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         colors: [
                           AppTheme.transparent,
                           AppTheme.transparent,
-                          AppTheme.oledBlack.withValues(alpha: 0.94),
+                          context.colors.background.withValues(alpha: 0.94),
                         ],
                       ),
                     ),
@@ -2233,7 +2236,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: subtitle == null ? 15 : 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -2245,7 +2248,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.textSageMuted.withValues(alpha: 0.9),
+                          color: context.colors.textMuted.withValues(alpha: 0.9),
                           fontSize: 9,
                           height: 1.2,
                         ),
@@ -2261,13 +2264,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: Container(
                     width: 24,
                     height: 24,
-                    decoration: const BoxDecoration(
-                      color: AppTheme.primary,
+                    decoration:       BoxDecoration(
+                      color: context.colors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child:       Icon(
                       LucideIcons.check,
-                      color: AppTheme.oledBlack,
+                      color: context.colors.background,
                       size: 14,
                     ),
                   ),
@@ -2302,9 +2305,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Container(
       height: 160,
       decoration: BoxDecoration(
-        color: AppTheme.cardDark,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.borderDark),
+        border: Border.all(color: context.colors.border),
       ),
       child: Stack(
         alignment: Alignment.center,
@@ -2315,7 +2318,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               decoration: BoxDecoration(
                 border: Border.symmetric(
                   horizontal: BorderSide(
-                    color: AppTheme.primary.withValues(alpha: 0.35),
+                    color: context.colors.primary.withValues(alpha: 0.35),
                     width: 1.5,
                   ),
                 ),
@@ -2343,7 +2346,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: Text(
                       y.toString(),
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.textCream,
+                        color: context.colors.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                       ),
@@ -2375,7 +2378,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               'You\'re ${_height.round()} cm tall.',
               key: ValueKey(_height.round()),
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 32,
                 fontWeight: FontWeight.w800,
                 height: 1.05,
@@ -2386,9 +2389,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Container(
             height: 220,
             decoration: BoxDecoration(
-              color: AppTheme.cardDark,
+              color: context.colors.card,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.borderDark),
+              border: Border.all(color: context.colors.border),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -2400,7 +2403,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     decoration: BoxDecoration(
                       border: Border.symmetric(
                         horizontal: BorderSide(
-                          color: AppTheme.primary.withValues(alpha: 0.35),
+                          color: context.colors.primary.withValues(alpha: 0.35),
                           width: 1.5,
                         ),
                       ),
@@ -2422,7 +2425,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           child: Text(
                             '${h.round()} cm',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: context.colors.textPrimary,
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
                             ),
@@ -2457,7 +2460,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               'You weigh ${_weight.toStringAsFixed(1)} kg.',
               key: ValueKey(_weight),
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textCream,
+                color: context.colors.textPrimary,
                 fontSize: 32,
                 fontWeight: FontWeight.w800,
                 height: 1.05,
@@ -2468,9 +2471,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Container(
             height: 220,
             decoration: BoxDecoration(
-              color: AppTheme.cardDark,
+              color: context.colors.card,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.borderDark),
+              border: Border.all(color: context.colors.border),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -2481,7 +2484,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     decoration: BoxDecoration(
                       border: Border.symmetric(
                         horizontal: BorderSide(
-                          color: AppTheme.primary.withValues(alpha: 0.35),
+                          color: context.colors.primary.withValues(alpha: 0.35),
                           width: 1.5,
                         ),
                       ),
@@ -2506,7 +2509,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           child: Text(
                             '${w.toStringAsFixed(1)} kg',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: context.colors.textPrimary,
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
                             ),
@@ -2539,7 +2542,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'Pick the build closest to you.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -2578,7 +2581,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'What are you working toward?',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -2648,7 +2651,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Text(
             'Where do you want to get to?',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 30,
               fontWeight: FontWeight.w800,
               height: 1.08,
@@ -2661,7 +2664,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               '${_targetWeight.toStringAsFixed(1)} kg',
               key: ValueKey(_targetWeight),
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.primary,
+                color: context.colors.primary,
                 fontSize: 52,
                 fontWeight: FontWeight.w800,
                 height: 1.0,
@@ -2677,7 +2680,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   : 'That\'s ${diff.toStringAsFixed(1)} kg $direction from today.',
               key: ValueKey(_targetWeight),
               style: GoogleFonts.plusJakartaSans(
-                color: AppTheme.textSageMuted,
+                color: context.colors.textMuted,
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -2686,9 +2689,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           const SizedBox(height: 24),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              thumbColor: AppTheme.primary,
-              activeTrackColor: AppTheme.primary,
-              inactiveTrackColor: AppTheme.borderDark,
+              thumbColor: context.colors.primary,
+              activeTrackColor: context.colors.primary,
+              inactiveTrackColor: context.colors.border,
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
             ),
@@ -2749,7 +2752,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           Text(
             'Pick your pace.',
             style: GoogleFonts.plusJakartaSans(
-              color: AppTheme.textCream,
+              color: context.colors.textPrimary,
               fontSize: 32,
               fontWeight: FontWeight.w800,
               height: 1.05,
@@ -2764,8 +2767,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   padding: EdgeInsets.only(
                     right: pace.$1 != 'aggressive' ? 10 : 0,
                   ),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _goalPace = pace.$1),
+                  child: AppPressable(
+                    onPressed: () => setState(() => _goalPace = pace.$1),
+                    selected: isSelected,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       padding: const EdgeInsets.symmetric(
@@ -2774,13 +2778,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.14)
-                            : AppTheme.cardDark,
+                            ? context.colors.primary.withValues(alpha: 0.14)
+                            : context.colors.card,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
+                              ? context.colors.primary
+                              : context.colors.border,
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),
@@ -2792,8 +2796,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             pace.$3,
                             style: GoogleFonts.plusJakartaSans(
                               color: isSelected
-                                  ? AppTheme.textCream
-                                  : AppTheme.textSageMuted,
+                                  ? context.colors.textPrimary
+                                  : context.colors.textMuted,
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                             ),
@@ -2803,7 +2807,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             pace.$4,
                             textAlign: TextAlign.center,
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textSageMuted,
+                              color: context.colors.textMuted,
                               fontSize: 10,
                               height: 1.3,
                             ),
@@ -2829,15 +2833,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardDark,
+                      color: context.colors.card,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.borderDark),
+                      border: Border.all(color: context.colors.border),
                     ),
                     child: Row(
                       children: [
                         Icon(
                           LucideIcons.calendar_days,
-                          color: AppTheme.primary,
+                          color: context.colors.primary,
                           size: 14,
                         ),
                         const SizedBox(width: 10),
@@ -2845,7 +2849,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           child: Text(
                             'At this pace you\'d hit your target by ${liveProjection.goalDateLabel}.',
                             style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textCream,
+                              color: context.colors.textPrimary,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               height: 1.4,
@@ -2908,7 +2912,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'How active is your typical week?',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -2917,26 +2921,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 const SizedBox(height: 24),
                 ...levels.map((l) {
                   final isSelected = _activityLevel == l.$1;
-                  return GestureDetector(
-                    onTap: () {
+                  return AppPressable(
+                    onPressed: () {
                       setState(() => _activityLevel = l.$1);
                       Future.delayed(const Duration(milliseconds: 300), () {
                         if (mounted) _nextPage();
                       });
                     },
+                    selected: isSelected,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : AppTheme.cardDark,
+                            ? context.colors.primary.withValues(alpha: 0.12)
+                            : context.colors.card,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
                           color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
+                              ? context.colors.primary
+                              : context.colors.border,
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),
@@ -2952,8 +2957,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   l.$2,
                                   style: GoogleFonts.plusJakartaSans(
                                     color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
+                                        ? context.colors.textPrimary
+                                        : context.colors.textMuted,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -2961,7 +2966,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 Text(
                                   l.$3,
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted.withValues(
+                                    color: context.colors.textMuted.withValues(
                                       alpha: 0.7,
                                     ),
                                     fontSize: 11,
@@ -2974,13 +2979,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             Container(
                               width: 20,
                               height: 20,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primary,
+                              decoration:       BoxDecoration(
+                                color: context.colors.primary,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child:       Icon(
                                 LucideIcons.check,
-                                color: AppTheme.oledBlack,
+                                color: context.colors.background,
                                 size: 12,
                               ),
                             ),
@@ -3016,7 +3021,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'How long have you been training?',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -3031,8 +3036,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         padding: EdgeInsets.only(
                           right: e.$1 != 'advanced' ? 10 : 0,
                         ),
-                        child: GestureDetector(
-                          onTap: () {
+                        child: AppPressable(
+                          onPressed: () {
                             setState(() => _experienceLevel = e.$1);
                             Future.delayed(
                               const Duration(milliseconds: 300),
@@ -3041,6 +3046,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               },
                             );
                           },
+                          selected: isSelected,
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(
@@ -3049,13 +3055,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppTheme.primary.withValues(alpha: 0.12)
-                                  : AppTheme.cardDark,
+                                  ? context.colors.primary.withValues(alpha: 0.12)
+                                  : context.colors.card,
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(
                                 color: isSelected
-                                    ? AppTheme.primary
-                                    : AppTheme.borderDark,
+                                    ? context.colors.primary
+                                    : context.colors.border,
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),
@@ -3066,8 +3072,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.plusJakartaSans(
                                     color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
+                                        ? context.colors.textPrimary
+                                        : context.colors.textMuted,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                     height: 1.3,
@@ -3077,7 +3083,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 Text(
                                   e.$3,
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted,
+                                    color: context.colors.textMuted,
                                     fontSize: 10,
                                   ),
                                 ),
@@ -3086,13 +3092,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   Container(
                                     width: 20,
                                     height: 20,
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.primary,
+                                    decoration:       BoxDecoration(
+                                      color: context.colors.primary,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(
+                                    child:       Icon(
                                       LucideIcons.check,
-                                      color: AppTheme.oledBlack,
+                                      color: context.colors.background,
                                       size: 12,
                                     ),
                                   ),
@@ -3145,7 +3151,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'How do you eat?',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -3155,7 +3161,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'DIET TYPE',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -3164,24 +3170,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 const SizedBox(height: 10),
                 ...dietOptions.map((d) {
                   final isSelected = _dietType == d.$1;
-                  return GestureDetector(
-                    onTap: () => setState(() {
+                  return AppPressable(
+                    onPressed: () => setState(() {
                       _dietType = d.$1;
                       _selectedFoods = {};
                     }),
+                    selected: isSelected,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : AppTheme.cardDark,
+                            ? context.colors.primary.withValues(alpha: 0.12)
+                            : context.colors.card,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected
-                              ? AppTheme.primary
-                              : AppTheme.borderDark,
+                              ? context.colors.primary
+                              : context.colors.border,
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),
@@ -3197,8 +3204,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   d.$2,
                                   style: GoogleFonts.plusJakartaSans(
                                     color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
+                                        ? context.colors.textPrimary
+                                        : context.colors.textMuted,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -3206,7 +3213,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 Text(
                                   d.$3,
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppTheme.textSageMuted.withValues(
+                                    color: context.colors.textMuted.withValues(
                                       alpha: 0.7,
                                     ),
                                     fontSize: 11,
@@ -3219,13 +3226,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             Container(
                               width: 20,
                               height: 20,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primary,
+                              decoration:       BoxDecoration(
+                                color: context.colors.primary,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child:       Icon(
                                 LucideIcons.check,
-                                color: AppTheme.oledBlack,
+                                color: context.colors.background,
                                 size: 12,
                               ),
                             ),
@@ -3238,7 +3245,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'MEAL PREP TIME',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -3249,8 +3256,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   children: prepOptions.map((p) {
                     final isSelected = _mealPrepTime == p.$1;
                     return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _mealPrepTime = p.$1),
+                      child: AppPressable(
+                        onPressed: () => setState(() => _mealPrepTime = p.$1),
+                        selected: isSelected,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           margin: EdgeInsets.only(
@@ -3259,13 +3267,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.12)
-                                : AppTheme.cardDark,
+                                ? context.colors.primary.withValues(alpha: 0.12)
+                                : context.colors.card,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.borderDark,
+                                  ? context.colors.primary
+                                  : context.colors.border,
                               width: isSelected ? 1.5 : 1,
                             ),
                           ),
@@ -3275,8 +3283,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 p.$2,
                                 style: GoogleFonts.plusJakartaSans(
                                   color: isSelected
-                                      ? AppTheme.textCream
-                                      : AppTheme.textSageMuted,
+                                      ? context.colors.textPrimary
+                                      : context.colors.textMuted,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -3285,7 +3293,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                               Text(
                                 p.$3,
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.textSageMuted.withValues(
+                                  color: context.colors.textMuted.withValues(
                                     alpha: 0.6,
                                   ),
                                   fontSize: 9,
@@ -3303,7 +3311,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'WHO\'S COOKING?',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -3314,8 +3322,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   children: cookOptions.map((c) {
                     final isSelected = _cookingBy == c.$1;
                     return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _cookingBy = c.$1),
+                      child: AppPressable(
+                        onPressed: () => setState(() => _cookingBy = c.$1),
+                        selected: isSelected,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           margin: EdgeInsets.only(
@@ -3324,13 +3333,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.12)
-                                : AppTheme.cardDark,
+                                ? context.colors.primary.withValues(alpha: 0.12)
+                                : context.colors.card,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.borderDark,
+                                  ? context.colors.primary
+                                  : context.colors.border,
                               width: isSelected ? 1.5 : 1,
                             ),
                           ),
@@ -3342,8 +3351,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 c.$2,
                                 style: GoogleFonts.plusJakartaSans(
                                   color: isSelected
-                                      ? AppTheme.textCream
-                                      : AppTheme.textSageMuted,
+                                      ? context.colors.textPrimary
+                                      : context.colors.textMuted,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -3386,7 +3395,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'Pick foods you actually enjoy.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -3396,7 +3405,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'HOW YOU EAT',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -3406,7 +3415,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'Pick the meals that fit your day. Breakfast, lunch & dinner are always included.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted.withValues(alpha: 0.6),
+                    color: context.colors.textMuted,
                     fontSize: 11,
                   ),
                 ),
@@ -3429,8 +3438,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         final emoji = meal.$3;
                         final isRequired = _requiredMeals.contains(id);
                         final isSelected = _selectedMeals.contains(id);
-                        return GestureDetector(
-                          onTap: isRequired
+                        return AppPressable(
+                          onPressed: isRequired
                               ? null
                               : () => setState(() {
                                   if (isSelected) {
@@ -3439,6 +3448,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     _selectedMeals.add(id);
                                   }
                                 }),
+                          selected: isSelected,
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 160),
                             padding: const EdgeInsets.symmetric(
@@ -3447,13 +3457,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppTheme.primary.withValues(alpha: 0.12)
-                                  : AppTheme.cardDark,
+                                  ? context.colors.primary.withValues(alpha: 0.12)
+                                  : context.colors.card,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isSelected
-                                    ? AppTheme.primary
-                                    : AppTheme.borderDark,
+                                    ? context.colors.primary
+                                    : context.colors.border,
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),
@@ -3469,8 +3479,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   label,
                                   style: GoogleFonts.plusJakartaSans(
                                     color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
+                                        ? context.colors.textPrimary
+                                        : context.colors.textMuted,
                                     fontSize: 13,
                                     fontWeight: isSelected
                                         ? FontWeight.w600
@@ -3485,7 +3495,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.primary.withValues(
+                                      color: context.colors.primary.withValues(
                                         alpha: 0.18,
                                       ),
                                       borderRadius: BorderRadius.circular(4),
@@ -3493,7 +3503,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     child: Text(
                                       'req',
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.primary,
+                                        color: context.colors.primary,
                                         fontSize: 8,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.5,
@@ -3512,7 +3522,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Text(
                     'FAVOURITE FOODS',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
@@ -3522,7 +3532,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Text(
                     'Tap to pick the ones you love — the AI will build your plan around them.',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted.withValues(alpha: 0.6),
+                      color: context.colors.textMuted,
                       fontSize: 11,
                     ),
                   ),
@@ -3532,14 +3542,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     runSpacing: 8,
                     children: foods.map((f) {
                       final isSelected = _selectedFoods.contains(f);
-                      return GestureDetector(
-                        onTap: () => setState(() {
+                      return AppPressable(
+                        onPressed: () => setState(() {
                           if (isSelected) {
                             _selectedFoods.remove(f);
                           } else {
                             _selectedFoods.add(f);
                           }
                         }),
+                        selected: isSelected,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(
@@ -3548,21 +3559,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primary
-                                : AppTheme.cardDark,
+                                ? context.colors.primary
+                                : context.colors.card,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.borderDark,
+                                  ? context.colors.primary
+                                  : context.colors.border,
                             ),
                           ),
                           child: Text(
                             f,
                             style: GoogleFonts.plusJakartaSans(
                               color: isSelected
-                                  ? AppTheme.oledBlack
-                                  : AppTheme.textSageMuted,
+                                  ? context.colors.background
+                                  : context.colors.textMuted,
                               fontSize: 12,
                               fontWeight: isSelected
                                   ? FontWeight.w700
@@ -3578,7 +3589,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     Text(
                       '${_selectedFoods.length} selected',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
+                        color: context.colors.primary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -3640,7 +3651,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'Build your training setup.',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textCream,
+                    color: context.colors.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     height: 1.08,
@@ -3650,7 +3661,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'AVAILABLE EQUIPMENT',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -3675,25 +3686,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       button: true,
                       selected: isSelected,
                       label: opt.label,
-                      child: GestureDetector(
-                        onTap: () => setState(() {
+                      child: AppPressable(
+                        onPressed: () => setState(() {
                           if (isSelected) {
                             _selectedEquipment.remove(opt.id);
                           } else {
                             _selectedEquipment.add(opt.id);
                           }
                         }),
+                        selected: isSelected,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.15)
-                                : AppTheme.cardDark,
+                                ? context.colors.primary.withValues(alpha: 0.15)
+                                : context.colors.card,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.borderDark,
+                                  ? context.colors.primary
+                                  : context.colors.border,
                               width: isSelected ? 1.5 : 1,
                             ),
                           ),
@@ -3707,16 +3719,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     width: 26,
                                     height: 26,
                                     color: isSelected
-                                        ? AppTheme.primary
-                                        : AppTheme.textSageMuted,
+                                        ? context.colors.primary
+                                        : context.colors.textMuted,
                                     colorBlendMode: BlendMode.srcIn,
                                   )
                                 else
                                   Icon(
                                     opt.fallbackIcon,
                                     color: isSelected
-                                        ? AppTheme.primary
-                                        : AppTheme.textSageMuted,
+                                        ? context.colors.primary
+                                        : context.colors.textMuted,
                                     size: 22,
                                   ),
                                 const SizedBox(height: 5),
@@ -3724,8 +3736,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   opt.label,
                                   style: GoogleFonts.plusJakartaSans(
                                     color: isSelected
-                                        ? AppTheme.textCream
-                                        : AppTheme.textSageMuted,
+                                        ? context.colors.textPrimary
+                                        : context.colors.textMuted,
                                     fontSize: 8.5,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -3744,7 +3756,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Text(
                   'TRAINING SPLIT',
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppTheme.textSageMuted,
+                    color: context.colors.textMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 2,
@@ -3757,8 +3769,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     button: true,
                     selected: isSelected,
                     label: '${cy.$2}: ${cy.$3}',
-                    child: GestureDetector(
-                      onTap: () => setState(() => _workoutCycle = cy.$1),
+                    child: AppPressable(
+                      onPressed: () => setState(() => _workoutCycle = cy.$1),
+                      selected: isSelected,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
                         margin: const EdgeInsets.only(bottom: 8),
@@ -3768,13 +3781,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.primary.withValues(alpha: 0.12)
-                              : AppTheme.cardDark,
+                              ? context.colors.primary.withValues(alpha: 0.12)
+                              : context.colors.card,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isSelected
-                                ? AppTheme.primary
-                                : AppTheme.borderDark,
+                                ? context.colors.primary
+                                : context.colors.border,
                             width: isSelected ? 1.5 : 1,
                           ),
                         ),
@@ -3789,8 +3802,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                       cy.$2,
                                       style: GoogleFonts.plusJakartaSans(
                                         color: isSelected
-                                            ? AppTheme.textCream
-                                            : AppTheme.textSageMuted,
+                                            ? context.colors.textPrimary
+                                            : context.colors.textMuted,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
                                       ),
@@ -3798,7 +3811,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     Text(
                                       cy.$3,
                                       style: GoogleFonts.plusJakartaSans(
-                                        color: AppTheme.textSageMuted
+                                        color: context.colors.textMuted
                                             .withValues(alpha: 0.6),
                                         fontSize: 11,
                                       ),
@@ -3807,9 +3820,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 ),
                               ),
                               if (isSelected)
-                                const Icon(
+                                      Icon(
                                   LucideIcons.circle_check,
-                                  color: AppTheme.primary,
+                                  color: context.colors.primary,
                                   size: 20,
                                 ),
                             ],
@@ -3824,7 +3837,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Text(
                     'SUPERSETS',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted,
+                      color: context.colors.textMuted,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
@@ -3834,7 +3847,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Text(
                     'Do you want to pair exercises back-to-back?',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.textSageMuted.withValues(alpha: 0.6),
+                      color: context.colors.textMuted,
                       fontSize: 11,
                     ),
                   ),
@@ -3842,7 +3855,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Text(
                     'More efficient, more intense, less time.',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppTheme.primary.withValues(alpha: 0.8),
+                      color: context.colors.primary.withValues(alpha: 0.8),
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -3855,21 +3868,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       button: true,
                       selected: isSelected,
                       label: '$label: $subtitle',
-                      child: GestureDetector(
-                        onTap: () => setState(() => _preferSupersets = value),
+                      child: AppPressable(
+                        onPressed: () => setState(() => _preferSupersets = value),
+                        selected: isSelected,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppTheme.primary.withValues(alpha: 0.1)
-                                : AppTheme.cardDark,
+                                ? context.colors.primary.withValues(alpha: 0.1)
+                                : context.colors.card,
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
                               color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.borderDark,
+                                  ? context.colors.primary
+                                  : context.colors.border,
                               width: isSelected ? 1.5 : 1,
                             ),
                           ),
@@ -3884,7 +3898,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                       Text(
                                         label,
                                         style: GoogleFonts.plusJakartaSans(
-                                          color: AppTheme.textCream,
+                                          color: context.colors.textPrimary,
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -3893,7 +3907,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                       Text(
                                         subtitle,
                                         style: GoogleFonts.plusJakartaSans(
-                                          color: AppTheme.textSageMuted,
+                                          color: context.colors.textMuted,
                                           fontSize: 12,
                                           height: 1.4,
                                         ),
@@ -3902,9 +3916,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   ),
                                 ),
                                 if (isSelected)
-                                  const Icon(
+                                        Icon(
                                     LucideIcons.circle_check,
-                                    color: AppTheme.primary,
+                                    color: context.colors.primary,
                                     size: 20,
                                   ),
                               ],
@@ -3971,7 +3985,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            color: AppTheme.textSageMuted,
+            color: context.colors.textMuted,
             fontSize: 10,
             fontWeight: FontWeight.w700,
             letterSpacing: 2,
@@ -4065,12 +4079,14 @@ class _ProjectionTrendPainter extends CustomPainter {
   final double progress;
   final Color lineColor;
   final Color gridColor;
+  final Color backgroundColor;
 
   const _ProjectionTrendPainter({
     required this.points,
     required this.progress,
     required this.lineColor,
     required this.gridColor,
+    required this.backgroundColor,
   });
 
   @override
@@ -4185,10 +4201,10 @@ class _ProjectionTrendPainter extends CustomPainter {
       activePoint,
       4.5,
       Paint()
-        ..color = Colors.transparent
+        ..color = AppTheme.transparent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = AppTheme.oledBlack,
+        ..color = backgroundColor,
     );
   }
 
