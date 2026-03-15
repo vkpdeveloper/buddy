@@ -67,14 +67,30 @@ class HealthBiometricsApp extends ConsumerWidget {
   }
 }
 
-/// Listens to Firebase auth state and routes to [LoginPage] or [SplashScreen].
-class _AuthGate extends StatelessWidget {
+/// Resolves the initial auth state once on app startup.
+///
+/// This keeps the splash screen for cold launches when a user is already
+/// signed in, but avoids showing it again after an in-app login.
+class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
   @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  late final Future<User?> _initialUserFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialUserFuture = FirebaseAuth.instance.authStateChanges().first;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return FutureBuilder<User?>(
+      future: _initialUserFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: SizedBox.shrink());
