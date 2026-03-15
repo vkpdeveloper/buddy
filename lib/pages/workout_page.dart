@@ -18,6 +18,7 @@ import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:buddy/widgets/app_buttons.dart';
+import 'package:buddy/widgets/app_week_date_picker.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:buddy/widgets/app_text_field.dart';
 import 'package:buddy/widgets/exercise_library_sheet.dart';
@@ -126,6 +127,52 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   void _onSelectDay(int index) {
     setState(() => _selectedDayIndex = index);
     _persistSelectedDayIndex(index);
+  }
+
+  int _workoutDayNumber(
+    Map<String, dynamic> day, {
+    required int fallbackIndex,
+  }) {
+    final rawDayNumber = (day['dayNumber'] ?? day['day_number']) as num?;
+    final parsed = rawDayNumber?.toInt();
+    if (parsed != null && parsed >= 1 && parsed <= 7) {
+      return parsed;
+    }
+
+    final fallbackDayNumber = fallbackIndex + 1;
+    return fallbackDayNumber < 1
+        ? 1
+        : fallbackDayNumber > 7
+        ? 7
+        : fallbackDayNumber;
+  }
+
+  int _findWorkoutDayIndexForWeekday(List<dynamic> days, int weekday) {
+    for (var index = 0; index < days.length; index++) {
+      final day = Map<String, dynamic>.from(days[index] as Map);
+      if (_workoutDayNumber(day, fallbackIndex: index) == weekday) {
+        return index;
+      }
+    }
+
+    return -1;
+  }
+
+  DateTime _selectedWeekDateForWorkoutDays(List<dynamic> days) {
+    if (days.isEmpty) {
+      return normalizeCalendarDate(DateTime.now());
+    }
+
+    final selectedIndex = _selectedDayIndex.clamp(0, days.length - 1).toInt();
+    final day = Map<String, dynamic>.from(days[selectedIndex] as Map);
+    final dayNumber = _workoutDayNumber(day, fallbackIndex: selectedIndex);
+    return currentWeekDateForDayNumber(dayNumber);
+  }
+
+  void _selectWorkoutDayForDate(DateTime date, List<dynamic> days) {
+    final index = _findWorkoutDayIndexForWeekday(days, date.weekday);
+    if (index == -1 || index == _selectedDayIndex) return;
+    _onSelectDay(index);
   }
 
   Future<void> _refreshTodaySessionStatus() async {
@@ -280,7 +327,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.plusJakartaSans(color: context.colors.textMuted),
+              style: GoogleFonts.plusJakartaSans(
+                color: context.colors.textMuted,
+              ),
             ),
           ),
           TextButton(
@@ -344,7 +393,9 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.plusJakartaSans(color: context.colors.textMuted),
+              style: GoogleFonts.plusJakartaSans(
+                color: context.colors.textMuted,
+              ),
             ),
           ),
           TextButton(
@@ -557,7 +608,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                                Icon(
+                          Icon(
                             LucideIcons.flame,
                             color: context.colors.xpGold,
                             size: 13,
@@ -624,7 +675,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
               ),
               const SizedBox(width: 10),
               _regenLoading
-                  ?       SizedBox(
+                  ? SizedBox(
                       width: AppTheme.minimumTouchTarget,
                       height: AppTheme.minimumTouchTarget,
                       child: Center(
@@ -667,7 +718,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 ),
                 child: Row(
                   children: [
-                          Icon(
+                    Icon(
                       LucideIcons.history,
                       color: context.colors.textMuted,
                       size: 13,
@@ -690,103 +741,10 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         ),
         const SizedBox(height: 14),
 
-        // Day tabs
-        SizedBox(
-          height: 60,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            itemCount: days.length,
-            itemBuilder: (ctx, i) {
-              final day = days[i];
-              final label =
-                  day['dayLabel'] ?? day['day_label'] ?? 'Day ${i + 1}';
-              final isRest =
-                  day['isRestDay'] == true || day['is_rest_day'] == 1;
-              final isSelected = _selectedDayIndex == i;
-              const weekdays = [
-                'MON',
-                'TUE',
-                'WED',
-                'THU',
-                'FRI',
-                'SAT',
-                'SUN',
-              ];
-              final weekday = i < 7 ? weekdays[i] : '';
-              return Padding(
-                padding: EdgeInsets.only(right: i == days.length - 1 ? 0 : 8),
-                child: Semantics(
-                  label:
-                      '${weekday.isEmpty ? 'Day ${i + 1}' : weekday}, $label${isRest ? ', rest day' : ''}',
-                  button: true,
-                  selected: isSelected,
-                  child: AppPressable(
-                    onPressed: () => _onSelectDay(i),
-                    selected: isSelected,
-                    minHeight: AppTheme.minimumTouchTarget,
-                    borderRadius: BorderRadius.circular(12),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? (isRest
-                                  ? context.colors.textMuted.withValues(
-                                      alpha: 0.2,
-                                    )
-                                  : context.colors.actionSurface)
-                            : context.colors.card,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? (isRest
-                                    ? context.colors.textMuted
-                                    : context.colors.actionSurface)
-                              : context.colors.border,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            weekday,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: isSelected
-                                  ? (isRest
-                                        ? context.colors.textMuted
-                                        : context.colors.actionForeground)
-                                  : context.colors.textMuted,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            label.toString().toUpperCase(),
-                            style: GoogleFonts.plusJakartaSans(
-                              color: isSelected
-                                  ? (isRest
-                                        ? context.colors.textMuted
-                                        : context.colors.actionForeground)
-                                  : context.colors.textMuted,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+        AppWeekDatePicker(
+          selected: _selectedWeekDateForWorkoutDays(days),
+          onDateSelected: (date) => _selectWorkoutDayForDate(date, days),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
         ),
         const SizedBox(height: 16),
 
@@ -811,9 +769,109 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
             ?.toInt() ??
         _estimateDurationFromExercises(exercises);
     final isTodayPlanDay = dayNumber == DateTime.now().weekday;
+    final displayDayLabel = _displayDayLabel(
+      dayLabel.toString(),
+      isRest: isRest,
+    );
     final sessionState = dayId == null
         ? _TodayWorkoutState.none
         : (_todaySessionStateByDayId[dayId] ?? _TodayWorkoutState.none);
+    final actionButton = !isRest && planId != null && dayId != null
+        ? Align(
+            alignment: Alignment.centerRight,
+            child: Semantics(
+              label: sessionState == _TodayWorkoutState.completed
+                  ? 'Workout completed'
+                  : sessionState == _TodayWorkoutState.inProgress
+                  ? 'Continue today\'s workout'
+                  : 'Start workout',
+              button: true,
+              enabled: sessionState != _TodayWorkoutState.completed,
+              child: GestureDetector(
+                onTap: sessionState == _TodayWorkoutState.completed
+                    ? null
+                    : () async {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ActiveWorkoutPage(
+                              dayLabel: dayLabel.toString(),
+                              exercises: exercises,
+                              planId: planId,
+                              dayId: dayId,
+                            ),
+                          ),
+                        ).then((_) async {
+                          await _refreshTodaySessionStatus();
+                          ref.invalidate(homeDashboardProvider);
+                          ref.invalidate(weeklyWorkoutSummaryProvider);
+                        });
+                      },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient:
+                        isTodayPlanDay &&
+                            sessionState == _TodayWorkoutState.completed
+                        ? null
+                        : null,
+                    color:
+                        isTodayPlanDay &&
+                            sessionState == _TodayWorkoutState.completed
+                        ? context.colors.card
+                        : context.colors.actionSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        isTodayPlanDay &&
+                            sessionState == _TodayWorkoutState.completed
+                        ? Border.all(color: context.colors.border)
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isTodayPlanDay &&
+                                sessionState == _TodayWorkoutState.completed
+                            ? LucideIcons.check
+                            : LucideIcons.play,
+                        color:
+                            isTodayPlanDay &&
+                                sessionState == _TodayWorkoutState.completed
+                            ? context.colors.primary
+                            : context.colors.actionForeground,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        isTodayPlanDay &&
+                                sessionState == _TodayWorkoutState.completed
+                            ? 'COMPLETED'
+                            : isTodayPlanDay &&
+                                  sessionState == _TodayWorkoutState.inProgress
+                            ? 'CONTINUE'
+                            : 'START',
+                        style: GoogleFonts.plusJakartaSans(
+                          color:
+                              isTodayPlanDay &&
+                                  sessionState == _TodayWorkoutState.completed
+                              ? context.colors.primary
+                              : context.colors.actionForeground,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )
+        : null;
 
     if (isRest) {
       return SingleChildScrollView(
@@ -826,7 +884,15 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 8),
+            _buildSessionHeader(
+              title: displayDayLabel,
+              isTodayPlanDay: isTodayPlanDay,
+              isRest: true,
+              exerciseCount: exercises.length,
+              estimatedDurationSeconds: estimatedDurationSeconds,
+              sessionState: sessionState,
+              padding: const EdgeInsets.only(bottom: 16),
+            ),
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -856,7 +922,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                       color: context.colors.textMuted.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child:       Icon(
+                    child: Icon(
                       LucideIcons.moon,
                       color: context.colors.textMuted,
                       size: 32,
@@ -864,7 +930,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Rest Day',
+                    'Recovery Focus',
                     style: GoogleFonts.sora(
                       color: context.colors.textPrimary,
                       fontSize: 28,
@@ -987,131 +1053,14 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      estimatedDurationSeconds > 0
-                          ? 'About ${_formatDurationCompact(estimatedDurationSeconds)} to complete'
-                          : 'Estimated workout time unavailable',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: context.colors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (planId != null && dayId != null)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Semantics(
-                      label: sessionState == _TodayWorkoutState.completed
-                          ? 'Workout completed'
-                          : sessionState == _TodayWorkoutState.inProgress
-                          ? 'Continue today\'s workout'
-                          : 'Start workout',
-                      button: true,
-                      enabled: sessionState != _TodayWorkoutState.completed,
-                      child: GestureDetector(
-                        onTap: sessionState == _TodayWorkoutState.completed
-                            ? null
-                            : () async {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ActiveWorkoutPage(
-                                      dayLabel: dayLabel.toString(),
-                                      exercises: exercises,
-                                      planId: planId,
-                                      dayId: dayId,
-                                    ),
-                                  ),
-                                ).then((_) async {
-                                  await _refreshTodaySessionStatus();
-                                  ref.invalidate(homeDashboardProvider);
-                                  ref.invalidate(weeklyWorkoutSummaryProvider);
-                                });
-                              },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient:
-                                isTodayPlanDay &&
-                                    sessionState == _TodayWorkoutState.completed
-                                ? null
-                                : null,
-                            color:
-                                isTodayPlanDay &&
-                                    sessionState == _TodayWorkoutState.completed
-                                ? context.colors.card
-                                : context.colors.actionSurface,
-                            borderRadius: BorderRadius.circular(12),
-                            border:
-                                isTodayPlanDay &&
-                                    sessionState == _TodayWorkoutState.completed
-                                ? Border.all(color: context.colors.border)
-                                : null,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isTodayPlanDay &&
-                                        sessionState ==
-                                            _TodayWorkoutState.completed
-                                    ? LucideIcons.check
-                                    : LucideIcons.play,
-                                color:
-                                    isTodayPlanDay &&
-                                        sessionState ==
-                                            _TodayWorkoutState.completed
-                                    ? context.colors.primary
-                                    : context.colors.actionForeground,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                isTodayPlanDay &&
-                                        sessionState ==
-                                            _TodayWorkoutState.completed
-                                    ? 'COMPLETED'
-                                    : isTodayPlanDay &&
-                                          sessionState ==
-                                              _TodayWorkoutState.inProgress
-                                    ? 'CONTINUE'
-                                    : 'START',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color:
-                                      isTodayPlanDay &&
-                                          sessionState ==
-                                              _TodayWorkoutState.completed
-                                      ? context.colors.primary
-                                      : context.colors.actionForeground,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          child: _buildSessionHeader(
+            title: displayDayLabel,
+            isTodayPlanDay: isTodayPlanDay,
+            isRest: false,
+            exerciseCount: exercises.length,
+            estimatedDurationSeconds: estimatedDurationSeconds,
+            sessionState: sessionState,
+            trailingAction: actionButton,
           ),
         ),
         SliverPadding(
@@ -1156,7 +1105,7 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                          Icon(
+                    Icon(
                       LucideIcons.plus,
                       color: context.colors.primary,
                       size: 16,
@@ -1292,6 +1241,86 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
     final mins = (seconds ~/ 60).toString().padLeft(2, '0');
     final secs = (seconds % 60).toString().padLeft(2, '0');
     return '$mins:$secs';
+  }
+
+  String _displayDayLabel(String rawLabel, {required bool isRest}) {
+    final trimmed = rawLabel.trim();
+    if (trimmed.isEmpty) return isRest ? 'Rest Day' : 'Workout';
+    if (isRest && trimmed.toLowerCase() == 'rest') return 'Rest Day';
+    return trimmed;
+  }
+
+  Widget _buildSessionHeader({
+    required String title,
+    required bool isTodayPlanDay,
+    required bool isRest,
+    required int exerciseCount,
+    required int estimatedDurationSeconds,
+    required _TodayWorkoutState sessionState,
+    EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(24, 0, 24, 16),
+    Widget? trailingAction,
+  }) {
+    final colors = context.colors;
+    final statusLabel = !isRest && isTodayPlanDay
+        ? switch (sessionState) {
+            _TodayWorkoutState.completed => 'Completed',
+            _TodayWorkoutState.inProgress => 'In progress',
+            _TodayWorkoutState.none => null,
+          }
+        : null;
+    final summarySegments = <String>[
+      if (isRest)
+        'Recovery + mobility'
+      else ...[
+        if (estimatedDurationSeconds > 0)
+          '${_formatDurationCompact(estimatedDurationSeconds)} planned',
+        '$exerciseCount exercise${exerciseCount == 1 ? '' : 's'}',
+        ?statusLabel,
+      ],
+    ];
+
+    return Padding(
+      padding: padding,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.sora(
+                    color: colors.textPrimary,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (summarySegments.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    summarySegments.join('  •  '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailingAction != null) ...[
+            const SizedBox(width: 12),
+            trailingAction,
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _buildRestActionCard({
@@ -1611,7 +1640,7 @@ class _ExerciseCard extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-                  Icon(LucideIcons.trash_2, color: context.colors.error, size: 14),
+            Icon(LucideIcons.trash_2, color: context.colors.error, size: 14),
             const SizedBox(width: 6),
             Text(
               'DELETE',
@@ -1636,7 +1665,7 @@ class _ExerciseCard extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-                  Icon(
+            Icon(
               LucideIcons.refresh_cw,
               color: context.colors.textPrimary,
               size: 14,
@@ -1659,7 +1688,7 @@ class _ExerciseCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: accentColor.withValues(alpha: 0.32)),
-          gradient:       LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: context.colors.cardGradient,
@@ -1771,7 +1800,9 @@ class _ExerciseCard extends StatelessWidget {
                         horizontal: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: context.colors.backgroundSecondary.withValues(alpha: 0.5),
+                        color: context.colors.backgroundSecondary.withValues(
+                          alpha: 0.5,
+                        ),
                         borderRadius: BorderRadius.circular(11),
                       ),
                       child: Row(
@@ -1809,7 +1840,7 @@ class _ExerciseCard extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 8),
                       child: Row(
                         children: [
-                                Icon(
+                          Icon(
                             LucideIcons.trophy,
                             color: context.colors.xpGold,
                             size: 11,
@@ -1821,7 +1852,9 @@ class _ExerciseCard extends StatelessWidget {
                                 : 'No PR yet',
                             style: GoogleFonts.plusJakartaSans(
                               color: pr != null
-                                  ? context.colors.xpGold.withValues(alpha: 0.85)
+                                  ? context.colors.xpGold.withValues(
+                                      alpha: 0.85,
+                                    )
                                   : context.colors.textMuted.withValues(
                                       alpha: 0.45,
                                     ),
@@ -1878,8 +1911,10 @@ class _SupersetPairCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: context.colors.primary.withValues(alpha: 0.35)),
-          gradient:       LinearGradient(
+          border: Border.all(
+            color: context.colors.primary.withValues(alpha: 0.35),
+          ),
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: context.colors.cardGradient,
@@ -1909,7 +1944,7 @@ class _SupersetPairCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                          Icon(
+                    Icon(
                       LucideIcons.zap,
                       color: context.colors.primary,
                       size: 12,
@@ -1949,7 +1984,7 @@ class _SupersetPairCard extends StatelessWidget {
                         color: context.colors.primary.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
-                      child:       Icon(
+                      child: Icon(
                         LucideIcons.arrow_down,
                         color: context.colors.primary,
                         size: 12,
@@ -2064,7 +2099,7 @@ class _SupersetExerciseRow extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                                Icon(
+                          Icon(
                             LucideIcons.trophy,
                             color: context.colors.xpGold,
                             size: 10,
@@ -2073,7 +2108,9 @@ class _SupersetExerciseRow extends StatelessWidget {
                           Text(
                             'PR: ${pr!.weightKg}kg × ${pr!.reps}',
                             style: GoogleFonts.plusJakartaSans(
-                              color: context.colors.xpGold.withValues(alpha: 0.8),
+                              color: context.colors.xpGold.withValues(
+                                alpha: 0.8,
+                              ),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),

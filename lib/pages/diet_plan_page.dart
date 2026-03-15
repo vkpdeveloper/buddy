@@ -12,6 +12,7 @@ import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/app_empty_state.dart';
+import 'package:buddy/widgets/app_week_date_picker.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:buddy/widgets/app_text_field.dart';
@@ -31,6 +32,16 @@ class DietPlanPage extends ConsumerStatefulWidget {
 }
 
 class _DietPlanPageState extends ConsumerState<DietPlanPage> {
+  static const Map<String, int> _weekdayNumbers = {
+    'monday': 1,
+    'tuesday': 2,
+    'wednesday': 3,
+    'thursday': 4,
+    'friday': 5,
+    'saturday': 6,
+    'sunday': 7,
+  };
+
   int? _activePlanId;
   Map<String, dynamic>? _planData;
   Map<int, bool> _todayLog = {};
@@ -846,6 +857,47 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     );
   }
 
+  int _dietDayNumber(Map<String, dynamic> day, {required int fallbackIndex}) {
+    final dayName = (day['dayName'] ?? day['day_name'])?.toString();
+    final parsed = _weekdayNumbers[dayName?.trim().toLowerCase()];
+    if (parsed != null) return parsed;
+
+    final fallbackDayNumber = fallbackIndex + 1;
+    return fallbackDayNumber < 1
+        ? 1
+        : fallbackDayNumber > 7
+        ? 7
+        : fallbackDayNumber;
+  }
+
+  int _findDietDayIndexForWeekday(List<dynamic> days, int weekday) {
+    for (var index = 0; index < days.length; index++) {
+      final day = Map<String, dynamic>.from(days[index] as Map);
+      if (_dietDayNumber(day, fallbackIndex: index) == weekday) {
+        return index;
+      }
+    }
+
+    return -1;
+  }
+
+  DateTime _selectedWeekDateForDietDays(List<dynamic> days) {
+    if (days.isEmpty) {
+      return normalizeCalendarDate(DateTime.now());
+    }
+
+    final selectedIndex = _selectedDayIndex.clamp(0, days.length - 1).toInt();
+    final day = Map<String, dynamic>.from(days[selectedIndex] as Map);
+    final dayNumber = _dietDayNumber(day, fallbackIndex: selectedIndex);
+    return currentWeekDateForDayNumber(dayNumber);
+  }
+
+  void _selectDietDayForDate(DateTime date, List<dynamic> days) {
+    final index = _findDietDayIndexForWeekday(days, date.weekday);
+    if (index == -1 || index == _selectedDayIndex) return;
+    setState(() => _selectedDayIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -1012,9 +1064,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
               onPressed: _openReminderSettingsSheet,
               icon: Icon(
                 _reminderEnabled ? LucideIcons.bell_ring : LucideIcons.bell,
-                color: _reminderEnabled
-                    ? colors.primary
-                    : colors.textMuted,
+                color: _reminderEnabled ? colors.primary : colors.textMuted,
                 size: 22,
               ),
             ),
@@ -1074,56 +1124,10 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
           ),
         ),
         const SizedBox(height: 14),
-        SizedBox(
-          height: 38,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            itemCount: days.length,
-            itemBuilder: (ctx, i) {
-              final d = Map<String, dynamic>.from(days[i] as Map);
-              final dayName =
-                  (d['dayName'] ?? d['day_name'] ?? 'Day ${i + 1}') as String;
-              final isSelected = _selectedDayIndex == i;
-              return Semantics(
-                label: dayName,
-                button: true,
-                selected: isSelected,
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedDayIndex = i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    margin: const EdgeInsets.only(right: 8),
-                    width: 58,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isSelected ? colors.actionSurface : colors.card,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isSelected
-                            ? colors.actionSurface
-                            : colors.border,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        dayName.substring(0, 3).toUpperCase(),
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: isSelected
-                              ? colors.actionForeground
-                              : colors.textMuted,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+        AppWeekDatePicker(
+          selected: _selectedWeekDateForDietDays(days),
+          onDateSelected: (date) => _selectDietDayForDate(date, days),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
         ),
         const SizedBox(height: 12),
         Expanded(
@@ -1530,9 +1534,6 @@ class _MealCard extends StatefulWidget {
 }
 
 class _MealCardState extends State<_MealCard> {
-  static const String _rawMeasurementsNote =
-      'All measurements are in raw/uncooked quantities';
-
   late bool _isCompleted;
 
   @override
@@ -1546,23 +1547,6 @@ class _MealCardState extends State<_MealCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isCompletedToday != widget.isCompletedToday) {
       _isCompleted = widget.isCompletedToday;
-    }
-  }
-
-  List<Map<String, String>> _parseIngredients(dynamic raw) {
-    if (raw == null) return [];
-    try {
-      final List<dynamic> list = raw is String ? jsonDecode(raw) : raw as List;
-      return list
-          .map(
-            (e) => {
-              'name': (e['name'] ?? '').toString(),
-              'quantity': (e['quantity'] ?? '').toString(),
-            },
-          )
-          .toList();
-    } catch (_) {
-      return [];
     }
   }
 
@@ -2054,7 +2038,11 @@ class _MealCardState extends State<_MealCard> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                AppTextField(controller: notesCtrl, label: 'Notes', maxLines: 2),
+                AppTextField(
+                  controller: notesCtrl,
+                  label: 'Notes',
+                  maxLines: 2,
+                ),
                 const SizedBox(height: 14),
                 Semantics(
                   label: 'Save actual meal log',
@@ -2113,181 +2101,20 @@ class _MealCardState extends State<_MealCard> {
   }
 
   void _showDetailSheet() {
-    final colors = context.colors;
-    final meal = widget.meal;
-    final name = meal['mealName'] ?? meal['meal_name'] ?? 'Meal';
-    final recipe = (meal['recipe'] ?? '').toString();
-    final ingredients = _parseIngredients(meal['ingredients']);
-
     showModalBottomSheet(
       context: context,
-      backgroundColor: colors.card,
+      backgroundColor: context.colors.card,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      isScrollControlled: true,
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.92,
-        builder: (_, scrollCtrl) => ListView(
-          controller: scrollCtrl,
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-          children: [
-            Text(
-              name,
-              style: GoogleFonts.plusJakartaSans(
-                color: colors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'INGREDIENTS',
-              style: GoogleFonts.plusJakartaSans(
-                color: colors.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: colors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colors.primary.withValues(alpha: 0.18),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    LucideIcons.scale,
-                    size: 14,
-                    color: colors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _rawMeasurementsNote,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: colors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            if (ingredients.isEmpty)
-              Text(
-                'No ingredient details available.',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textMuted,
-                  fontSize: 13,
-                ),
-              )
-            else
-              ...ingredients.map(
-                (ing) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Icon(
-                          LucideIcons.circle_dot,
-                          size: 10,
-                          color: colors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            Text(
-                              ing['name'] ?? '',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: colors.textPrimary,
-                                fontSize: 13,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                'RAW',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: colors.primary,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        ing['quantity'] ?? '',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            if (recipe.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Text(
-                'HOW TO MAKE',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 8),
-              MarkdownBody(
-                data: recipe,
-                styleSheet: MarkdownStyleSheet(
-                  p: GoogleFonts.plusJakartaSans(
-                    color: colors.textMuted,
-                    fontSize: 13,
-                    height: 1.6,
-                  ),
-                  listBullet: GoogleFonts.plusJakartaSans(
-                    color: colors.primary,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+      builder: (_) => _MealDetailSheet(
+        meal: widget.meal,
+        actualLog: widget.actualLog,
+        onLogActual: () {
+          Navigator.of(context).pop();
+          _showLogActualSheet();
+        },
       ),
     );
   }
@@ -2533,6 +2360,294 @@ class _MealCardState extends State<_MealCard> {
   }
 }
 
+class _MealDetailSheet extends StatelessWidget {
+  static const String _rawMeasurementsNote =
+      'All measurements are in raw/uncooked quantities';
+
+  final Map<String, dynamic> meal;
+  final Map<String, dynamic>? actualLog;
+  final VoidCallback onLogActual;
+
+  const _MealDetailSheet({
+    required this.meal,
+    this.actualLog,
+    required this.onLogActual,
+  });
+
+  List<Map<String, String>> _parseIngredients(dynamic raw) {
+    if (raw == null) return [];
+    try {
+      final List<dynamic> list = raw is String ? jsonDecode(raw) : raw as List;
+      return list
+          .map(
+            (e) => {
+              'name': (e['name'] ?? '').toString(),
+              'quantity': (e['quantity'] ?? '').toString(),
+            },
+          )
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final name = (meal['mealName'] ?? meal['meal_name'] ?? 'Meal').toString();
+    final mealType = (meal['mealType'] ?? meal['meal_type'] ?? '')
+        .toString()
+        .replaceAll('_', ' ')
+        .toUpperCase();
+    final mealTime = (meal['mealTime'] ?? meal['meal_time'] ?? '--:--')
+        .toString();
+    final recipe = (meal['recipe'] ?? '').toString();
+    final ingredients = _parseIngredients(meal['ingredients']);
+    final calories = (meal['calories'] as num?)?.toInt() ?? 0;
+    final protein =
+        ((meal['proteinG'] ?? meal['protein_g']) as num?)?.toDouble() ?? 0;
+    final carbs =
+        ((meal['carbsG'] ?? meal['carbs_g']) as num?)?.toDouble() ?? 0;
+    final fat = ((meal['fatG'] ?? meal['fat_g']) as num?)?.toDouble() ?? 0;
+    final hasActual = actualLog != null;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (_, scrollCtrl) => ListView(
+        controller: scrollCtrl,
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: colors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Meal type + time badge
+          if (mealType.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '$mealTime • $mealType',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.primary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Hero meal name
+          Text(
+            name,
+            style: GoogleFonts.sora(
+              color: colors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Macro pills
+          Row(
+            children: [
+              _MacroPill(
+                label: 'CAL',
+                value: '$calories',
+                color: colors.primary,
+              ),
+              const SizedBox(width: 8),
+              _MacroPill(
+                label: 'PROTEIN',
+                value: '${protein.toStringAsFixed(1)}g',
+                color: colors.info,
+              ),
+              const SizedBox(width: 8),
+              _MacroPill(
+                label: 'CARBS',
+                value: '${carbs.toStringAsFixed(1)}g',
+                color: colors.warning,
+              ),
+              const SizedBox(width: 8),
+              _MacroPill(
+                label: 'FAT',
+                value: '${fat.toStringAsFixed(1)}g',
+                color: colors.muscleArms,
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+
+          // Ingredients section
+          Text(
+            'INGREDIENTS',
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.primary.withValues(alpha: 0.18)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(LucideIcons.scale, size: 14, color: colors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _rawMeasurementsNote,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (ingredients.isEmpty)
+            Text(
+              'No ingredient details available.',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textMuted,
+                fontSize: 13,
+              ),
+            )
+          else
+            ...ingredients.map(
+              (ing) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Icon(
+                        LucideIcons.circle_dot,
+                        size: 10,
+                        color: colors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ing['name'] ?? '',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textPrimary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      ing['quantity'] ?? '',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Recipe section
+          if (recipe.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Text(
+              'HOW TO MAKE',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            MarkdownBody(
+              data: recipe,
+              styleSheet: MarkdownStyleSheet(
+                p: GoogleFonts.plusJakartaSans(
+                  color: colors.textMuted,
+                  fontSize: 13,
+                  height: 1.6,
+                ),
+                listBullet: GoogleFonts.plusJakartaSans(
+                  color: colors.primary,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+
+          // Log Actual CTA
+          const SizedBox(height: 24),
+          Semantics(
+            label: hasActual ? 'Update actual meal log' : 'Log actual meal',
+            button: true,
+            child: GestureDetector(
+              onTap: onLogActual,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colors.actionSurface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  hasActual ? 'UPDATE ACTUAL LOG' : 'LOG ACTUAL',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: colors.actionForeground,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _PhotoAnalysisCard extends StatelessWidget {
   final Map<String, dynamic> analysis;
@@ -2837,11 +2952,7 @@ class _QuickLogCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        LucideIcons.camera,
-                        size: 9,
-                        color: colors.primary,
-                      ),
+                      Icon(LucideIcons.camera, size: 9, color: colors.primary),
                       const SizedBox(width: 3),
                       Text(
                         'PHOTO LOG',

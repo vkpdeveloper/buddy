@@ -16,6 +16,7 @@ import 'package:buddy/providers/generation_provider.dart';
 import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:buddy/widgets/generating_banner.dart';
 import 'package:buddy/widgets/app_buttons.dart';
+import 'package:buddy/widgets/app_week_date_picker.dart';
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/pages/diet_plan_page.dart';
 import 'package:buddy/pages/workout_page.dart';
@@ -423,7 +424,7 @@ class _HealthDashboardState extends ConsumerState<_HealthDashboard> {
           children: [
             const _HeaderSection(),
             const GeneratingBanner(),
-            _WeekDatePicker(
+            AppWeekDatePicker(
               selected: _selectedDate,
               onDateSelected: (d) => setState(() => _selectedDate = d),
             ),
@@ -682,98 +683,6 @@ class _CountUpIntTextState extends State<_CountUpIntText> {
       curve: Curves.easeOutCubic,
       onEnd: () => _fromValue = widget.value,
       builder: (_, value, child) => Text('$value', style: widget.style),
-    );
-  }
-}
-
-class _WeekDatePicker extends StatelessWidget {
-  final DateTime selected;
-  final ValueChanged<DateTime> onDateSelected;
-
-  const _WeekDatePicker({required this.selected, required this.onDateSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    // Find Sunday of current week
-    final weekday = today.weekday % 7; // Mon=1..Sun=0 → Sun=0
-    final sunday = today.subtract(Duration(days: weekday));
-    const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(7, (i) {
-          final day = sunday.add(Duration(days: i));
-          final isToday = day == today;
-          final isSelected =
-              day == DateTime(selected.year, selected.month, selected.day);
-          final isPast = day.isBefore(today);
-
-          return Expanded(
-            child: AppPressable(
-              onPressed: () => onDateSelected(day),
-              semanticsLabel: 'Select ${day.month}/${day.day}',
-              selected: isSelected,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    dayLabels[i],
-                    style: GoogleFonts.plusJakartaSans(
-                      color: isSelected
-                          ? context.colors.primary
-                          : context.colors.textMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isSelected
-                          ? context.colors.primary.withValues(alpha: 0.18)
-                          : AppTheme.transparent,
-                      border: isToday && !isSelected
-                          ? Border.all(
-                              color: context.colors.primary,
-                              width: 1.5,
-                            )
-                          : isPast && !isSelected
-                          ? Border.all(
-                              color: context.colors.border,
-                              width: 1,
-                              strokeAlign: BorderSide.strokeAlignCenter,
-                            )
-                          : null,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${day.day}',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: isSelected
-                            ? context.colors.primary
-                            : isToday
-                            ? context.colors.primary
-                            : context.colors.textMuted,
-                        fontSize: 13,
-                        fontWeight: isSelected || isToday
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }),
-      ),
     );
   }
 }
