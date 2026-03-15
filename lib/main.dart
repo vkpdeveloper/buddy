@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:buddy/config/env.dart';
 import 'package:buddy/providers/theme_provider.dart';
 import 'package:buddy/services/notification_service.dart';
+import 'package:buddy/widgets/theme_reveal_scope.dart';
 import 'app_theme.dart';
 import 'pages/splash_screen.dart';
 import 'pages/login_page.dart';
@@ -58,6 +59,8 @@ class HealthBiometricsApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
+      builder: (context, child) =>
+          ThemeRevealScope(child: child ?? const SizedBox.shrink()),
       home: const _AuthGate(),
       debugShowCheckedModeBanner: false,
     );

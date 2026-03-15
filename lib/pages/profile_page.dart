@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -17,6 +19,7 @@ import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/profile_service.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/theme_reveal_scope.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -444,9 +447,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
                                 0,
                                 AppTheme.minimumTouchTarget,
                               ),
-                              backgroundColor: context.colors.primary.withValues(
-                                alpha: 0.1,
-                              ),
+                              backgroundColor: context.colors.primary
+                                  .withValues(alpha: 0.1),
                               foregroundColor: context.colors.primary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -617,9 +619,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
           // Back button
           Align(
             alignment: Alignment.centerLeft,
-            child: AppBackButton(
-              onPressed: () => Navigator.pop(context),
-            ),
+            child: AppBackButton(onPressed: () => Navigator.pop(context)),
           ),
           const SizedBox(height: 24),
 
@@ -1034,7 +1034,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
               child: Row(
                 children: [
-                  Icon(LucideIcons.palette, color: context.colors.primary, size: 16),
+                  Icon(
+                    LucideIcons.palette,
+                    color: context.colors.primary,
+                    size: 16,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Appearance',
@@ -1052,12 +1056,32 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
               child: _ThemeModeSelector(
                 current: themeMode,
-                onChanged: (mode) => ref.read(themeProvider.notifier).setMode(mode),
+                onChanged: _changeThemeMode,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _changeThemeMode(ThemeMode mode, Offset origin) async {
+    final currentMode = ref.read(themeProvider);
+    if (currentMode == mode) return;
+
+    final notifier = ref.read(themeProvider.notifier);
+    final revealController = ThemeRevealScope.maybeOf(context);
+    if (revealController == null) {
+      await notifier.setMode(mode);
+      return;
+    }
+    if (revealController.isAnimating) return;
+
+    await revealController.revealTheme(
+      currentMode: currentMode,
+      targetMode: mode,
+      globalOrigin: origin,
+      applyThemeMode: () => notifier.setMode(mode),
     );
   }
 
@@ -1296,7 +1320,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage>
           ),
           style: OutlinedButton.styleFrom(
             foregroundColor: context.colors.error,
-            side: BorderSide(color: context.colors.error.withValues(alpha: 0.5)),
+            side: BorderSide(
+              color: context.colors.error.withValues(alpha: 0.5),
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -1674,91 +1700,200 @@ class _SettingRow extends StatelessWidget {
   }
 }
 
+typedef _ThemeModeChanged =
+    Future<void> Function(ThemeMode mode, Offset origin);
+
 class _ThemeModeSelector extends StatelessWidget {
   final ThemeMode current;
-  final ValueChanged<ThemeMode> onChanged;
+  final _ThemeModeChanged onChanged;
   const _ThemeModeSelector({required this.current, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _ThemeModeOption(
-          icon: LucideIcons.sun,
-          label: 'Light',
-          isSelected: current == ThemeMode.light,
-          onTap: () => onChanged(ThemeMode.light),
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: context.colors.cardRaised.withValues(
+          alpha: context.colors.isDark ? 0.82 : 0.92,
         ),
-        const SizedBox(width: 8),
-        _ThemeModeOption(
-          icon: LucideIcons.moon,
-          label: 'Dark',
-          isSelected: current == ThemeMode.dark,
-          onTap: () => onChanged(ThemeMode.dark),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: context.colors.border.withValues(
+            alpha: context.colors.isDark ? 0.9 : 1,
+          ),
         ),
-        const SizedBox(width: 8),
-        _ThemeModeOption(
-          icon: LucideIcons.monitor,
-          label: 'System',
-          isSelected: current == ThemeMode.system,
-          onTap: () => onChanged(ThemeMode.system),
-        ),
-      ],
+      ),
+      child: Row(
+        children: [
+          _ThemeModeOption(
+            mode: ThemeMode.light,
+            icon: LucideIcons.sun,
+            label: 'Light',
+            isSelected: current == ThemeMode.light,
+            onSelected: onChanged,
+          ),
+          const SizedBox(width: 6),
+          _ThemeModeOption(
+            mode: ThemeMode.dark,
+            icon: LucideIcons.moon,
+            label: 'Dark',
+            isSelected: current == ThemeMode.dark,
+            onSelected: onChanged,
+          ),
+          const SizedBox(width: 6),
+          _ThemeModeOption(
+            mode: ThemeMode.system,
+            icon: LucideIcons.monitor,
+            label: 'System',
+            isSelected: current == ThemeMode.system,
+            onSelected: onChanged,
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _ThemeModeOption extends StatelessWidget {
+class _ThemeModeOption extends StatefulWidget {
+  final ThemeMode mode;
   final IconData icon;
   final String label;
   final bool isSelected;
-  final VoidCallback onTap;
+  final _ThemeModeChanged onSelected;
   const _ThemeModeOption({
+    required this.mode,
     required this.icon,
     required this.label,
     required this.isSelected,
-    required this.onTap,
+    required this.onSelected,
   });
+
+  @override
+  State<_ThemeModeOption> createState() => _ThemeModeOptionState();
+}
+
+class _ThemeModeOptionState extends State<_ThemeModeOption> {
+  final GlobalKey _pressableKey = GlobalKey();
+  Offset? _tapOrigin;
+  bool _isPressed = false;
+
+  void _handleTapDown(TapDownDetails details) {
+    _tapOrigin = details.globalPosition;
+    setState(() => _isPressed = true);
+  }
+
+  void _clearPressedState() {
+    if (_isPressed) {
+      setState(() => _isPressed = false);
+    }
+  }
+
+  Offset _fallbackOrigin() {
+    final box = _pressableKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return Offset.zero;
+    return box.localToGlobal(box.size.center(Offset.zero));
+  }
+
+  void _handlePressed() {
+    _clearPressedState();
+    final origin = _tapOrigin ?? _fallbackOrigin();
+    _tapOrigin = null;
+    unawaited(widget.onSelected(widget.mode, origin));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: AppPressable(
-        onPressed: onTap,
-        semanticsLabel: '$label theme',
-        selected: isSelected,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? context.colors.primary.withValues(alpha: 0.15)
-                : context.colors.cardRaised,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected
-                  ? context.colors.primary.withValues(alpha: 0.4)
-                  : context.colors.border,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: isSelected ? context.colors.primary : context.colors.textMuted,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? context.colors.primary : context.colors.textMuted,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 120),
+        curve: const Cubic(0.16, 1, 0.3, 1),
+        scale: _isPressed ? 0.96 : 1,
+        child: AppPressable(
+          key: _pressableKey,
+          onPressed: _handlePressed,
+          onTapDown: _handleTapDown,
+          onTapUp: (_) => _clearPressedState(),
+          onTapCancel: _clearPressedState,
+          semanticsLabel: '${widget.label} theme',
+          selected: widget.isSelected,
+          child: SizedBox(
+            width: double.infinity,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: const Cubic(0.16, 1, 0.3, 1),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: widget.isSelected
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: context.colors.tintedCardGradient([
+                          context.colors.cardRaised.withValues(
+                            alpha: context.colors.isDark ? 0.98 : 1,
+                          ),
+                          context.colors.card.withValues(
+                            alpha: context.colors.isDark ? 0.94 : 1,
+                          ),
+                          context.colors.backgroundSecondary.withValues(
+                            alpha: context.colors.isDark ? 0.9 : 0.88,
+                          ),
+                        ]),
+                      )
+                    : null,
+                color: widget.isSelected ? null : Colors.transparent,
+                border: Border.all(
+                  color: widget.isSelected
+                      ? context.colors.primary.withValues(
+                          alpha: context.colors.isDark ? 0.34 : 0.22,
+                        )
+                      : Colors.transparent,
                 ),
+                boxShadow: widget.isSelected
+                    ? [
+                        BoxShadow(
+                          color: context.colors.shadowColor.withValues(
+                            alpha: context.colors.isDark ? 0.24 : 0.08,
+                          ),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : null,
               ),
-            ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    widget.icon,
+                    size: 15,
+                    color: widget.isSelected
+                        ? context.colors.textPrimary
+                        : context.colors.textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      widget.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        height: 1,
+                        fontWeight: widget.isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        color: widget.isSelected
+                            ? context.colors.textPrimary
+                            : context.colors.textSecondary.withValues(
+                                alpha: 0.78,
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

@@ -8,11 +8,12 @@ final themeProvider = NotifierProvider<ThemeNotifier, ThemeMode>(
 
 class ThemeNotifier extends Notifier<ThemeMode> {
   static const _key = 'app_theme_mode';
+  static const _defaultMode = ThemeMode.light;
 
   @override
   ThemeMode build() {
     _load();
-    return ThemeMode.system;
+    return _defaultMode;
   }
 
   Future<void> _load() async {
@@ -20,7 +21,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
     state = switch (prefs.getString(_key)) {
       'dark' => ThemeMode.dark,
       'light' => ThemeMode.light,
-      _ => ThemeMode.system,
+      _ => _defaultMode,
     };
   }
 

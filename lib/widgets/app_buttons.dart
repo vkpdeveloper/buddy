@@ -6,6 +6,9 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 
 class AppPressable extends StatelessWidget {
   final VoidCallback? onPressed;
+  final GestureTapDownCallback? onTapDown;
+  final GestureTapUpCallback? onTapUp;
+  final GestureTapCancelCallback? onTapCancel;
   final Widget child;
   final BoxDecoration? decoration;
   final BorderRadius? borderRadius;
@@ -17,10 +20,18 @@ class AppPressable extends StatelessWidget {
   final double minHeight;
   final double minWidth;
   final AlignmentGeometry alignment;
+  final InteractiveInkFeatureFactory? splashFactory;
+  final WidgetStateProperty<Color?>? overlayColor;
+  final Color? splashColor;
+  final Color? highlightColor;
+  final Color? hoverColor;
 
   const AppPressable({
     super.key,
     required this.onPressed,
+    this.onTapDown,
+    this.onTapUp,
+    this.onTapCancel,
     required this.child,
     this.decoration,
     this.borderRadius,
@@ -32,6 +43,11 @@ class AppPressable extends StatelessWidget {
     this.minHeight = AppTheme.minimumTouchTarget,
     this.minWidth = AppTheme.minimumTouchTarget,
     this.alignment = Alignment.center,
+    this.splashFactory,
+    this.overlayColor,
+    this.splashColor,
+    this.highlightColor,
+    this.hoverColor,
   });
 
   @override
@@ -57,7 +73,15 @@ class AppPressable extends StatelessWidget {
             decoration: decoration,
             child: InkWell(
               onTap: resolvedEnabled ? onPressed : null,
+              onTapDown: resolvedEnabled ? onTapDown : null,
+              onTapUp: resolvedEnabled ? onTapUp : null,
+              onTapCancel: resolvedEnabled ? onTapCancel : null,
               borderRadius: resolvedBorderRadius,
+              splashFactory: splashFactory,
+              overlayColor: overlayColor,
+              splashColor: splashColor,
+              highlightColor: highlightColor,
+              hoverColor: hoverColor,
               child: Padding(
                 padding: padding ?? EdgeInsets.zero,
                 child: Align(

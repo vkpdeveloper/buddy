@@ -3158,6 +3158,27 @@ class _BottomNavigation extends StatelessWidget {
 
   const _BottomNavigation({required this.currentIndex, required this.onTap});
 
+  static WidgetStateProperty<Color?> _navOverlayColor(
+    BuildContext context, {
+    required bool isActive,
+  }) {
+    return WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.pressed)) {
+        return (isActive
+                ? context.colors.textSecondary
+                : context.colors.textPrimary)
+            .withValues(alpha: context.colors.isDark ? 0.08 : 0.06);
+      }
+      if (states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused)) {
+        return context.colors.textPrimary.withValues(
+          alpha: context.colors.isDark ? 0.05 : 0.04,
+        );
+      }
+      return null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
@@ -3196,6 +3217,8 @@ class _BottomNavigation extends StatelessWidget {
               minHeight: 66,
               minWidth: 66,
               borderRadius: BorderRadius.circular(22),
+              splashFactory: NoSplash.splashFactory,
+              overlayColor: _navOverlayColor(context, isActive: false),
               decoration: BoxDecoration(
                 color: context.colors.cardRaised,
                 borderRadius: BorderRadius.circular(22),
@@ -3254,6 +3277,11 @@ class _NavItem extends StatelessWidget {
       minHeight: 56,
       borderRadius: BorderRadius.circular(16),
       excludeChildSemantics: true,
+      splashFactory: NoSplash.splashFactory,
+      overlayColor: _BottomNavigation._navOverlayColor(
+        context,
+        isActive: isActive,
+      ),
       child: SizedBox(
         width: 66,
         child: Padding(
