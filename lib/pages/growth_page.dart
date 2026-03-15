@@ -1513,29 +1513,52 @@ class _BmiPalette {
   final Color healthy;
   final Color overweight;
   final Color obese;
+  final Color barUnderweight;
+  final Color barHealthy;
+  final Color barOverweight;
+  final Color barObese;
 
   const _BmiPalette({
     required this.underweight,
     required this.healthy,
     required this.overweight,
     required this.obese,
+    required this.barUnderweight,
+    required this.barHealthy,
+    required this.barOverweight,
+    required this.barObese,
   });
 
+  static Color _tone(Color accent, Color surface, double mix) {
+    return Color.lerp(accent, surface, mix) ?? accent;
+  }
+
   factory _BmiPalette.resolve(AppColorScheme colors) {
-    if (colors.isDark) {
-      return const _BmiPalette(
-        underweight: Color(0xFF88AFCB),
-        healthy: Color(0xFF7FA88E),
-        overweight: Color(0xFFC49C62),
-        obese: Color(0xFFC6847A),
+    if (!colors.isDark) {
+      return _BmiPalette(
+        underweight: _tone(const Color(0xFF6E8192), colors.cardRaised, 0.08),
+        healthy: _tone(const Color(0xFF667E69), colors.cardRaised, 0.06),
+        overweight: _tone(const Color(0xFF8E6C3F), colors.cardRaised, 0.04),
+        obese: _tone(const Color(0xFF956259), colors.cardRaised, 0.04),
+        barUnderweight: const Color(0xFF628EAF),
+        barHealthy: const Color(0xFF648F73),
+        barOverweight: const Color(0xFFB17B31),
+        barObese: const Color(0xFFB96559),
       );
     }
 
-    return const _BmiPalette(
-      underweight: Color(0xFF527895),
-      healthy: Color(0xFF4E7C62),
-      overweight: Color(0xFF8C6A33),
-      obese: Color(0xFF96544C),
+    final surface = colors.cardRaised;
+    const mix = 0.18;
+
+    return _BmiPalette(
+      underweight: _tone(colors.info, surface, mix),
+      healthy: _tone(colors.success, surface, mix),
+      overweight: _tone(colors.warning, surface, mix),
+      obese: _tone(colors.error, surface, mix),
+      barUnderweight: _tone(colors.info, surface, mix),
+      barHealthy: _tone(colors.success, surface, mix),
+      barOverweight: _tone(colors.warning, surface, mix),
+      barObese: _tone(colors.error, surface, mix),
     );
   }
 }
@@ -1553,6 +1576,10 @@ class _BmiCard extends StatelessWidget {
     final healthyColor = bmiPalette.healthy;
     final overweightColor = bmiPalette.overweight;
     final obeseColor = bmiPalette.obese;
+    final underweightBarColor = bmiPalette.barUnderweight;
+    final healthyBarColor = bmiPalette.barHealthy;
+    final overweightBarColor = bmiPalette.barOverweight;
+    final obeseBarColor = bmiPalette.barObese;
     double? bmi;
     if (weightKg != null && heightCm != null && heightCm! > 0) {
       final hm = heightCm! / 100;
@@ -1692,10 +1719,10 @@ class _BmiCard extends StatelessWidget {
                                     begin: Alignment.centerLeft,
                                     end: Alignment.centerRight,
                                     colors: [
-                                      underweightColor,
-                                      healthyColor,
-                                      overweightColor,
-                                      obeseColor,
+                                      underweightBarColor,
+                                      healthyBarColor,
+                                      overweightBarColor,
+                                      obeseBarColor,
                                     ],
                                     stops: const [0.0, 0.38, 0.68, 1.0],
                                   ),
@@ -1729,10 +1756,10 @@ class _BmiCard extends StatelessWidget {
                   spacing: 14,
                   runSpacing: 8,
                   children: [
-                    _LegendDot(color: underweightColor, label: 'Underweight'),
-                    _LegendDot(color: healthyColor, label: 'Healthy'),
-                    _LegendDot(color: overweightColor, label: 'Overweight'),
-                    _LegendDot(color: obeseColor, label: 'Obese'),
+                    _LegendDot(color: underweightBarColor, label: 'Underweight'),
+                    _LegendDot(color: healthyBarColor, label: 'Healthy'),
+                    _LegendDot(color: overweightBarColor, label: 'Overweight'),
+                    _LegendDot(color: obeseBarColor, label: 'Obese'),
                   ],
                 ),
               ),
@@ -1795,7 +1822,7 @@ class _GrowthHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'PROGRESS',
+                  'GROWTH',
                   style: GoogleFonts.plusJakartaSans(
                     color: context.colors.primary,
                     fontSize: 10,

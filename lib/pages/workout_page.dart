@@ -471,77 +471,265 @@ class _WorkoutPageState extends ConsumerState<WorkoutPage> {
   }
 
   Widget _buildSkeleton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        MediaQuery.paddingOf(context).bottom + 92,
+      ),
+      children: [
+        _buildPlanToolbarSkeleton(),
+        const SizedBox(height: 14),
+        IgnorePointer(
+          child: AppWeekDatePicker(
+            selected: normalizeCalendarDate(DateTime.now()),
+            onDateSelected: (_) {},
+            padding: EdgeInsets.zero,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildSessionHeaderSkeleton(),
+        const SizedBox(height: 12),
+        for (var index = 0; index < 4; index++)
+          _buildExerciseSkeletonCard(index),
+      ],
+    );
+  }
+
+  Widget _buildPlanToolbarSkeleton() {
+    return Row(
+      children: [
+        const Expanded(
+          child: ShimmerBox(
+            width: double.infinity,
+            height: 18,
+            borderRadius: 8,
+          ),
+        ),
+        const SizedBox(width: 10),
+        _buildToolbarButtonSkeleton(
+          width: AppTheme.minimumTouchTarget,
+          child: const ShimmerBox(width: 14, height: 14, borderRadius: 6),
+        ),
+        const SizedBox(width: 6),
+        _buildToolbarButtonSkeleton(
+          width: 122,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              ShimmerBox(width: 13, height: 13, borderRadius: 6),
+              SizedBox(width: 6),
+              ShimmerBox(width: 74, height: 12, borderRadius: 6),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToolbarButtonSkeleton({
+    required double width,
+    required Widget child,
+  }) {
+    return Container(
+      width: width,
+      height: AppTheme.minimumTouchTarget,
+      decoration: BoxDecoration(
+        color: context.colors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.colors.border),
+      ),
+      alignment: Alignment.center,
+      child: child,
+    );
+  }
+
+  Widget _buildSessionHeaderSkeleton() {
+    final buttonBase = context.colors.actionForeground.withValues(alpha: 0.18);
+    final buttonHighlight = context.colors.actionForeground.withValues(
+      alpha: 0.34,
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              FractionallySizedBox(
+                widthFactor: 0.62,
+                alignment: Alignment.centerLeft,
+                child: const ShimmerBox(
+                  width: double.infinity,
+                  height: 34,
+                  borderRadius: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              FractionallySizedBox(
+                widthFactor: 0.84,
+                alignment: Alignment.centerLeft,
+                child: const ShimmerBox(
+                  width: double.infinity,
+                  height: 14,
+                  borderRadius: 6,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: BoxDecoration(
+            color: context.colors.actionSurface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ShimmerBox(
+                width: 16,
+                height: 16,
+                borderRadius: 6,
+                baseColor: buttonBase,
+                highlightColor: buttonHighlight,
+              ),
+              const SizedBox(width: 8),
+              ShimmerBox(
+                width: 54,
+                height: 12,
+                borderRadius: 6,
+                baseColor: buttonBase,
+                highlightColor: buttonHighlight,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExerciseSkeletonCard(int index) {
+    final colors = context.colors;
+    final accent = [
+      colors.muscleChest,
+      colors.muscleShoulders,
+      colors.muscleBack,
+      colors.muscleArms,
+    ][index % 4];
+    const titleFactors = [0.74, 0.86, 0.78, 0.68];
+    const groupFactors = [0.24, 0.3, 0.26, 0.28];
+    const prWidths = [72.0, 68.0, 76.0, 70.0];
+
+    return SkeletonCardShell(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      borderColor: accent.withValues(alpha: 0.28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Day tabs skeleton
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: List.generate(
-                7,
-                (i) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ShimmerBox(width: 48, height: 36, borderRadius: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShimmerBox(
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                baseColor: accent.withValues(alpha: 0.12),
+                highlightColor: accent.withValues(alpha: 0.22),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FractionallySizedBox(
+                      widthFactor: titleFactors[index],
+                      alignment: Alignment.centerLeft,
+                      child: const ShimmerBox(
+                        width: double.infinity,
+                        height: 18,
+                        borderRadius: 7,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final labelWidth =
+                            (constraints.maxWidth * groupFactors[index])
+                                .clamp(56.0, 96.0)
+                                .toDouble();
+                        return Row(
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: accent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            ShimmerBox(
+                              width: labelWidth,
+                              height: 10,
+                              borderRadius: 4,
+                              baseColor: accent.withValues(alpha: 0.12),
+                              highlightColor: accent.withValues(alpha: 0.22),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 10),
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: ShimmerBox(width: 13, height: 13, borderRadius: 6),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+            decoration: BoxDecoration(
+              color: colors.backgroundSecondary.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Row(
+              children: [
+                Expanded(
+                  child: _ExerciseStatSkeleton(valueWidth: 28, labelWidth: 36),
+                ),
+                _ExerciseStatDivider(),
+                Expanded(
+                  child: _ExerciseStatSkeleton(valueWidth: 52, labelWidth: 34),
+                ),
+                _ExerciseStatDivider(),
+                Expanded(
+                  child: _ExerciseStatSkeleton(valueWidth: 48, labelWidth: 36),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 20),
-          // Exercise card skeletons
-          ...List.generate(
-            5,
-            (i) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                height: 110,
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: context.colors.border),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          ShimmerBox(width: 22, height: 22, borderRadius: 11),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ShimmerBox(
-                                  width: double.infinity,
-                                  height: 14,
-                                  borderRadius: 5,
-                                ),
-                                const SizedBox(height: 6),
-                                ShimmerBox(
-                                  width: 70,
-                                  height: 9,
-                                  borderRadius: 4,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      ShimmerBox(
-                        width: double.infinity,
-                        height: 36,
-                        borderRadius: 11,
-                      ),
-                    ],
-                  ),
-                ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              ShimmerBox(
+                width: 11,
+                height: 11,
+                borderRadius: 6,
+                baseColor: colors.xpGold.withValues(alpha: 0.14),
+                highlightColor: colors.xpGold.withValues(alpha: 0.26),
               ),
-            ),
+              const SizedBox(width: 5),
+              ShimmerBox(width: prWidths[index], height: 10, borderRadius: 4),
+            ],
           ),
         ],
       ),
@@ -1873,6 +2061,37 @@ class _ExerciseCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ExerciseStatSkeleton extends StatelessWidget {
+  final double valueWidth;
+  final double labelWidth;
+
+  const _ExerciseStatSkeleton({
+    required this.valueWidth,
+    required this.labelWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ShimmerBox(width: valueWidth, height: 22, borderRadius: 8),
+        const SizedBox(height: 8),
+        ShimmerBox(width: labelWidth, height: 10, borderRadius: 4),
+      ],
+    );
+  }
+}
+
+class _ExerciseStatDivider extends StatelessWidget {
+  const _ExerciseStatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 26, color: context.colors.border);
   }
 }
 

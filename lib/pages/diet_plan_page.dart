@@ -979,44 +979,146 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   Widget _buildSkeleton() {
-    final colors = context.colors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        0,
+        24,
+        MediaQuery.paddingOf(context).bottom + 92,
+      ),
+      children: [
+        _buildMacroProgressSkeletonCard(),
+        const SizedBox(height: 14),
+        IgnorePointer(
+          child: AppWeekDatePicker(
+            selected: normalizeCalendarDate(DateTime.now()),
+            onDateSelected: (_) {},
+            padding: EdgeInsets.zero,
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (var index = 0; index < 4; index++) _buildMealSkeletonCard(index),
+      ],
+    );
+  }
+
+  Widget _buildMacroProgressSkeletonCard() {
+    return SkeletonCardShell(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 104,
-            decoration: BoxDecoration(
-              color: colors.card,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: colors.border),
-            ),
-          ),
-          const SizedBox(height: 16),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: List.generate(
-                7,
-                (_) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ShimmerBox(width: 44, height: 36, borderRadius: 12),
+          Row(
+            children: const [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ShimmerBox(width: 178, height: 16, borderRadius: 6),
                 ),
               ),
-            ),
+              ShimmerBox(width: 88, height: 14, borderRadius: 6),
+            ],
           ),
+          const SizedBox(height: 8),
+          const ShimmerBox(width: double.infinity, height: 9, borderRadius: 8),
           const SizedBox(height: 12),
-          const ShimmerBox(
-            width: double.infinity,
-            height: 58,
-            borderRadius: 14,
+          Row(
+            children: const [
+              Expanded(
+                child: _MacroProgressSkeleton(
+                  labelWidth: 92,
+                  progressWidth: double.infinity,
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: _MacroProgressSkeleton(
+                  labelWidth: 88,
+                  progressWidth: double.infinity,
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: _MacroProgressSkeleton(
+                  labelWidth: 72,
+                  progressWidth: double.infinity,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          const ShimmerBox(
-            width: double.infinity,
-            height: 74,
-            borderRadius: 16,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMealSkeletonCard(int index) {
+    const titleFactors = [0.74, 0.88, 0.82, 0.7];
+    const detailFactors = [0.62, 0.56, 0.66, 0.6];
+    const ctaWidths = [82.0, 88.0, 84.0, 90.0];
+
+    return SkeletonCardShell(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ShimmerBox(width: 28, height: 28, borderRadius: 14),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const ShimmerBox(width: 132, height: 20, borderRadius: 6),
+                    const SizedBox(height: 8),
+                    FractionallySizedBox(
+                      widthFactor: titleFactors[index],
+                      alignment: Alignment.centerLeft,
+                      child: const ShimmerBox(
+                        width: double.infinity,
+                        height: 16,
+                        borderRadius: 6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: ShimmerBox(width: 14, height: 18, borderRadius: 6),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: FractionallySizedBox(
+                  widthFactor: detailFactors[index],
+                  alignment: Alignment.centerLeft,
+                  child: const ShimmerBox(
+                    width: double.infinity,
+                    height: 14,
+                    borderRadius: 6,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Row(
+                children: [
+                  const ShimmerBox(width: 14, height: 14, borderRadius: 6),
+                  const SizedBox(width: 8),
+                  ShimmerBox(
+                    width: ctaWidths[index],
+                    height: 14,
+                    borderRadius: 6,
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -1432,6 +1534,28 @@ class _MacroMiniProgress extends StatelessWidget {
             color: color,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _MacroProgressSkeleton extends StatelessWidget {
+  final double labelWidth;
+  final double progressWidth;
+
+  const _MacroProgressSkeleton({
+    required this.labelWidth,
+    required this.progressWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ShimmerBox(width: labelWidth, height: 10, borderRadius: 4),
+        const SizedBox(height: 4),
+        ShimmerBox(width: progressWidth, height: 6, borderRadius: 8),
       ],
     );
   }

@@ -59,25 +59,39 @@ class _ShimmerBoxState extends State<ShimmerBox>
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = widget.baseColor ?? context.colors.card;
-    final highlightColor = widget.highlightColor ?? context.colors.cardRaised;
+    final colors = context.colors;
+    final baseColor =
+        widget.baseColor ?? (colors.isDark ? colors.card : colors.cardRaised);
+    final highlightColor =
+        widget.highlightColor ??
+        (colors.isDark ? colors.cardRaised : colors.card);
     return ExcludeSemantics(
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
-          final gradientStop = _controller.value;
+          final gradientCenter = _controller.value;
+          final leadingStop = (gradientCenter - 0.18).clamp(0.0, 1.0);
+          final trailingStop = (gradientCenter + 0.18).clamp(0.0, 1.0);
           return Container(
             width: widget.width,
             height: widget.height,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.borderRadius),
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                stops: [gradientStop - 0.3, gradientStop, gradientStop + 0.3],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                stops: [
+                  0.0,
+                  leadingStop.toDouble(),
+                  gradientCenter,
+                  trailingStop.toDouble(),
+                  1.0,
+                ],
                 colors: [
                   baseColor,
+                  baseColor,
                   highlightColor,
+                  baseColor,
                   baseColor,
                 ],
               ),
@@ -85,6 +99,35 @@ class _ShimmerBoxState extends State<ShimmerBox>
           );
         },
       ),
+    );
+  }
+}
+
+class SkeletonCardShell extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
+  final double radius;
+  final Color? borderColor;
+
+  const SkeletonCardShell({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.margin,
+    this.radius = 20,
+    this.borderColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin,
+      decoration: context.colors.cardDecoration(
+        radius: radius,
+        borderColor: borderColor,
+      ),
+      child: Padding(padding: padding, child: child),
     );
   }
 }
