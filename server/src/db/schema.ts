@@ -84,6 +84,7 @@ export const userProfile = pgTable('user_profile', {
     goalBodyShape: text('goal_body_shape', {
         enum: ['skinny', 'lean', 'fat'],
     }),
+    timezoneIana: text('timezone_iana').notNull().default('UTC'),
     updatedAt: text('updated_at').default(sql`now()`),
 }, (t) => [
     index('user_profile_user_id_idx').on(t.userId),
@@ -212,6 +213,31 @@ export const dietMealLogs = pgTable('diet_meal_logs', {
 }, (t) => [
     index('diet_meal_logs_meal_id_date_idx').on(t.mealId, t.date),
     index('diet_meal_logs_user_id_date_idx').on(t.userId, t.date),
+]);
+
+export const dietMealOverrides = pgTable('diet_meal_overrides', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    mealId: integer('meal_id').notNull().references(() => dietMeals.id, { onDelete: 'cascade' }),
+    date: text('date').notNull(),
+    mealType: text('meal_type', {
+        enum: ['breakfast', 'morning_snack', 'lunch', 'pre_workout', 'post_workout', 'dinner', 'evening_snack'],
+    }).notNull(),
+    mealTime: text('meal_time').notNull().default('08:00'),
+    mealName: text('meal_name').notNull(),
+    description: text('description').notNull().default(''),
+    ingredients: text('ingredients').notNull().default('[]'),
+    recipe: text('recipe').notNull().default(''),
+    calories: integer('calories').notNull(),
+    proteinG: real('protein_g').notNull(),
+    carbsG: real('carbs_g').notNull(),
+    fatG: real('fat_g').notNull(),
+    notes: text('notes').notNull().default(''),
+    createdAt: text('created_at').default(sql`now()`),
+    updatedAt: text('updated_at').default(sql`now()`),
+}, (t) => [
+    uniqueIndex('diet_meal_overrides_user_meal_date_unique').on(t.userId, t.mealId, t.date),
+    index('diet_meal_overrides_user_id_date_idx').on(t.userId, t.date),
 ]);
 
 // ─── Daily Logs (one row per user per day) ───────────────────────────────────
@@ -356,6 +382,7 @@ export const bodyMeasurements = pgTable('body_measurements', {
 }, (t) => [
     index('body_measurements_user_id_idx').on(t.userId),
     index('body_measurements_user_id_date_idx').on(t.userId, t.date),
+    uniqueIndex('body_measurements_user_date_unique').on(t.userId, t.date),
 ]);
 
 export const progressPhotos = pgTable('progress_photos', {

@@ -7,6 +7,7 @@ import { dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs, dietQuickLogs,
 import { DIET_FOOD_OPTIONS } from '../lib/dietGenerator';
 import { ok, fail } from '../lib/response';
 import { notFound } from '../lib/errors';
+import { createQuickMealLog, getEffectiveDietDayForDate, parseIngredientsJson, upsertActualMealLog } from '../services/diet';
 
 const router = new Hono();
 
@@ -26,6 +27,7 @@ router.get('/plans', async (c) => {
 router.get('/plans/:id', async (c) => {
     const userId = c.var.userId;
     const id = parseInt(c.req.param('id'));
+    const effectiveDate = c.req.query('date');
     const [plan] = await db.select().from(dietPlans).where(and(eq(dietPlans.userId, userId), eq(dietPlans.id, id)));
     if (!plan) throw notFound('Plan not found');
 
@@ -46,10 +48,29 @@ router.get('/plans/:id', async (c) => {
         arr.push(meal);
         mealsByDayId.set(meal.dayId, arr);
     }
-    const daysWithMeals = days.map((day) => ({
-        ...day,
-        meals: mealsByDayId.get(day.id) ?? [],
-    }));
+    const effective = effectiveDate ? await getEffectiveDietDayForDate(userId, effectiveDate) : null;
+    const effectiveDayNumber = effectiveDate ? new Date(`${effectiveDate}T12:00:00.000Z`).getUTCDay() || 7 : null;
+    const daysWithMeals = days.map((day) => {
+        const baseMeals = (mealsByDayId.get(day.id) ?? []).map((meal) => ({
+            ...meal,
+            ingredients: parseIngredientsJson(meal.ingredients),
+        }));
+        if (effective && effectiveDayNumber != null && day.dayNumber === effectiveDayNumber) {
+            return {
+                ...day,
+                totalCalories: effective.day.totalCalories,
+                proteinG: effective.day.proteinG,
+                carbsG: effective.day.carbsG,
+                fatG: effective.day.fatG,
+                meals: effective.meals,
+                hasOverrides: effective.hasOverrides,
+            };
+        }
+        return {
+            ...day,
+            meals: baseMeals,
+        };
+    });
 
     return ok(c, { ...plan, days: daysWithMeals });
 });
@@ -143,33 +164,13 @@ router.get('/log/:date', async (c) => {
     const userId = c.var.userId;
     const date = c.req.param('date'); // YYYY-MM-DD
 
-    // Scope logs to this user's meals via active plan → day → meal IDs
-    const weekday = new Date(`${date}T00:00:00`).getDay(); // 0=Sun…6=Sat
-    const dayNumber = weekday === 0 ? 7 : weekday;
-
-    const [activePlan] = await db
-        .select({ id: dietPlans.id })
-        .from(dietPlans)
-        .where(and(eq(dietPlans.userId, userId), eq(dietPlans.isActive, true)))
-        .limit(1);
-
+    const effectiveDay = await getEffectiveDietDayForDate(userId, date);
     let logs: (typeof dietMealLogs.$inferSelect)[] = [];
-    if (activePlan) {
-        const [dietDay] = await db
-            .select({ id: dietDays.id })
-            .from(dietDays)
-            .where(and(eq(dietDays.planId, activePlan.id), eq(dietDays.dayNumber, dayNumber)))
-            .limit(1);
-        if (dietDay) {
-            const userMeals = await db
-                .select({ id: dietMeals.id })
-                .from(dietMeals)
-                .where(eq(dietMeals.dayId, dietDay.id));
-            const mealIds = userMeals.map((m) => m.id);
-            if (mealIds.length > 0) {
-                logs = await db.select().from(dietMealLogs)
-                    .where(and(eq(dietMealLogs.date, date), inArray(dietMealLogs.mealId, mealIds)));
-            }
+    if (effectiveDay) {
+        const mealIds = effectiveDay.meals.map((meal) => meal.sourceMealId as number);
+        if (mealIds.length > 0) {
+            logs = await db.select().from(dietMealLogs)
+                .where(and(eq(dietMealLogs.date, date), inArray(dietMealLogs.mealId, mealIds)));
         }
     }
     const completionMap: Record<number, boolean> = {};
@@ -264,6 +265,13 @@ router.get('/log/:date', async (c) => {
     return ok(c, {
         completionMap,
         actualLogs,
+        effectiveDay: effectiveDay
+            ? {
+                ...effectiveDay.day,
+                meals: effectiveDay.meals,
+                hasOverrides: effectiveDay.hasOverrides,
+            }
+            : null,
         quickLogs,
         consumedTotals: {
             calories: consumedCalories,
@@ -314,52 +322,19 @@ router.put('/log/:date/actual', zValidator('json', z.object({
 })), async (c) => {
     const userId = c.var.userId;
     const date = c.req.param('date');
-    const {
-        mealId,
-        mealName,
-        calories,
-        proteinG,
-        carbsG,
-        fatG,
-        notes,
-        rawPayload,
-        attachmentId,
-    } = c.req.valid('json');
-
-    const [existing] = await db.select().from(dietMealLogs)
-        .where(and(eq(dietMealLogs.mealId, mealId), eq(dietMealLogs.date, date)));
-
-    const mergedPayload: Record<string, unknown> = { ...(rawPayload ?? {}) };
-    if (attachmentId != null) {
-        mergedPayload.attachmentId = attachmentId;
-        mergedPayload.source = mergedPayload.source ?? 'ai_photo_analysis';
-    }
-
-    const values = {
-        isCompleted: true,
-        actualMealName: mealName,
-        actualCalories: calories,
-        actualProteinG: proteinG,
-        actualCarbsG: carbsG,
-        actualFatG: fatG,
-        actualNotes: notes ?? '',
-        rawPayload: JSON.stringify(mergedPayload),
-        loggedAt: new Date().toISOString(),
-    };
-
-    if (existing) {
-        await db.update(dietMealLogs)
-            .set(values)
-            .where(eq(dietMealLogs.id, existing.id));
-    } else {
-        await db.insert(dietMealLogs).values({
-            userId,
-            mealId,
-            date,
-            ...values,
-        });
-    }
-
+    const body = c.req.valid('json');
+    await upsertActualMealLog(userId, {
+        date,
+        mealId: body.mealId,
+        mealName: body.mealName,
+        calories: body.calories,
+        proteinG: body.proteinG,
+        carbsG: body.carbsG,
+        fatG: body.fatG,
+        notes: body.notes,
+        rawPayload: body.rawPayload,
+        attachmentId: body.attachmentId,
+    });
     return ok(c, null);
 });
 
@@ -378,18 +353,16 @@ router.post('/log/:date/quick', zValidator('json', z.object({
     const date = c.req.param('date');
     const { mealName, calories, proteinG, carbsG, fatG, notes, attachmentId } = c.req.valid('json');
 
-    const [inserted] = await db.insert(dietQuickLogs).values({
-        userId,
+    const inserted = await createQuickMealLog(userId, {
         date,
         mealName,
         calories,
         proteinG,
         carbsG,
         fatG,
-        notes: notes ?? '',
-        attachmentId: attachmentId ?? null,
-        loggedAt: new Date().toISOString(),
-    }).returning();
+        notes,
+        attachmentId,
+    });
 
     // Fetch signed URL for attachment if present
     let signedUrl: string | null = null;

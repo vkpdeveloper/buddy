@@ -1,7 +1,8 @@
 import type { Context, Next } from 'hono';
 import { eq } from 'drizzle-orm';
 import { db } from '../db';
-import { users } from '../db/schema';
+import { userProfile, users } from '../db/schema';
+import { normalizeIanaTimeZone } from './time';
 
 /**
  * Firebase Auth JWT middleware for Hono.
@@ -119,6 +120,7 @@ declare module 'hono' {
     interface ContextVariableMap {
         firebaseUid: string;  // Raw Firebase UID — used only by auth routes
         userId: number;       // Internal integer DB ID from users.id — used by all data routes
+        timeZone: string;
     }
 }
 
@@ -133,6 +135,7 @@ export function firebaseAuth(projectId: string) {
         try {
             const { sub } = await verifyFirebaseJwt(token, projectId);
             c.set('firebaseUid', sub);
+            c.set('timeZone', normalizeIanaTimeZone(c.req.header('X-Timezone')));
 
             // Resolve the integer DB id. Auth routes (/api/auth/*) tolerate 0
             // for the new-user registration case; all other routes require a valid id.
@@ -148,6 +151,16 @@ export function firebaseAuth(projectId: string) {
             }
 
             c.set('userId', user?.id ?? 0);
+
+            if (user?.id) {
+                const requestedTimeZone = normalizeIanaTimeZone(c.req.header('X-Timezone'));
+                if (requestedTimeZone !== 'UTC') {
+                    await db.update(userProfile)
+                        .set({ timezoneIana: requestedTimeZone, updatedAt: new Date().toISOString() })
+                        .where(eq(userProfile.userId, user.id));
+                    c.set('timeZone', requestedTimeZone);
+                }
+            }
 
             await next();
         } catch (err) {

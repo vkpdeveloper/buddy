@@ -1,44 +1,24 @@
 import { z } from 'zod';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../../../db';
-import { dietPlans, dietDays, dietMeals, dietMealLogs } from '../../../db/schema';
+import { dietMealLogs } from '../../../db/schema';
 import { Tool } from 'ai';
+import { getLocalDateInTimeZone } from '../../../lib/time';
+import { getEffectiveDietDayForDate } from '../../../services/diet';
 
-/** Maps JS getDay() → dietDays.dayNumber (1=Mon … 7=Sun) */
-function todayDayNumber(): number {
-    const jsDay = new Date().getDay(); // 0=Sun…6=Sat
-    return jsDay === 0 ? 7 : jsDay;
-}
-
-export function getTodayDietTool(userId: number): Tool {
+export function getTodayDietTool(userId: number, timeZone: string): Tool {
     return {
         description:
             "Get today's planned diet — all meals scheduled for today with their meal type, name, macro breakdown (calories, protein, carbs, fat), ingredients, and whether each meal has been completed/logged. Call this when the user asks about today's meals, what to eat today, today's calories, or meal completion status.",
         inputSchema: z.object({}),
         execute: async () => {
-            const [activePlan] = await db
-                .select()
-                .from(dietPlans)
-                .where(and(eq(dietPlans.userId, userId), eq(dietPlans.isActive, true)))
-                .limit(1);
+            const todayDate = getLocalDateInTimeZone(timeZone);
+            const resolved = await getEffectiveDietDayForDate(userId, todayDate);
+            if (!resolved) {
+                throw new Error('No active diet plan found. User needs to generate one first.');
+            }
 
-            if (!activePlan) throw new Error('No active diet plan found. User needs to generate one first.');
-
-            const dayNumber = todayDayNumber();
-            const [todayDay] = await db
-                .select()
-                .from(dietDays)
-                .where(and(eq(dietDays.planId, activePlan.id), eq(dietDays.dayNumber, dayNumber)))
-                .limit(1);
-
-            if (!todayDay) throw new Error(`No diet day found for today (dayNumber=${dayNumber})`);
-
-            const meals = await db
-                .select()
-                .from(dietMeals)
-                .where(eq(dietMeals.dayId, todayDay.id));
-
-            const todayDate = new Date().toISOString().slice(0, 10);
+            const meals = resolved.meals;
             const mealIds = meals.map(m => m.id);
             const logs = mealIds.length > 0
                 ? await db
@@ -53,14 +33,14 @@ export function getTodayDietTool(userId: number): Tool {
             const logMap = new Map(logs.map(l => [l.mealId, l]));
 
             return {
-                planTitle: activePlan.title,
+                planTitle: resolved.plan.title,
                 date: todayDate,
-                dayName: todayDay.dayName,
+                dayName: resolved.day.dayName,
                 targets: {
-                    calories: todayDay.totalCalories,
-                    proteinG: Math.round(todayDay.proteinG),
-                    carbsG: Math.round(todayDay.carbsG),
-                    fatG: Math.round(todayDay.fatG),
+                    calories: resolved.day.totalCalories,
+                    proteinG: Math.round(resolved.day.proteinG),
+                    carbsG: Math.round(resolved.day.carbsG),
+                    fatG: Math.round(resolved.day.fatG),
                 },
                 meals: meals.map(m => {
                     const log = logMap.get(m.id);
@@ -71,9 +51,10 @@ export function getTodayDietTool(userId: number): Tool {
                         proteinG: Math.round(m.proteinG),
                         carbsG: Math.round(m.carbsG),
                         fatG: Math.round(m.fatG),
-                        ingredients: (() => { try { return JSON.parse(m.ingredients); } catch { return []; } })(),
+                        ingredients: m.ingredients,
                         notes: m.notes,
                         isCompleted: log?.isCompleted ?? false,
+                        isOverride: m.isOverride,
                     };
                     if (log?.actualCalories) {
                         return {

@@ -1,17 +1,25 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:buddy/app_theme.dart';
 import 'package:buddy/app_color_scheme.dart';
+import 'package:buddy/providers/body_provider.dart';
+import 'package:buddy/providers/growth_provider.dart';
+import 'package:buddy/providers/home_dashboard_provider.dart';
+import 'package:buddy/providers/progress_provider.dart';
+import 'package:buddy/services/buddy_service.dart';
+import 'package:buddy/services/media_service.dart';
+import 'package:buddy/services/profile_service.dart';
 import 'package:buddy/utils/motion_preferences.dart';
 import 'package:buddy/widgets/app_buttons.dart';
-import 'package:buddy/services/buddy_service.dart';
-import 'package:buddy/services/profile_service.dart';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -20,7 +28,52 @@ enum _Role { user, assistant, error }
 class _ChatMessage {
   final _Role role;
   final String content;
-  const _ChatMessage({required this.role, required this.content});
+  final _ChatAttachment? attachment;
+  const _ChatMessage({
+    required this.role,
+    required this.content,
+    this.attachment,
+  });
+}
+
+class _ChatAttachment {
+  final int attachmentId;
+  final String localPath;
+  final String? signedUrl;
+
+  const _ChatAttachment({
+    required this.attachmentId,
+    required this.localPath,
+    this.signedUrl,
+  });
+}
+
+class _ComposerAttachment {
+  final File file;
+  final int attachmentId;
+  final String? signedUrl;
+  final bool isAnalyzing;
+
+  const _ComposerAttachment({
+    required this.file,
+    required this.attachmentId,
+    required this.signedUrl,
+    required this.isAnalyzing,
+  });
+
+  _ComposerAttachment copyWith({
+    File? file,
+    int? attachmentId,
+    String? signedUrl,
+    bool? isAnalyzing,
+  }) {
+    return _ComposerAttachment(
+      file: file ?? this.file,
+      attachmentId: attachmentId ?? this.attachmentId,
+      signedUrl: signedUrl ?? this.signedUrl,
+      isAnalyzing: isAnalyzing ?? this.isAnalyzing,
+    );
+  }
 }
 
 const _kSuggestions = [
@@ -32,26 +85,38 @@ const _kSuggestions = [
   'How\'s my streak looking?',
 ];
 
+String _todayDate() {
+  final now = DateTime.now();
+  return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-class BuddyChatPage extends StatefulWidget {
+class BuddyChatPage extends ConsumerStatefulWidget {
   const BuddyChatPage({super.key});
 
   @override
-  State<BuddyChatPage> createState() => _BuddyChatPageState();
+  ConsumerState<BuddyChatPage> createState() => _BuddyChatPageState();
 }
 
-class _BuddyChatPageState extends State<BuddyChatPage>
+class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     with TickerProviderStateMixin {
   final List<_ChatMessage> _messages = [];
+  final List<Map<String, dynamic>> _apiMessages = [];
   final TextEditingController _inputCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
   final FocusNode _focusNode = FocusNode();
+  final ImagePicker _imagePicker = ImagePicker();
 
   String? _userName;
   bool _isStreaming = false;
+  bool _isUploadingAttachment = false;
   String _streamingContent = '';
   String? _activeToolLabel;
+  BuddyApprovalRequest? _pendingApproval;
+  BuddyApprovalRequest? _streamingApprovalRequest;
+  _ComposerAttachment? _composerAttachment;
+  bool _sawApprovalOrRefreshEvent = false;
   StreamSubscription<BuddyStreamEvent>? _streamSub;
 
   late AnimationController _dotAnimCtrl;
@@ -112,30 +177,55 @@ class _BuddyChatPageState extends State<BuddyChatPage>
 
   Future<void> _sendMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _isStreaming) return;
+    if (_isStreaming || _isUploadingAttachment || _pendingApproval != null) {
+      return;
+    }
+    if (trimmed.isEmpty && _composerAttachment == null) return;
+
+    final attachment = _composerAttachment == null
+        ? null
+        : _ChatAttachment(
+            attachmentId: _composerAttachment!.attachmentId,
+            localPath: _composerAttachment!.file.path,
+            signedUrl: _composerAttachment!.signedUrl,
+          );
 
     _inputCtrl.clear();
     _focusNode.unfocus();
 
+    final apiContent = attachment == null
+        ? trimmed
+        : '${trimmed.isEmpty ? 'Please inspect this meal photo.' : trimmed}\n\n[User attached a meal photo. attachmentId=${attachment.attachmentId}. Call getMealPhotoAttachment with this attachmentId if you need to inspect or log it.]';
+
     // Remove any trailing error message before adding the new user turn
     setState(() {
       _messages.removeWhere((m) => m.role == _Role.error);
-      _messages.add(_ChatMessage(role: _Role.user, content: trimmed));
+      _messages.add(
+        _ChatMessage(
+          role: _Role.user,
+          content: trimmed,
+          attachment: attachment,
+        ),
+      );
+      _apiMessages.add({'role': 'user', 'content': apiContent});
       _isStreaming = true;
       _streamingContent = '';
       _activeToolLabel = null;
+      _composerAttachment = null;
+      _streamingApprovalRequest = null;
+      _sawApprovalOrRefreshEvent = false;
     });
 
     _scrollToBottom();
-
-    final apiMessages = _apiHistory();
-    _startStream(apiMessages);
+    _startStream();
   }
 
   // ─── Retry ──────────────────────────────────────────────────────────────────
 
   void _retryLast() {
-    if (_isStreaming) return;
+    if (_isStreaming || _isUploadingAttachment || _pendingApproval != null) {
+      return;
+    }
 
     // Strip error bubble, keep user message, resend
     setState(() {
@@ -143,32 +233,178 @@ class _BuddyChatPageState extends State<BuddyChatPage>
       _isStreaming = true;
       _streamingContent = '';
       _activeToolLabel = null;
+      _streamingApprovalRequest = null;
+      _sawApprovalOrRefreshEvent = false;
     });
 
     _scrollToBottom();
-    _startStream(_apiHistory());
+    _startStream();
   }
 
-  // ─── Stream orchestration ───────────────────────────────────────────────────
+  Future<void> _pickMealPhoto() async {
+    if (_isStreaming ||
+        _isUploadingAttachment ||
+        _composerAttachment != null ||
+        _pendingApproval != null) {
+      return;
+    }
 
-  /// Returns message history suitable for the API (excludes error messages).
-  List<Map<String, dynamic>> _apiHistory() {
-    return _messages
-        .where((m) => m.role != _Role.error)
-        .map(
-          (m) => {
-            'role': m.role == _Role.user ? 'user' : 'assistant',
-            'content': m.content,
-          },
-        )
-        .toList();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: context.colors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => const _MealPhotoSourceSheet(),
+    );
+    if (!mounted || source == null) return;
+
+    await _pickMealPhotoFromSource(source);
   }
 
-  void _startStream(List<Map<String, dynamic>> apiMessages) {
+  Future<void> _pickMealPhotoFromSource(ImageSource source) async {
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 88,
+      );
+      if (picked == null) return;
+
+      final file = File(picked.path);
+      final mimeType = _mimeTypeForPath(file.path);
+
+      setState(() => _isUploadingAttachment = true);
+
+      final upload = await MediaService.uploadMealPhoto(file, mimeType);
+      final data = Map<String, dynamic>.from(upload['data'] as Map);
+      final attachmentId = (data['id'] as num?)?.toInt();
+      if (attachmentId == null) {
+        throw Exception('Upload did not return an attachment id.');
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _composerAttachment = _ComposerAttachment(
+          file: file,
+          attachmentId: attachmentId,
+          signedUrl: data['signedUrl']?.toString(),
+          isAnalyzing: true,
+        );
+      });
+
+      unawaited(_startMealPhotoAnalysis(attachmentId));
+    } catch (err) {
+      if (!mounted) return;
+      _showSnack('Meal photo upload failed.');
+      debugPrint('[BuddyChat] meal photo upload error: $err');
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAttachment = false);
+      }
+    }
+  }
+
+  Future<void> _startMealPhotoAnalysis(int attachmentId) async {
+    try {
+      await MediaService.analyzeMealPhoto(attachmentId);
+    } catch (err) {
+      debugPrint('[BuddyChat] meal photo analyze error: $err');
+    } finally {
+      if (mounted && _composerAttachment?.attachmentId == attachmentId) {
+        setState(() {
+          _composerAttachment = _composerAttachment?.copyWith(
+            isAnalyzing: false,
+          );
+        });
+      }
+    }
+  }
+
+  Future<void> _respondToApproval({required bool approved}) async {
+    final approval = _pendingApproval;
+    if (approval == null || _isStreaming || _isUploadingAttachment) return;
+
+    setState(() {
+      _pendingApproval = null;
+      _isStreaming = true;
+      _streamingContent = '';
+      _activeToolLabel = null;
+      _streamingApprovalRequest = null;
+      _sawApprovalOrRefreshEvent = false;
+    });
+
+    _apiMessages.add({
+      'role': 'tool',
+      'content': [
+        {
+          'type': 'tool-approval-response',
+          'approvalId': approval.approvalId,
+          'approved': approved,
+        },
+      ],
+    });
+
+    _scrollToBottom();
+    _startStream();
+  }
+
+  void _handleRefreshDomains(List<String> domains) {
+    for (final domain in domains) {
+      switch (domain) {
+        case 'body':
+          ref.invalidate(bodyHistoryProvider);
+          ref.invalidate(latestBodyMeasurementProvider);
+          ref.invalidate(growthOverviewProvider);
+          break;
+        case 'diet':
+          ref.invalidate(todayNutritionSummaryProvider(_todayDate()));
+          ref.invalidate(homeDashboardProvider);
+          break;
+        case 'growth':
+          ref.invalidate(growthOverviewProvider);
+          ref.invalidate(growthGoalsProvider);
+          ref.invalidate(bodyHistoryProvider);
+          ref.invalidate(latestBodyMeasurementProvider);
+          break;
+        case 'home':
+          ref.invalidate(homeDashboardProvider);
+          ref.invalidate(todayNutritionSummaryProvider(_todayDate()));
+          break;
+        case 'progress':
+          ref.invalidate(progressProvider);
+          break;
+        case 'targets':
+          ref.invalidate(userTargetsProvider);
+          ref.invalidate(homeDashboardProvider);
+          break;
+        case 'workout':
+          ref.invalidate(weeklyWorkoutSummaryProvider);
+          ref.invalidate(homeDashboardProvider);
+          ref.invalidate(progressProvider);
+          break;
+      }
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _mimeTypeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    return 'image/jpeg';
+  }
+
+  void _startStream() {
     _streamSub?.cancel();
 
     try {
-      _streamSub = BuddyService.buddyChat(apiMessages).listen(
+      _streamSub = BuddyService.buddyChat(_apiMessages).listen(
         (event) {
           if (!mounted) return;
           switch (event) {
@@ -178,6 +414,19 @@ class _BuddyChatPageState extends State<BuddyChatPage>
               setState(() {
                 _activeToolLabel = null;
                 _streamingContent += text;
+              });
+            case BuddyApprovalEvent(:final approval):
+              setState(() {
+                _activeToolLabel = null;
+                _pendingApproval = approval;
+                _streamingApprovalRequest = approval;
+                _sawApprovalOrRefreshEvent = true;
+              });
+            case BuddyRefreshEvent(:final domains):
+              _handleRefreshDomains(domains);
+              setState(() {
+                _activeToolLabel = null;
+                _sawApprovalOrRefreshEvent = true;
               });
           }
           _scrollToBottom();
@@ -194,11 +443,26 @@ class _BuddyChatPageState extends State<BuddyChatPage>
   void _onStreamDone() {
     if (!mounted) return;
     setState(() {
+      if (_streamingApprovalRequest != null) {
+        final approvalContent = <Map<String, dynamic>>[];
+        if (_streamingContent.isNotEmpty) {
+          approvalContent.add({'type': 'text', 'text': _streamingContent});
+        }
+        approvalContent.add({
+          'type': 'tool-approval-request',
+          'approvalId': _streamingApprovalRequest!.approvalId,
+          'toolCall': _streamingApprovalRequest!.toolCall.toJson(),
+        });
+        _apiMessages.add({'role': 'assistant', 'content': approvalContent});
+      } else if (_streamingContent.isNotEmpty) {
+        _apiMessages.add({'role': 'assistant', 'content': _streamingContent});
+      }
+
       if (_streamingContent.isNotEmpty) {
         _messages.add(
           _ChatMessage(role: _Role.assistant, content: _streamingContent),
         );
-      } else {
+      } else if (!_sawApprovalOrRefreshEvent) {
         // Model called a tool but produced no text — or stream was empty
         _messages.add(
           const _ChatMessage(
@@ -210,6 +474,8 @@ class _BuddyChatPageState extends State<BuddyChatPage>
       _isStreaming = false;
       _streamingContent = '';
       _activeToolLabel = null;
+      _streamingApprovalRequest = null;
+      _sawApprovalOrRefreshEvent = false;
     });
     _scrollToBottom();
   }
@@ -227,6 +493,8 @@ class _BuddyChatPageState extends State<BuddyChatPage>
       _isStreaming = false;
       _streamingContent = '';
       _activeToolLabel = null;
+      _streamingApprovalRequest = null;
+      _sawApprovalOrRefreshEvent = false;
     });
     _scrollToBottom();
   }
@@ -255,9 +523,7 @@ class _BuddyChatPageState extends State<BuddyChatPage>
     return AppBar(
       backgroundColor: context.colors.background,
       elevation: 0,
-      leading: AppBackButton(
-        onPressed: () => Navigator.pop(context),
-      ),
+      leading: AppBackButton(onPressed: () => Navigator.pop(context)),
       titleSpacing: 0,
       title: Row(
         children: [
@@ -304,33 +570,34 @@ class _BuddyChatPageState extends State<BuddyChatPage>
   }
 
   Widget _buildMessageList() {
-    final hasContent = _messages.isNotEmpty || _isStreaming;
+    final hasContent =
+        _messages.isNotEmpty || _isStreaming || _pendingApproval != null;
     if (!hasContent) return _buildEmptyState();
 
-    final streamingBubble = _isStreaming ? 1 : 0;
-    final itemCount = _messages.length + streamingBubble;
+    final children = <Widget>[
+      for (final msg in _messages)
+        _MessageTile(
+          message: msg,
+          onRetry: msg.role == _Role.error ? _retryLast : null,
+        ),
+      if (_isStreaming)
+        _streamingContent.isEmpty
+            ? (_activeToolLabel != null
+                  ? _ToolStatusBubble(label: _activeToolLabel!)
+                  : _ThinkingBubble(animation: _dotAnimCtrl))
+            : _AssistantBubble(content: _streamingContent, isStreaming: true),
+      if (_pendingApproval != null)
+        _ApprovalCard(
+          approval: _pendingApproval!,
+          onConfirm: () => _respondToApproval(approved: true),
+          onCancel: () => _respondToApproval(approved: false),
+        ),
+    ];
 
-    return ListView.builder(
+    return ListView(
       controller: _scrollCtrl,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      itemCount: itemCount,
-      itemBuilder: (context, index) {
-        if (index < _messages.length) {
-          final msg = _messages[index];
-          return _MessageTile(
-            message: msg,
-            onRetry: msg.role == _Role.error ? _retryLast : null,
-          );
-        }
-        // Streaming bubble
-        if (_streamingContent.isEmpty) {
-          if (_activeToolLabel != null) {
-            return _ToolStatusBubble(label: _activeToolLabel!);
-          }
-          return _ThinkingBubble(animation: _dotAnimCtrl);
-        }
-        return _AssistantBubble(content: _streamingContent, isStreaming: true);
-      },
+      children: children,
     );
   }
 
@@ -411,6 +678,9 @@ class _BuddyChatPageState extends State<BuddyChatPage>
   }
 
   Widget _buildInputBar(BuildContext context, double bottomPad) {
+    final isComposerLocked =
+        _isStreaming || _isUploadingAttachment || _pendingApproval != null;
+
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomPad),
       decoration: BoxDecoration(
@@ -419,58 +689,104 @@ class _BuddyChatPageState extends State<BuddyChatPage>
           top: BorderSide(color: context.colors.border.withValues(alpha: 0.5)),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 48, maxHeight: 130),
-              decoration: BoxDecoration(
-                color: context.colors.cardRaised,
-                borderRadius: BorderRadius.circular(26),
-                border: Border.all(
-                  color: _isStreaming
-                      ? context.colors.border.withValues(alpha: 0.4)
-                      : context.colors.border,
-                ),
-              ),
-              child: Semantics(
-                textField: true,
-                label: 'Message Buddy',
-                child: TextField(
-                  controller: _inputCtrl,
-                  focusNode: _focusNode,
-                  maxLines: null,
-                  keyboardType: TextInputType.multiline,
-                  textInputAction: TextInputAction.newline,
-                  enabled: !_isStreaming,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: context.colors.textPrimary,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: _isStreaming
-                        ? 'Buddy is thinking…'
-                        : 'Ask Buddy something…',
-                    hintStyle: GoogleFonts.plusJakartaSans(
-                      color: context.colors.textMuted,
-                      fontSize: 14,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 13,
-                    ),
-                  ),
-                ),
-              ),
+          if (_composerAttachment != null) ...[
+            _ComposerAttachmentPreview(
+              attachment: _composerAttachment!,
+              onRemove: _isStreaming || _isUploadingAttachment
+                  ? null
+                  : () => setState(() => _composerAttachment = null),
             ),
-          ),
-          const SizedBox(width: 10),
-          _SendButton(
-            isStreaming: _isStreaming,
-            onTap: () => _sendMessage(_inputCtrl.text),
+            const SizedBox(height: 10),
+          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Container(
+                  constraints: const BoxConstraints(
+                    minHeight: 48,
+                    maxHeight: 130,
+                  ),
+                  decoration: BoxDecoration(
+                    color: context.colors.cardRaised,
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(
+                      color: isComposerLocked
+                          ? context.colors.border.withValues(alpha: 0.4)
+                          : context.colors.border,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      SizedBox(
+                        height: 48,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
+                          child: Center(
+                            child: _AttachButton(
+                              isBusy:
+                                  isComposerLocked ||
+                                  _composerAttachment != null,
+                              onTap: _pickMealPhoto,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Semantics(
+                          textField: true,
+                          label: 'Message Buddy',
+                          child: TextField(
+                            controller: _inputCtrl,
+                            focusNode: _focusNode,
+                            maxLines: null,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            enabled: !isComposerLocked,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: context.colors.textPrimary,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: _isUploadingAttachment
+                                  ? 'Uploading photo…'
+                                  : _pendingApproval != null
+                                  ? 'Approve or cancel the pending change…'
+                                  : _isStreaming
+                                  ? 'Buddy is thinking…'
+                                  : _composerAttachment != null
+                                  ? 'Add context for this meal photo…'
+                                  : 'Ask Buddy something…',
+                              hintStyle: GoogleFonts.plusJakartaSans(
+                                color: context.colors.textMuted,
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                0,
+                                13,
+                                18,
+                                13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _SendButton(
+                isStreaming: isComposerLocked,
+                onTap: () => _sendMessage(_inputCtrl.text),
+              ),
+            ],
           ),
         ],
       ),
@@ -488,7 +804,10 @@ class _MessageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (message.role) {
-      _Role.user => _UserBubble(content: message.content),
+      _Role.user => _UserBubble(
+        content: message.content,
+        attachment: message.attachment,
+      ),
       _Role.error => _ErrorBubble(
         content: message.content,
         onRetry: onRetry ?? () {},
@@ -502,7 +821,8 @@ class _MessageTile extends StatelessWidget {
 
 class _UserBubble extends StatelessWidget {
   final String content;
-  const _UserBubble({required this.content});
+  final _ChatAttachment? attachment;
+  const _UserBubble({required this.content, this.attachment});
 
   @override
   Widget build(BuildContext context) {
@@ -511,7 +831,7 @@ class _UserBubble extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerRight,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: context.colors.cardRaised,
             borderRadius: const BorderRadius.only(
@@ -522,13 +842,62 @@ class _UserBubble extends StatelessWidget {
             ),
             border: Border.all(color: context.colors.border),
           ),
-          child: Text(
-            content,
-            style: GoogleFonts.plusJakartaSans(
-              color: context.colors.textPrimary,
-              fontSize: 14,
-              height: 1.55,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (attachment != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.file(
+                    File(attachment!.localPath),
+                    width: 184,
+                    height: 132,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      width: 184,
+                      height: 132,
+                      color: context.colors.background,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        LucideIcons.image,
+                        color: context.colors.textMuted,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.camera,
+                      size: 12,
+                      color: context.colors.textMuted,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Meal photo attached',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: context.colors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                if (content.trim().isNotEmpty) const SizedBox(height: 10),
+              ],
+              if (content.trim().isNotEmpty)
+                Text(
+                  content,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: context.colors.textPrimary,
+                    fontSize: 14,
+                    height: 1.55,
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -628,6 +997,205 @@ class _ErrorBubble extends StatelessWidget {
   }
 }
 
+class _ApprovalCard extends StatelessWidget {
+  final BuddyApprovalRequest approval;
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+
+  const _ApprovalCard({
+    required this.approval,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 22, right: 16),
+      decoration: colors.cardDecoration(
+        borderColor: colors.warning.withValues(alpha: 0.35),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.warning.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: colors.warning.withValues(alpha: 0.28),
+                    ),
+                  ),
+                  child: Text(
+                    'CONFIRMATION',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.warning,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              approval.title,
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (approval.summary.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                approval.summary,
+                style: GoogleFonts.plusJakartaSans(
+                  color: colors.textSecondary,
+                  fontSize: 12,
+                  height: 1.55,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: AppPressable(
+                    onPressed: onCancel,
+                    minHeight: 44,
+                    borderRadius: BorderRadius.circular(16),
+                    decoration: BoxDecoration(
+                      color: colors.cardRaised,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Center(
+                      child: Text(
+                        approval.cancelLabel,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: AppPressable(
+                    onPressed: onConfirm,
+                    minHeight: 44,
+                    borderRadius: BorderRadius.circular(16),
+                    decoration: BoxDecoration(
+                      color: colors.actionSurface,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Center(
+                      child: Text(
+                        approval.confirmLabel,
+                        style: GoogleFonts.plusJakartaSans(
+                          color: colors.actionForeground,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerAttachmentPreview extends StatelessWidget {
+  final _ComposerAttachment attachment;
+  final VoidCallback? onRemove;
+
+  const _ComposerAttachmentPreview({required this.attachment, this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      decoration: colors.cardDecoration(radius: 18),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.file(
+                attachment.file,
+                width: 68,
+                height: 68,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Meal photo ready',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    attachment.isAnalyzing
+                        ? 'Analysis started. You can send it now.'
+                        : 'Attached to your next Buddy message.',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: colors.textMuted,
+                      fontSize: 11,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onRemove != null)
+              AppPressable(
+                onPressed: onRemove,
+                minHeight: 34,
+                minWidth: 34,
+                borderRadius: BorderRadius.circular(12),
+                decoration: BoxDecoration(
+                  color: colors.cardRaised,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colors.border),
+                ),
+                child: Icon(LucideIcons.x, size: 16, color: colors.textMuted),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Markdown Content ─────────────────────────────────────────────────────────
 
 class _MarkdownContent extends StatelessWidget {
@@ -658,8 +1226,16 @@ class _MarkdownContent extends StatelessWidget {
           fontStyle: FontStyle.italic,
           height: 1.65,
         ),
-        h1: AppTheme.displayStyle(fontSize: 18, fontWeight: FontWeight.w700, color: context.colors.textPrimary),
-        h2: AppTheme.displayStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.colors.textPrimary),
+        h1: AppTheme.displayStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: context.colors.textPrimary,
+        ),
+        h2: AppTheme.displayStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: context.colors.textPrimary,
+        ),
         h3: GoogleFonts.plusJakartaSans(
           color: context.colors.textPrimary,
           fontSize: 14,
@@ -913,6 +1489,134 @@ class _SuggestionChip extends StatelessWidget {
 
 // ─── Send Button ─────────────────────────────────────────────────────────────
 
+class _AttachButton extends StatelessWidget {
+  final bool isBusy;
+  final VoidCallback onTap;
+
+  const _AttachButton({required this.isBusy, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPressable(
+      onPressed: isBusy ? null : onTap,
+      semanticsLabel: isBusy ? 'Attachment unavailable' : 'Attach meal photo',
+      minHeight: 28,
+      minWidth: 28,
+      borderRadius: BorderRadius.circular(14),
+      child: Icon(
+        LucideIcons.paperclip,
+        color: isBusy ? context.colors.textMuted : context.colors.textSecondary,
+        size: 18,
+      ),
+    );
+  }
+}
+
+class _MealPhotoSourceSheet extends StatelessWidget {
+  const _MealPhotoSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.border.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Pick image from',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Choose where to add your meal photo from.',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textMuted,
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _MealPhotoSourceOption(
+              icon: LucideIcons.image,
+              label: 'Gallery',
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+            const SizedBox(height: 10),
+            _MealPhotoSourceOption(
+              icon: LucideIcons.camera,
+              label: 'Camera',
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MealPhotoSourceOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _MealPhotoSourceOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return AppPressable(
+      onPressed: onTap,
+      minHeight: 56,
+      borderRadius: BorderRadius.circular(18),
+      decoration: BoxDecoration(
+        color: colors.cardRaised,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.textPrimary, size: 18),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SendButton extends StatelessWidget {
   final bool isStreaming;
   final VoidCallback onTap;
@@ -927,7 +1631,9 @@ class _SendButton extends StatelessWidget {
       minWidth: 48,
       borderRadius: BorderRadius.circular(24),
       decoration: BoxDecoration(
-        color: isStreaming ? context.colors.cardRaised : context.colors.actionSurface,
+        color: isStreaming
+            ? context.colors.cardRaised
+            : context.colors.actionSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isStreaming ? context.colors.border : AppTheme.transparent,

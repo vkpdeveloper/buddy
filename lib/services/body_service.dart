@@ -57,6 +57,7 @@ final class BodyService extends ApiBase {
     String note = '',
   }) async {
     final token = await FirebaseAuthProvider.instance.getToken();
+    final timeZone = await ApiBase.localTimeZone();
     final req = http.MultipartRequest(
       'POST',
       Uri.parse('${ApiBase.baseUrl}/api/body/photos'),
@@ -71,6 +72,7 @@ final class BodyService extends ApiBase {
       http.MultipartFile.fromBytes('file', bytes, filename: fileName),
     );
     req.headers['Accept'] = 'application/json';
+    req.headers['X-Timezone'] = timeZone;
     if (token != null) req.headers['Authorization'] = 'Bearer $token';
 
     final streamed = await req.send();

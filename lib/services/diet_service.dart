@@ -10,9 +10,15 @@ final class DietService extends ApiBase {
     return ApiBase.decode(res);
   }
 
-  static Future<Map<String, dynamic>> getDietPlan(int id) async {
+  static Future<Map<String, dynamic>> getDietPlan(
+    int id, {
+    String? date,
+  }) async {
+    final uri = Uri.parse(
+      '${ApiBase.baseUrl}/api/diet/plans/$id',
+    ).replace(queryParameters: date != null ? {'date': date} : null);
     final res = await ApiBase.client.get(
-      Uri.parse('${ApiBase.baseUrl}/api/diet/plans/$id'),
+      uri,
       headers: await ApiBase.authHeaders(),
     );
     return ApiBase.decode(res);

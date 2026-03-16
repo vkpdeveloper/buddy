@@ -15,6 +15,8 @@ import { createProgressPhotoObjectKey, signPrivateObjectUrl, uploadPrivateObject
 import { ok, fail } from '../lib/response';
 import { notFound } from '../lib/errors';
 import { syncTargetsFromProfile } from '../lib/userTargets';
+import { upsertBodyMeasurement } from '../services/bodyMeasurements';
+import { updateBodyGoals } from '../services/targets';
 
 const router = new Hono();
 
@@ -196,121 +198,8 @@ router.post('/log', async (c) => {
     return fail(c, 'date is required', 400);
   }
 
-  const progress = await ensureProgressRow(userId);
-  const profile = await ensureProfileRow(userId);
-  const multiplier = getStreakMultiplier(progress.currentStreak);
-  const xpEarned = Math.round(BODY_LOG_XP_BASE * multiplier);
-
-  const inserted = await db
-    .insert(bodyMeasurements)
-    .values({
-      userId,
-      date: body.date,
-      weightKg: body.weightKg ?? null,
-      bodyFatPercent: body.bodyFatPercent ?? null,
-      chestCm: body.chestCm ?? null,
-      waistCm: body.waistCm ?? null,
-      hipsCm: body.hipsCm ?? null,
-      armsCm: body.armsCm ?? null,
-      thighsCm: body.thighsCm ?? null,
-      notes: body.notes ?? '',
-      xpEarned,
-    })
-    .returning();
-
-  const createdMeasurement = inserted[0];
-  const previousLevel = getLevel(progress.totalXp);
-
-  let addedAchievementXp = 0;
-  let addedMilestoneXp = 0;
-
-  const totalLogs = await db.select().from(bodyMeasurements).where(eq(bodyMeasurements.userId, userId));
-
-  const existingUnlocks = await db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
-  const achievementIds = existingUnlocks.map((r) => r.achievementId);
-  const unlockedAchievements =
-    achievementIds.length > 0
-      ? await db.select().from(achievements).where(inArray(achievements.id, achievementIds))
-      : [];
-
-  const unlockedSlugs = new Set(unlockedAchievements.map((a) => a.slug));
-  const newAchievements: (typeof achievements.$inferSelect)[] = [];
-
-  if (totalLogs.length === 1 && !unlockedSlugs.has('first_body_log')) {
-    const firstLogAchievement = await db
-      .select()
-      .from(achievements)
-      .where(eq(achievements.slug, 'first_body_log'))
-      .limit(1);
-
-    if (firstLogAchievement.length > 0) {
-      const ach = firstLogAchievement[0];
-      await db.insert(userAchievements).values({ userId, achievementId: ach.id });
-      addedAchievementXp += ach.xpReward;
-      newAchievements.push(ach);
-    }
-  }
-
-  const milestones = await db.select().from(bodyMilestones).where(eq(bodyMilestones.userId, userId));
-  const milestoneKeys = new Set(milestones.map((m) => m.milestoneKey));
-
-  const chrono = [...totalLogs].sort((a, b) => a.date.localeCompare(b.date));
-  const milestoneCandidates = milestoneEvaluations({
-    rows: chrono,
-    goal: profile?.goal ?? null,
-  });
-
-  const newMilestones: { key: string; label: string; value: number; xpReward: number }[] = [];
-
-  for (const milestone of milestoneCandidates) {
-    if (milestoneKeys.has(milestone.key)) continue;
-    await db.insert(bodyMilestones).values({
-      userId,
-      milestoneKey: milestone.key,
-      measurementId: createdMeasurement.id,
-      xpReward: MILESTONE_XP_REWARD,
-    });
-    addedMilestoneXp += MILESTONE_XP_REWARD;
-    newMilestones.push({
-      key: milestone.key,
-      label: milestone.label,
-      value: milestone.value,
-      xpReward: MILESTONE_XP_REWARD,
-    });
-  }
-
-  const newTotalXp = progress.totalXp + xpEarned + addedAchievementXp + addedMilestoneXp;
-  const newLevel = getLevel(newTotalXp);
-
-  await db
-    .update(userProgress)
-    .set({
-      totalXp: newTotalXp,
-      currentLevel: newLevel,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(userProgress.userId, userId));
-
-  return ok(c, {
-    measurementId: createdMeasurement.id,
-    xpEarned,
-    achievementXp: addedAchievementXp,
-    milestoneXp: addedMilestoneXp,
-    multiplier,
-    previousLevel,
-    newLevel,
-    newTotalXp,
-    levelLabel: getLevelLabel(newLevel),
-    didLevelUp: newLevel > previousLevel,
-    newAchievements: newAchievements.map((a) => ({
-      slug: a.slug,
-      name: a.name,
-      description: a.description,
-      xpReward: a.xpReward,
-      iconName: a.iconName,
-    })),
-    newMilestones,
-  });
+  const result = await upsertBodyMeasurement(userId, body);
+  return ok(c, result);
 });
 
 router.get('/history', async (c) => {
@@ -464,29 +353,12 @@ router.put('/goals', async (c) => {
 
   const profile = await ensureProfileRow(userId);
   if (!profile) throw notFound('Profile not found');
-
-  const updateData: Partial<typeof userProfile.$inferInsert> = {
-    updatedAt: new Date().toISOString(),
-  };
-
-  if (payload.weightGoalKg !== undefined) {
-    updateData.weightGoalKg = toNum(payload.weightGoalKg);
-  }
-  if (payload.bodyFatGoalPercent !== undefined) {
-    updateData.bodyFatGoalPercent = toNum(payload.bodyFatGoalPercent);
-  }
-
-  const updated = await db
-    .update(userProfile)
-    .set(updateData)
-    .where(eq(userProfile.userId, userId))
-    .returning();
-
-  await syncTargetsFromProfile(userId, {
-    targetWeight: payload.weightGoalKg === undefined ? undefined : toNum(payload.weightGoalKg),
+  const updated = await updateBodyGoals(userId, {
+    weightGoalKg: payload.weightGoalKg === undefined ? undefined : toNum(payload.weightGoalKg),
+    bodyFatGoalPercent: payload.bodyFatGoalPercent === undefined ? undefined : toNum(payload.bodyFatGoalPercent),
   });
 
-  return ok(c, updated[0]);
+  return ok(c, updated);
 });
 
 router.get('/growth', async (c) => {

@@ -5,6 +5,7 @@ import { db } from '../db';
 import { ok } from '../lib/response';
 import { ensureUserTargetsRow, syncProfileFromTargets } from '../lib/userTargets';
 import { userTargets } from '../db/schema';
+import { updateDailyTargets } from '../services/targets';
 
 const router = new Hono();
 
@@ -41,34 +42,8 @@ router.put('/', async (c) => {
     return c.json({ success: false, error: parsed.error }, 400);
   }
 
-  await ensureUserTargetsRow(userId);
-  const body = parsed.data;
-  const updateData: Partial<typeof userTargets.$inferInsert> = {
-    updatedAt: new Date().toISOString(),
-  };
-
-  if (body.dailySteps !== undefined) updateData.dailySteps = body.dailySteps;
-  if (body.dailySleepTarget !== undefined) {
-    updateData.dailySleepTarget = body.dailySleepTarget;
-  }
-  if (body.dailyWaterMl !== undefined) updateData.dailyWaterMl = body.dailyWaterMl;
-  if (body.targetWeight !== undefined) updateData.targetWeight = body.targetWeight;
-  if (body.dailyCalorieBurn !== undefined) {
-    updateData.dailyCalorieBurn = body.dailyCalorieBurn;
-  }
-
-  const updated = await db
-    .update(userTargets)
-    .set(updateData)
-    .where(eq(userTargets.userId, userId))
-    .returning();
-
-  await syncProfileFromTargets(userId, {
-    dailyWaterMl: body.dailyWaterMl,
-    targetWeight: body.targetWeight,
-  });
-
-  return ok(c, updated[0]);
+  const updated = await updateDailyTargets(userId, parsed.data);
+  return ok(c, updated);
 });
 
 export default router;

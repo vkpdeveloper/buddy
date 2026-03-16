@@ -58,7 +58,7 @@ final todayNutritionSummaryProvider =
 
       // 2. Fetch plan details + today's log in parallel
       final results = await Future.wait([
-        DietService.getDietPlan(planId),
+        DietService.getDietPlan(planId, date: date),
         DietService.getDietLog(date),
       ]);
       final planData = results[0]['data'] as Map<String, dynamic>;
@@ -89,7 +89,11 @@ final todayNutritionSummaryProvider =
       final days = (planData['days'] as List?) ?? [];
       if (days.isEmpty) return _emptyNutrition();
 
-      final dayIndex = nowDayIndex.clamp(0, days.length - 1);
+      final requestedDate = DateTime.tryParse(date);
+      final targetDayIndex = requestedDate == null
+          ? nowDayIndex
+          : requestedDate.weekday - 1;
+      final dayIndex = targetDayIndex.clamp(0, days.length - 1);
       final day = days[dayIndex] as Map<String, dynamic>;
       final mealsRaw = ((day['meals'] as List?) ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))

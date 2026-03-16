@@ -127,7 +127,7 @@ router.post('/:id/analyze', async (c) => {
       })
       .where(eq(mealMediaAttachments.id, id));
 
-    const jobId = `meal-analysis:${attachment.id}`;
+    const jobId = `meal-analysis-${attachment.id}`;
     const existingJob = await mealAnalysisQueue.getJob(jobId);
     if (existingJob) {
       const state = await existingJob.getState();

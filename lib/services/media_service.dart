@@ -10,6 +10,7 @@ final class MediaService extends ApiBase {
     String mimeType,
   ) async {
     final token = await FirebaseAuthProvider.instance.getToken();
+    final timeZone = await ApiBase.localTimeZone();
     final bytes = await photo.readAsBytes();
     final fileName = photo.path.split('/').last;
     final req = http.MultipartRequest(
@@ -21,19 +22,16 @@ final class MediaService extends ApiBase {
       http.MultipartFile.fromBytes('file', bytes, filename: fileName),
     );
     req.headers['Accept'] = 'application/json';
+    req.headers['X-Timezone'] = timeZone;
     if (token != null) req.headers['Authorization'] = 'Bearer $token';
     final streamed = await req.send();
     final res = await http.Response.fromStream(streamed);
     return ApiBase.decode(res);
   }
 
-  static Future<Map<String, dynamic>> analyzeMealPhoto(
-    int attachmentId,
-  ) async {
+  static Future<Map<String, dynamic>> analyzeMealPhoto(int attachmentId) async {
     final res = await ApiBase.client.post(
-      Uri.parse(
-        '${ApiBase.baseUrl}/api/diet/media/$attachmentId/analyze',
-      ),
+      Uri.parse('${ApiBase.baseUrl}/api/diet/media/$attachmentId/analyze'),
       headers: await ApiBase.authHeaders(),
     );
     return ApiBase.decode(res);

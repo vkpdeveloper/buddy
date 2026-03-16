@@ -4,17 +4,17 @@ import { z } from 'zod';
 import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { ok } from '../lib/response';
+import { getDayNumberFromDate } from '../lib/time';
 import {
     dailyLogs,
-    dietDays,
     dietMealLogs,
-    dietMeals,
-    dietPlans,
-    workoutDays,
     workoutExercises,
-    workoutPlans,
     workoutSessions,
+    workoutDays,
+    workoutPlans,
 } from '../db/schema';
+import { getDailyLog, incrementHydration, upsertDailyLog } from '../services/dailyLogs';
+import { getEffectiveDietDayForDate } from '../services/diet';
 
 const router = new Hono();
 
@@ -42,9 +42,7 @@ router.get('/week', async (c) => {
 router.get('/home-summary/:date', async (c) => {
     const userId = c.var.userId;
     const date = c.req.param('date');
-    const weekday = new Date(`${date}T00:00:00`).getDay(); // 0=Sun...6=Sat
-    const dayNumber = weekday === 0 ? 7 : weekday;
-
+    const dayNumber = getDayNumberFromDate(date);
     const [logRow] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
     const hydrationMl = logRow?.waterMl ?? 0;
     const sleepMinutes = logRow?.sleepMinutes ?? 0;
@@ -52,38 +50,28 @@ router.get('/home-summary/:date', async (c) => {
     const steps = logRow?.stepsCount ?? 0;
 
     // Next meal from active diet plan, for the selected date.
-    const [activeDietPlan] = await db.select().from(dietPlans).where(and(eq(dietPlans.userId, userId), eq(dietPlans.isActive, true))).limit(1);
     let nextMeal: null | { id: number; type: string; label: string; mealName: string; isCompleted: boolean } = null;
-    if (activeDietPlan) {
-        const [dietDay] = await db.select().from(dietDays)
-            .where(and(eq(dietDays.planId, activeDietPlan.id), eq(dietDays.dayNumber, dayNumber)))
-            .limit(1);
-
-        if (dietDay) {
-            const meals = await db.select().from(dietMeals)
-                .where(eq(dietMeals.dayId, dietDay.id))
-                .orderBy(asc(dietMeals.orderIndex));
-
-            const mealIds = meals.map((m) => m.id);
-            const logs = mealIds.length > 0
-                ? await db
-                    .select({ mealId: dietMealLogs.mealId, isCompleted: dietMealLogs.isCompleted })
-                    .from(dietMealLogs)
-                    .where(and(eq(dietMealLogs.date, date), inArray(dietMealLogs.mealId, mealIds)))
-                : [];
-            const logMap = new Map(logs.map((l) => [l.mealId, l.isCompleted]));
-            const pending = meals.find((m) => !(logMap.get(m.id) ?? false));
-            const fallback = meals[0];
-            const chosen = pending ?? fallback;
-            if (chosen) {
-                nextMeal = {
-                    id: chosen.id,
-                    type: chosen.mealType,
-                    label: mealTypeLabel[chosen.mealType] ?? chosen.mealType,
-                    mealName: chosen.mealName,
-                    isCompleted: logMap.get(chosen.id) ?? false,
-                };
-            }
+    const effectiveDietDay = await getEffectiveDietDayForDate(userId, date);
+    if (effectiveDietDay) {
+        const mealIds = effectiveDietDay.meals.map((meal) => meal.sourceMealId as number);
+        const logs = mealIds.length > 0
+            ? await db
+                .select({ mealId: dietMealLogs.mealId, isCompleted: dietMealLogs.isCompleted })
+                .from(dietMealLogs)
+                .where(and(eq(dietMealLogs.date, date), inArray(dietMealLogs.mealId, mealIds)))
+            : [];
+        const logMap = new Map(logs.map((log) => [log.mealId, log.isCompleted]));
+        const pending = effectiveDietDay.meals.find((meal) => !(logMap.get(meal.sourceMealId) ?? false));
+        const fallback = effectiveDietDay.meals[0];
+        const chosen = pending ?? fallback;
+        if (chosen) {
+            nextMeal = {
+                id: chosen.sourceMealId,
+                type: chosen.mealType,
+                label: mealTypeLabel[chosen.mealType] ?? chosen.mealType,
+                mealName: chosen.mealName,
+                isCompleted: logMap.get(chosen.sourceMealId) ?? false,
+            };
         }
     }
 
@@ -144,7 +132,7 @@ router.get('/home-summary/:date', async (c) => {
 router.get('/:date', async (c) => {
     const userId = c.var.userId;
     const date = c.req.param('date');
-    const [row] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
+    const row = await getDailyLog(userId, date);
     if (!row) {
         // Return zeroed log if none exists yet
         return ok(c, { date, waterMl: 0, sleepMinutes: 0, stepsCount: 0, caloriesBurned: 0 });
@@ -168,25 +156,8 @@ router.post('/:date/hydration/increment', zValidator('json', hydrationIncrementS
     const userId = c.var.userId;
     const date = c.req.param('date');
     const amountMl = c.req.valid('json').amountMl ?? 250;
-
-    const [existing] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
-    if (existing) {
-        const [updated] = await db.update(dailyLogs).set({
-            waterMl: existing.waterMl + amountMl,
-            updatedAt: new Date().toISOString(),
-        }).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date))).returning();
-        return ok(c, updated);
-    }
-
-    const [inserted] = await db.insert(dailyLogs).values({
-        userId,
-        date,
-        waterMl: amountMl,
-        sleepMinutes: 0,
-        stepsCount: 0,
-        caloriesBurned: 0,
-    }).returning();
-    return ok(c, inserted);
+    const updated = await incrementHydration(userId, date, amountMl);
+    return ok(c, updated);
 });
 
 // ─── PUT /api/logs/:date ─────────────────────────────────────────────────────
@@ -194,31 +165,8 @@ router.put('/:date', zValidator('json', logSchema), async (c) => {
     const userId = c.var.userId;
     const date = c.req.param('date');
     const body = c.req.valid('json');
-
-    const [existing] = await db.select().from(dailyLogs).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date)));
-
-    let result: (typeof dailyLogs.$inferSelect)[];
-    if (existing) {
-        const updateData: Partial<typeof dailyLogs.$inferInsert> = {
-            updatedAt: new Date().toISOString(),
-        };
-        if (body.waterMl !== undefined) updateData.waterMl = body.waterMl;
-        if (body.sleepMinutes !== undefined) updateData.sleepMinutes = body.sleepMinutes;
-        if (body.stepsCount !== undefined) updateData.stepsCount = body.stepsCount;
-        if (body.caloriesBurned !== undefined) updateData.caloriesBurned = body.caloriesBurned;
-        result = await db.update(dailyLogs).set(updateData).where(and(eq(dailyLogs.userId, userId), eq(dailyLogs.date, date))).returning();
-    } else {
-        result = await db.insert(dailyLogs).values({
-            userId,
-            date,
-            waterMl: body.waterMl ?? 0,
-            sleepMinutes: body.sleepMinutes ?? 0,
-            stepsCount: body.stepsCount ?? 0,
-            caloriesBurned: body.caloriesBurned ?? 0,
-        }).returning();
-    }
-
-    return ok(c, result[0]);
+    const result = await upsertDailyLog(userId, date, body);
+    return ok(c, result);
 });
 
 export default router;
