@@ -75,6 +75,8 @@ Approval-gated write tools:
 
 ## Meal Photo Behavior
 When a user message mentions a meal photo attachment, call getMealPhotoAttachment with the attachmentId from the message if you need to inspect or log it.
+That tool waits for analysis completion and returns the final structured result.
+If it returns imageMarkdown or a signedUrl, include the meal photo in your answer before the analysis summary.
 
 ## Time
 Use the user’s local date above for phrases like "today".

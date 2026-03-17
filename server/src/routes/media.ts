@@ -3,9 +3,9 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db';
 import { mealMediaAttachments } from '../db/schema';
 import { createMealPhotoObjectKey, signPrivateObjectUrl, uploadPrivateObject } from '../lib/r2';
-import { mealAnalysisQueue } from '../lib/queue';
 import { ok, fail } from '../lib/response';
 import { notFound, badRequest } from '../lib/errors';
+import { ensureMealAnalysisQueued } from '../services/mealMedia';
 
 const router = new Hono();
 
@@ -117,37 +117,10 @@ router.post('/:id/analyze', async (c) => {
   }
 
   try {
-    await db
-      .update(mealMediaAttachments)
-      .set({
-        aiAnalysisStatus: 'analyzing',
-        aiAnalysisResult: attachment.aiAnalysisStatus === 'failed'
-          ? null
-          : attachment.aiAnalysisResult,
-      })
-      .where(eq(mealMediaAttachments.id, id));
-
-    const jobId = `meal-analysis-${attachment.id}`;
-    const existingJob = await mealAnalysisQueue.getJob(jobId);
-    if (existingJob) {
-      const state = await existingJob.getState();
-      if (state === 'failed') {
-        await existingJob.remove();
-      }
-    }
-
-    await mealAnalysisQueue.add(
-      'analyze-meal-photo',
-      { attachmentId: attachment.id },
-      { jobId },
-    );
+    await ensureMealAnalysisQueued(attachment);
 
     return ok(c, { status: 'analyzing' });
   } catch (queueErr) {
-    await db
-      .update(mealMediaAttachments)
-      .set({ aiAnalysisStatus: attachment.aiAnalysisStatus })
-      .where(eq(mealMediaAttachments.id, id));
     throw queueErr;
   }
 });

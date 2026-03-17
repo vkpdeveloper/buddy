@@ -1,7 +1,8 @@
 import { Tool } from 'ai';
 import { z } from 'zod';
 import { getLocalDateInTimeZone } from '../../../lib/time';
-import { createQuickMealLog, getMealAttachment, getMealSlotForDate, upsertActualMealLog } from '../../../services/diet';
+import { createQuickMealLog, getMealSlotForDate, upsertActualMealLog } from '../../../services/diet';
+import { ensureMealAnalysisReady } from '../../../services/mealMedia';
 import { immediateWriteResult } from './tool_output';
 
 const MealTypeSchema = z.enum([
@@ -20,20 +21,19 @@ function prettyMealType(mealType: string) {
 
 export function getMealPhotoAttachmentTool(userId: number): Tool {
     return {
-        description: 'Read a meal photo attachment by attachmentId, including AI analysis status and estimated ingredients/macros when available.',
+        description: 'Read a meal photo attachment by attachmentId. If analysis is not finished yet, wait for it to complete and then return the final meal analysis, signed image URL, and estimated macros.',
         inputSchema: z.object({
             attachmentId: z.number().int().positive(),
         }),
         execute: async ({ attachmentId }: { attachmentId: number }) => {
-            const attachment = await getMealAttachment(userId, attachmentId);
-            if (!attachment) {
-                throw new Error('Meal photo attachment not found.');
-            }
+            const attachment = await ensureMealAnalysisReady(userId, attachmentId);
 
             return {
                 attachmentId: attachment.id,
                 status: attachment.aiAnalysisStatus,
                 analysisResult: attachment.aiAnalysisResult,
+                signedUrl: attachment.signedUrl,
+                imageMarkdown: `![Meal photo](${attachment.signedUrl})`,
                 createdAt: attachment.createdAt,
             };
         },
@@ -58,13 +58,7 @@ export function logMealPhotoTool(userId: number, timeZone: string): Tool {
         needsApproval: true,
         execute: async (input) => {
             const date = input.date ?? getLocalDateInTimeZone(timeZone);
-            const attachment = await getMealAttachment(userId, input.attachmentId);
-            if (!attachment) {
-                throw new Error('Meal photo attachment not found.');
-            }
-            if (attachment.aiAnalysisStatus !== 'completed') {
-                throw new Error('Meal photo analysis is not finished yet.');
-            }
+            const attachment = await ensureMealAnalysisReady(userId, input.attachmentId);
 
             if (input.mode === 'actual') {
                 if (!input.mealType) {

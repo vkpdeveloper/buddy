@@ -1212,6 +1212,47 @@ class _MarkdownContent extends StatelessWidget {
 
     return MarkdownBody(
       data: content,
+      imageBuilder: (uri, title, alt) => Padding(
+        padding: const EdgeInsets.only(top: 6, bottom: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: context.colors.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: AspectRatio(
+            aspectRatio: 4 / 3,
+            child: Image.network(
+              uri.toString(),
+              fit: BoxFit.cover,
+              loadingBuilder: (ctx, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  color: context.colors.cardRaised,
+                  alignment: Alignment.center,
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: context.colors.textMuted,
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: context.colors.cardRaised,
+                alignment: Alignment.center,
+                child: Icon(
+                  LucideIcons.image_off,
+                  color: context.colors.textMuted,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
       styleSheet: MarkdownStyleSheet(
         p: base,
         strong: GoogleFonts.plusJakartaSans(

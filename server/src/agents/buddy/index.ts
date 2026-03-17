@@ -176,7 +176,7 @@ router.post('/chat', zValidator('json', chatSchema), async (c) => {
                     getUserProgress: 'Looking at your progress...',
                     getTodayDailyLog: 'Checking today\'s health log...',
                     getUserTargets: 'Checking your targets...',
-                    getMealPhotoAttachment: 'Reviewing the meal photo...',
+                    getMealPhotoAttachment: 'Analyzing the meal photo...',
                     logBodyProgress: 'Saving your body progress...',
                     updateDailyHealthLog: 'Updating your daily log...',
                     logDetailedWorkout: 'Logging your workout...',

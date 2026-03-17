@@ -15,6 +15,7 @@ import 'package:buddy/widgets/app_empty_state.dart';
 import 'package:buddy/widgets/app_week_date_picker.dart';
 import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
+import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/widgets/app_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -177,6 +178,9 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
       } catch (_) {
         // Keep the last known photo analysis state on transient failures.
       }
+      final mergedRecentAnalyses = _mergePhotoAnalysesWithExisting(
+        recentAnalyses,
+      );
 
       if (!mounted) return;
       setState(() {
@@ -185,7 +189,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         _todayLog = completionMap;
         _actualLogs = actualMap;
         _quickLogs = quickLogs;
-        _photoAnalyses = recentAnalyses;
+        _photoAnalyses = mergedRecentAnalyses;
         _selectedDayIndex = days.isEmpty
             ? 0
             : nowDayIndex.clamp(0, days.length - 1);
@@ -244,6 +248,98 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     return status == 'pending' || status == 'analyzing';
   });
 
+  String _photoAnalysisKey(Map<String, dynamic> analysis) {
+    final id = analysis['id']?.toString();
+    if (id != null && id.isNotEmpty) return 'id:$id';
+
+    final createdAt = analysis['createdAt']?.toString();
+    if (createdAt != null && createdAt.isNotEmpty) {
+      return 'createdAt:$createdAt';
+    }
+
+    return jsonEncode(_normalizeJsonValue(analysis));
+  }
+
+  Object? _normalizeJsonValue(Object? value) {
+    if (value is Map) {
+      final entries = value.entries.toList()
+        ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+      return {
+        for (final entry in entries)
+          entry.key.toString(): _normalizeJsonValue(entry.value),
+      };
+    }
+
+    if (value is List) {
+      return value
+          .map<Object?>((item) => _normalizeJsonValue(item))
+          .toList(growable: false);
+    }
+
+    if (value is DateTime) {
+      return value.toIso8601String();
+    }
+
+    return value;
+  }
+
+  String _photoAnalysisContentSignature(Map<String, dynamic> analysis) {
+    final comparable = Map<String, dynamic>.from(analysis)..remove('signedUrl');
+    return jsonEncode(_normalizeJsonValue(comparable));
+  }
+
+  String _photoAnalysesSignature(List<Map<String, dynamic>> analyses) {
+    final normalized =
+        analyses
+            .map<Map<String, dynamic>>(
+              (analysis) => {
+                'key': _photoAnalysisKey(analysis),
+                'state': _normalizeJsonValue(analysis),
+              },
+            )
+            .toList()
+          ..sort((a, b) => (a['key'] as String).compareTo(b['key'] as String));
+    return jsonEncode(normalized);
+  }
+
+  List<Map<String, dynamic>> _mergePhotoAnalysesWithExisting(
+    List<Map<String, dynamic>> incoming,
+  ) {
+    final currentByKey = {
+      for (final analysis in _photoAnalyses)
+        _photoAnalysisKey(analysis): analysis,
+    };
+
+    return incoming
+        .map((analysis) {
+          final existing = currentByKey[_photoAnalysisKey(analysis)];
+          if (existing == null) {
+            return analysis;
+          }
+
+          final sameContent =
+              _photoAnalysisContentSignature(existing) ==
+              _photoAnalysisContentSignature(analysis);
+          final existingUrl = existing['signedUrl'] as String?;
+          final incomingUrl = analysis['signedUrl'] as String?;
+
+          if (sameContent) {
+            if (existingUrl == null && incomingUrl != null) {
+              return {...existing, ...analysis};
+            }
+            return existing;
+          }
+
+          return {
+            ...existing,
+            ...analysis,
+            if (incomingUrl == null && existingUrl != null)
+              'signedUrl': existingUrl,
+          };
+        })
+        .toList(growable: false);
+  }
+
   void _syncPhotoAnalysisPolling() {
     if (_hasPendingPhotoAnalyses) {
       _photoAnalysisPollTimer ??= Timer.periodic(
@@ -267,9 +363,13 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
+      final mergedAnalyses = _mergePhotoAnalysesWithExisting(analyses);
 
       if (!mounted) return;
-      setState(() => _photoAnalyses = analyses);
+      if (_photoAnalysesSignature(_photoAnalyses) !=
+          _photoAnalysesSignature(mergedAnalyses)) {
+        setState(() => _photoAnalyses = mergedAnalyses);
+      }
     } catch (_) {
       if (!silent && mounted) {
         AppSnackbar.error(context, 'Could not refresh photo analysis status.');
@@ -285,12 +385,15 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   void _upsertPhotoAnalysis(Map<String, dynamic> analysis) {
     if (!mounted) return;
 
-    setState(() {
-      _photoAnalyses = [
-        analysis,
-        ..._photoAnalyses.where((item) => item['id'] != analysis['id']),
-      ];
-    });
+    final key = _photoAnalysisKey(analysis);
+    final nextAnalyses = _mergePhotoAnalysesWithExisting([
+      analysis,
+      ..._photoAnalyses.where((item) => _photoAnalysisKey(item) != key),
+    ]);
+    if (_photoAnalysesSignature(_photoAnalyses) !=
+        _photoAnalysesSignature(nextAnalyses)) {
+      setState(() => _photoAnalyses = nextAnalyses);
+    }
     _syncPhotoAnalysisPolling();
   }
 
@@ -360,9 +463,23 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   Future<void> _quickPhotoLog() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: context.colors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => const _DietMealPhotoSourceSheet(),
+    );
+    if (!mounted || source == null) return;
+
+    await _quickPhotoLogFromSource(source);
+  }
+
+  Future<void> _quickPhotoLogFromSource(ImageSource source) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
-      source: ImageSource.camera,
+      source: source,
       imageQuality: 85,
       maxWidth: 1280,
     );
@@ -1278,6 +1395,10 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   const SizedBox(height: 8),
                   ...photoAnalyses.map(
                     (analysis) => _PhotoAnalysisCard(
+                      key: ValueKey(
+                        (analysis['id'] as num?)?.toInt() ??
+                            analysis['createdAt']?.toString(),
+                      ),
                       analysis: analysis,
                       onTap: () => _openCompletedPhotoAnalysis(analysis),
                       onRetry: () async {
@@ -2779,6 +2900,7 @@ class _PhotoAnalysisCard extends StatelessWidget {
   final VoidCallback onRetry;
 
   const _PhotoAnalysisCard({
+    super.key,
     required this.analysis,
     required this.onTap,
     required this.onRetry,
@@ -2803,6 +2925,11 @@ class _PhotoAnalysisCard extends StatelessWidget {
 
     final isReady = status == 'completed' && result != null;
     final isFailed = status == 'failed';
+    final title = isReady
+        ? 'Photo analysis complete'
+        : isFailed
+        ? 'Photo analysis failed'
+        : 'Photo analysis in progress';
 
     final (badgeLabel, badgeColor, message) = switch (status) {
       'completed' => (
@@ -2824,76 +2951,41 @@ class _PhotoAnalysisCard extends StatelessWidget {
       ),
     };
 
-    return GestureDetector(
-      onTap: isReady ? onTap : null,
-      child: Opacity(
-        opacity: isReady || isFailed ? 1 : 0.96,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isReady ? onTap : null,
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: colors.cardGradient,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colors.shadowColor,
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          decoration: colors.cardDecoration(
+            borderColor: colors.border.withValues(alpha: 0.95),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (signedUrl != null)
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(19),
-                  ),
-                  child: Image.network(
-                    signedUrl,
-                    height: 160,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (_, child, progress) => progress == null
-                        ? child
-                        : Container(
-                            height: 160,
-                            color: badgeColor.withValues(alpha: 0.06),
-                            child: Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: colors.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                    errorBuilder: (context, error, stack) =>
-                        const SizedBox.shrink(),
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.all(14),
+              _PhotoAnalysisThumbnail(
+                signedUrl: signedUrl,
+                badgeColor: badgeColor,
+                colors: colors,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 7,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: badgeColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             badgeLabel,
@@ -2901,25 +2993,11 @@ class _PhotoAnalysisCard extends StatelessWidget {
                               color: badgeColor,
                               fontSize: 8,
                               fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
+                              letterSpacing: 1.1,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            isReady
-                                ? 'Photo analysis complete'
-                                : isFailed
-                                ? 'Photo analysis failed'
-                                : 'Photo analysis in progress',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: colors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
+                        const Spacer(),
                         if (!isFailed && !isReady)
                           SizedBox(
                             width: 16,
@@ -2928,15 +3006,39 @@ class _PhotoAnalysisCard extends StatelessWidget {
                               strokeWidth: 2,
                               color: colors.primary,
                             ),
+                          )
+                        else if (isReady)
+                          Icon(
+                            LucideIcons.chevron_right,
+                            size: 16,
+                            color: colors.textMuted,
+                          )
+                        else
+                          Icon(
+                            LucideIcons.circle_alert,
+                            size: 16,
+                            color: colors.error,
                           ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+                    Text(
+                      title,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                     Text(
                       message,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                         color: colors.textMuted,
                         fontSize: 11,
+                        height: 1.45,
                       ),
                     ),
                     if (isReady &&
@@ -2945,42 +3047,53 @@ class _PhotoAnalysisCard extends StatelessWidget {
                         carbs != null &&
                         fat != null) ...[
                       const SizedBox(height: 10),
-                      Text(
-                        '$calories kcal  •  ${protein.toStringAsFixed(1)}g protein  •  ${carbs.toStringAsFixed(1)}g carbs  •  ${fat.toStringAsFixed(1)}g fat',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textPrimary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _PhotoAnalysisStatChip(
+                            label: '$calories kcal',
+                            color: colors.xpGold,
+                          ),
+                          _PhotoAnalysisStatChip(
+                            label: '${protein.toStringAsFixed(1)}g protein',
+                            color: colors.success,
+                          ),
+                          _PhotoAnalysisStatChip(
+                            label: '${carbs.toStringAsFixed(1)}g carbs',
+                            color: colors.warning,
+                          ),
+                          _PhotoAnalysisStatChip(
+                            label: '${fat.toStringAsFixed(1)}g fat',
+                            color: colors.info,
+                          ),
+                        ],
                       ),
                     ],
                     if (isFailed) ...[
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          onPressed: onRetry,
-                          icon: Icon(
-                            LucideIcons.rotate_cw,
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: onRetry,
+                        icon: Icon(
+                          LucideIcons.rotate_cw,
+                          color: colors.error,
+                          size: 14,
+                        ),
+                        label: Text(
+                          'Retry',
+                          style: GoogleFonts.plusJakartaSans(
                             color: colors.error,
-                            size: 14,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                           ),
-                          label: Text(
-                            'Retry',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: colors.error,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: colors.error),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: colors.error),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            minimumSize: const Size(0, 36),
-                          ),
+                          minimumSize: const Size(0, 36),
                         ),
                       ),
                     ],
@@ -2989,6 +3102,96 @@ class _PhotoAnalysisCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoAnalysisThumbnail extends StatelessWidget {
+  final String? signedUrl;
+  final Color badgeColor;
+  final AppColorScheme colors;
+
+  const _PhotoAnalysisThumbnail({
+    required this.signedUrl,
+    required this.badgeColor,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        width: 88,
+        height: 88,
+        child: signedUrl == null
+            ? ColoredBox(
+                color: badgeColor.withValues(alpha: 0.12),
+                child: Center(
+                  child: Icon(
+                    LucideIcons.scan_search,
+                    size: 22,
+                    color: badgeColor,
+                  ),
+                ),
+              )
+            : Image.network(
+                signedUrl!,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                loadingBuilder: (_, child, progress) => progress == null
+                    ? child
+                    : ColoredBox(
+                        color: badgeColor.withValues(alpha: 0.08),
+                        child: Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colors.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                errorBuilder: (context, error, stackTrace) => ColoredBox(
+                  color: colors.cardRaised,
+                  child: Center(
+                    child: Icon(
+                      LucideIcons.image_off,
+                      size: 20,
+                      color: colors.textMuted,
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _PhotoAnalysisStatChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _PhotoAnalysisStatChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.plusJakartaSans(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -3114,6 +3317,111 @@ class _QuickLogCard extends StatelessWidget {
                 color: colors.textMuted,
                 fontSize: 11,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DietMealPhotoSourceSheet extends StatelessWidget {
+  const _DietMealPhotoSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.border.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Pick image from',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Choose where to add your meal photo from.',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textMuted,
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _DietMealPhotoSourceOption(
+              icon: LucideIcons.image,
+              label: 'Gallery',
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+            const SizedBox(height: 10),
+            _DietMealPhotoSourceOption(
+              icon: LucideIcons.camera,
+              label: 'Camera',
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DietMealPhotoSourceOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _DietMealPhotoSourceOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return AppPressable(
+      onPressed: onTap,
+      minHeight: 56,
+      borderRadius: BorderRadius.circular(18),
+      decoration: BoxDecoration(
+        color: colors.cardRaised,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.textPrimary, size: 18),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              color: colors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
