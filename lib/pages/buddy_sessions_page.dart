@@ -33,12 +33,14 @@ class BuddySessionsPage extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: context.colors.background,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
         leading: AppBackButton(onPressed: () => Navigator.of(context).pop()),
-        titleSpacing: 0,
         title: Text(
           'Buddy',
           style: AppTheme.displayStyle(
-            fontSize: 17,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: context.colors.textPrimary,
           ),
@@ -46,56 +48,91 @@ class BuddySessionsPage extends ConsumerWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: AppSurfaceIconButton(
-              icon: state.isCreating ? LucideIcons.loader_circle : LucideIcons.plus,
+            child: _PlainToolbarIconButton(
+              icon: state.isCreating
+                  ? LucideIcons.loader_circle
+                  : LucideIcons.plus,
               onPressed: state.isCreating ? null : openNewChat,
-              label: 'New Chat',
+              label: 'New chat',
             ),
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            height: 1,
-            color: context.colors.border.withValues(alpha: 0.5),
-          ),
-        ),
       ),
       body: RefreshIndicator(
         onRefresh: notifier.refresh,
         color: context.colors.textPrimary,
         backgroundColor: context.colors.cardRaised,
-        child: state.sessions.isEmpty && state.isLoading
-            ? const _LoadingState()
-            : state.sessions.isEmpty
-            ? _EmptyState(
-                isCreating: state.isCreating,
-                onCreate: openNewChat,
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                itemBuilder: (context, index) {
-                  final session = state.sessions[index];
-                  return _SessionCard(
-                    session: session,
-                    onOpen: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => BuddyChatPage(sessionId: session.id),
-                        ),
-                      );
-                    },
-                    onRename: () => _showRenameDialog(context, ref, session),
-                    onTogglePinned: () =>
-                        notifier.setPinned(session.id, !session.isPinned),
-                    onDelete: () => _confirmDelete(context, ref, session),
-                  );
-                },
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemCount: state.sessions.length,
-              ),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          children: [
+            if (state.errorMessage != null) ...[
+              _ErrorBanner(message: state.errorMessage!),
+              const SizedBox(height: 14),
+            ],
+            if (state.isLoading && state.sessions.isEmpty)
+              const _LoadingState()
+            else if (state.sessions.isEmpty)
+              _EmptyState(isCreating: state.isCreating, onCreate: openNewChat)
+            else ...[
+              for (var index = 0; index < state.sessions.length; index++) ...[
+                _SessionCard(
+                  session: state.sessions[index],
+                  onOpen: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            BuddyChatPage(sessionId: state.sessions[index].id),
+                      ),
+                    );
+                  },
+                  onLongPress: () => _showSessionActionsSheet(
+                    context,
+                    ref,
+                    state.sessions[index],
+                  ),
+                ),
+                if (index != state.sessions.length - 1)
+                  const SizedBox(height: 12),
+              ],
+            ],
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _showSessionActionsSheet(
+    BuildContext context,
+    WidgetRef ref,
+    BuddySessionSummary session,
+  ) async {
+    final action = await showModalBottomSheet<_SessionAction>(
+      context: context,
+      backgroundColor: context.colors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _SessionActionsSheet(session: session),
+    );
+
+    if (!context.mounted || action == null) {
+      return;
+    }
+
+    switch (action) {
+      case _SessionAction.pin:
+        await ref
+            .read(buddySessionListProvider.notifier)
+            .setPinned(session.id, !session.isPinned);
+        break;
+      case _SessionAction.rename:
+        await _showRenameDialog(context, ref, session);
+        break;
+      case _SessionAction.delete:
+        await _confirmDelete(context, ref, session);
+        break;
+    }
   }
 
   Future<void> _showRenameDialog(
@@ -154,10 +191,9 @@ class BuddySessionsPage extends ConsumerWidget {
       return;
     }
 
-    await ref.read(buddySessionListProvider.notifier).renameSession(
-          session.id,
-          title,
-        );
+    await ref
+        .read(buddySessionListProvider.notifier)
+        .renameSession(session.id, title);
   }
 
   Future<void> _confirmDelete(
@@ -209,7 +245,9 @@ class BuddySessionsPage extends ConsumerWidget {
     );
 
     if (confirmed == true) {
-      await ref.read(buddySessionListProvider.notifier).deleteSession(session.id);
+      await ref
+          .read(buddySessionListProvider.notifier)
+          .deleteSession(session.id);
     }
   }
 }
@@ -219,11 +257,13 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    return Column(
       children: const [
-        SizedBox(height: 160),
-        Center(child: CircularProgressIndicator()),
+        _SessionSkeletonCard(),
+        SizedBox(height: 12),
+        _SessionSkeletonCard(),
+        SizedBox(height: 12),
+        _SessionSkeletonCard(),
       ],
     );
   }
@@ -237,215 +277,39 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
-      children: [
-        Container(
-          width: 78,
-          height: 78,
-          decoration: context.colors.cardDecoration(radius: 24),
-          alignment: Alignment.center,
-          child: Icon(
-            LucideIcons.brain,
-            color: context.colors.textPrimary,
-            size: 34,
-          ),
-        ),
-        const SizedBox(height: 22),
-        Text(
-          'Start a new chat',
-          textAlign: TextAlign.center,
-          style: AppTheme.displayStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: context.colors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Pick up earlier conversations later. Buddy will keep your sessions and meal-photo context intact.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            color: context.colors.textMuted,
-            fontSize: 13,
-            height: 1.6,
-          ),
-        ),
-        const SizedBox(height: 28),
-        AppPrimaryButton(
-          label: 'New Chat',
-          onPressed: isCreating ? null : onCreate,
-          icon: LucideIcons.plus,
-          isLoading: isCreating,
-        ),
-      ],
-    );
-  }
-}
-
-class _SessionCard extends StatelessWidget {
-  final BuddySessionSummary session;
-  final VoidCallback onOpen;
-  final VoidCallback onRename;
-  final VoidCallback onTogglePinned;
-  final VoidCallback onDelete;
-
-  const _SessionCard({
-    required this.session,
-    required this.onOpen,
-    required this.onRename,
-    required this.onTogglePinned,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppPressable(
-      onPressed: onOpen,
-      borderRadius: BorderRadius.circular(22),
-      decoration: context.colors.cardDecoration(radius: 22),
-      padding: const EdgeInsets.fromLTRB(16, 16, 10, 14),
-      child: Row(
+    return Container(
+      decoration: BoxDecoration(
+        color: context.colors.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: context.colors.border),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (session.isPinned) ...[
-                      Icon(
-                        LucideIcons.pin,
-                        size: 13,
-                        color: context.colors.warning,
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        child: Text(
-                          session.title,
-                          key: ValueKey(session.title),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: context.colors.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      _formatRelativeTime(session.activityAt),
-                      style: GoogleFonts.plusJakartaSans(
-                        color: context.colors.textMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  session.lastMessagePreview?.trim().isNotEmpty == true
-                      ? session.lastMessagePreview!
-                      : 'No messages yet',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: context.colors.textSecondary,
-                    fontSize: 12,
-                    height: 1.55,
-                  ),
-                ),
-                if (session.hasPendingApproval) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.colors.warning.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: context.colors.warning.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Text(
-                      'Approval needed',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: context.colors.warning,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+          Text(
+            'Start a new chat',
+            style: AppTheme.displayStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              color: context.colors.textPrimary,
             ),
           ),
-          PopupMenuButton<_SessionAction>(
-            icon: Icon(
-              LucideIcons.ellipsis_vertical,
-              color: context.colors.textMuted,
-              size: 18,
+          const SizedBox(height: 8),
+          Text(
+            'Buddy will save each conversation so you can come back later without losing context.',
+            style: GoogleFonts.plusJakartaSans(
+              color: context.colors.textSecondary,
+              fontSize: 13,
+              height: 1.6,
             ),
-            color: context.colors.cardRaised,
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: _SessionAction.pin,
-                child: Text(
-                  session.isPinned ? 'Unpin' : 'Pin',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: context.colors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              PopupMenuItem(
-                value: _SessionAction.rename,
-                child: Text(
-                  'Rename',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: context.colors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              PopupMenuItem(
-                value: _SessionAction.delete,
-                child: Text(
-                  'Delete',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: context.colors.error,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-            onSelected: (action) {
-              switch (action) {
-                case _SessionAction.pin:
-                  onTogglePinned();
-                  break;
-                case _SessionAction.rename:
-                  onRename();
-                  break;
-                case _SessionAction.delete:
-                  onDelete();
-                  break;
-              }
-            },
+          ),
+          const SizedBox(height: 20),
+          AppPrimaryButton(
+            label: 'New Chat',
+            onPressed: isCreating ? null : onCreate,
+            icon: LucideIcons.plus,
+            isLoading: isCreating,
           ),
         ],
       ),
@@ -453,28 +317,332 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
+class _SessionCard extends StatelessWidget {
+  final BuddySessionSummary session;
+  final VoidCallback onOpen;
+  final VoidCallback onLongPress;
+
+  const _SessionCard({
+    required this.session,
+    required this.onOpen,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onOpen,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: context.colors.card,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: context.colors.border),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(opacity: animation, child: child),
+                          child: Text(
+                            session.title,
+                            key: ValueKey(session.title),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              color: context.colors.textPrimary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              height: 1.15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (session.isPinned) ...[
+                      const SizedBox(width: 10),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          LucideIcons.pin,
+                          size: 14,
+                          color: context.colors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _sessionPreview(session),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: context.colors.textSecondary,
+                    fontSize: 13,
+                    height: 1.55,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 enum _SessionAction { pin, rename, delete }
 
-String _formatRelativeTime(DateTime value) {
-  final now = DateTime.now();
-  final diff = now.difference(value);
+class _PlainToolbarIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String label;
 
-  if (diff.inMinutes < 1) {
-    return 'Now';
+  const _PlainToolbarIconButton({
+    required this.icon,
+    required this.onPressed,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: AppPressable(
+        onPressed: onPressed,
+        semanticsLabel: label,
+        minHeight: AppTheme.minimumTouchTarget,
+        minWidth: AppTheme.minimumTouchTarget,
+        borderRadius: BorderRadius.circular(14),
+        child: Icon(
+          icon,
+          color: onPressed == null
+              ? context.colors.textMuted
+              : context.colors.textPrimary,
+          size: 20,
+        ),
+      ),
+    );
   }
-  if (diff.inHours < 1) {
-    return '${diff.inMinutes}m';
+}
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+
+  const _ErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: context.colors.errorBg.withValues(
+          alpha: context.colors.isDark ? 0.18 : 0.92,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: context.colors.error.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.circle_alert, color: context.colors.error, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: GoogleFonts.plusJakartaSans(
+                color: context.colors.textPrimary,
+                fontSize: 12,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
-  if (diff.inDays < 1) {
-    return '${diff.inHours}h';
+}
+
+class _SessionActionsSheet extends StatelessWidget {
+  final BuddySessionSummary session;
+
+  const _SessionActionsSheet({required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.border.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Chat actions',
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SessionActionOption(
+              icon: session.isPinned ? LucideIcons.pin_off : LucideIcons.pin,
+              label: session.isPinned ? 'Unpin session' : 'Pin session',
+              onTap: () => Navigator.of(context).pop(_SessionAction.pin),
+            ),
+            const SizedBox(height: 10),
+            _SessionActionOption(
+              icon: LucideIcons.pencil_line,
+              label: 'Rename session',
+              onTap: () => Navigator.of(context).pop(_SessionAction.rename),
+            ),
+            const SizedBox(height: 10),
+            _SessionActionOption(
+              icon: LucideIcons.trash_2,
+              label: 'Delete session',
+              color: colors.error,
+              onTap: () => Navigator.of(context).pop(_SessionAction.delete),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-  if (diff.inDays < 7) {
-    return '${diff.inDays}d';
+}
+
+class _SessionActionOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final VoidCallback onTap;
+
+  const _SessionActionOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final resolvedColor = color ?? colors.textPrimary;
+
+    return Row(
+      children: [
+        Expanded(
+          child: AppPressable(
+            onPressed: onTap,
+            minHeight: 56,
+            borderRadius: BorderRadius.circular(18),
+            decoration: BoxDecoration(
+              color: colors.cardRaised,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: colors.border),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Icon(icon, color: resolvedColor, size: 18),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: resolvedColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
-  final weeks = (diff.inDays / 7).floor();
-  if (weeks < 5) {
-    return '${weeks}w';
+}
+
+class _SessionSkeletonCard extends StatelessWidget {
+  const _SessionSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final shimmer = context.colors.textMuted.withValues(
+      alpha: context.colors.isDark ? 0.12 : 0.09,
+    );
+
+    Widget bar(double width, {double height = 10}) {
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: shimmer,
+          borderRadius: BorderRadius.circular(999),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: context.colors.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: context.colors.border),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          bar(170, height: 16),
+          const SizedBox(height: 10),
+          bar(double.infinity, height: 11),
+          const SizedBox(height: 8),
+          bar(214, height: 11),
+        ],
+      ),
+    );
   }
-  final months = (diff.inDays / 30).floor();
-  return '${months}mo';
+}
+
+String _sessionPreview(BuddySessionSummary session) {
+  final preview = session.lastMessagePreview?.trim();
+  if (preview == null || preview.isEmpty) {
+    if (session.hasPendingApproval) {
+      return 'Approval needed.';
+    }
+    return 'No messages yet. Tap to start a new check-in with Buddy.';
+  }
+
+  return preview;
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -47,13 +48,39 @@ class _ComposerAttachment {
   }
 }
 
-const _kSuggestions = [
-  'What\'s in my workout today?',
-  'What should I eat after training?',
-  'How am I doing this week?',
-  'Show me my full diet plan',
-  'Review my workout program',
-  'How\'s my streak looking?',
+class _QuickStartOption {
+  final IconData icon;
+  final String label;
+  final String prompt;
+
+  const _QuickStartOption({
+    required this.icon,
+    required this.label,
+    required this.prompt,
+  });
+}
+
+const _kQuickStartOptions = [
+  _QuickStartOption(
+    icon: LucideIcons.dumbbell,
+    label: 'Today\'s workout',
+    prompt: 'What\'s in my workout today?',
+  ),
+  _QuickStartOption(
+    icon: LucideIcons.utensils,
+    label: 'What to eat next',
+    prompt: 'What should I eat after training?',
+  ),
+  _QuickStartOption(
+    icon: LucideIcons.chart_column,
+    label: 'Weekly progress',
+    prompt: 'How am I doing this week?',
+  ),
+  _QuickStartOption(
+    icon: LucideIcons.sparkles,
+    label: 'Review my plan',
+    prompt: 'Review my workout program',
+  ),
 ];
 
 class BuddyChatPage extends ConsumerStatefulWidget {
@@ -93,15 +120,47 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
       duration: const Duration(milliseconds: 350),
     )..forward();
     _fadeIn = CurvedAnimation(parent: _fadeInCtrl, curve: Curves.easeOut);
+    _userName = _resolveDisplayName(
+      profileName: null,
+      fallbackName: FirebaseAuth.instance.currentUser?.displayName,
+    );
     _loadUserName();
   }
 
+  String? _resolveDisplayName({String? profileName, String? fallbackName}) {
+    return _normalizeDisplayName(profileName) ??
+        _normalizeDisplayName(fallbackName);
+  }
+
+  String? _normalizeDisplayName(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+
+    final normalized = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty || normalized.toLowerCase() == 'athlete') {
+      return null;
+    }
+
+    return normalized.split(' ').first;
+  }
+
   Future<void> _loadUserName() async {
+    final fallbackName = FirebaseAuth.instance.currentUser?.displayName;
     try {
       final res = await ProfileService.getProfile();
-      final name = (res['data'] as Map<String, dynamic>?)?['name'] as String?;
-      if (mounted && name != null && name.isNotEmpty) {
-        setState(() => _userName = name.split(' ').first);
+      final data = res['data'];
+      final profile = data is Map<String, dynamic>
+          ? data
+          : data is Map
+          ? Map<String, dynamic>.from(data)
+          : null;
+      final resolvedName = _resolveDisplayName(
+        profileName: profile?['name']?.toString(),
+        fallbackName: fallbackName,
+      );
+      if (mounted && resolvedName != _userName) {
+        setState(() => _userName = resolvedName);
       }
     } catch (_) {}
   }
@@ -148,7 +207,9 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
       return;
     }
 
-    final controller = ref.read(buddySessionProvider(widget.sessionId).notifier);
+    final controller = ref.read(
+      buddySessionProvider(widget.sessionId).notifier,
+    );
     await controller.sendUserMessage(text: text, attachment: attachment);
 
     if (!mounted) {
@@ -171,7 +232,9 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
       return;
     }
 
-    final controller = ref.read(buddySessionProvider(widget.sessionId).notifier);
+    final controller = ref.read(
+      buddySessionProvider(widget.sessionId).notifier,
+    );
     await controller.respondToApproval(approved: approved);
     _scrollToBottom();
   }
@@ -417,7 +480,9 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     );
 
     if (confirmed == true) {
-      await ref.read(buddySessionProvider(widget.sessionId).notifier).deleteSession();
+      await ref
+          .read(buddySessionProvider(widget.sessionId).notifier)
+          .deleteSession();
     }
   }
 
@@ -427,7 +492,8 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
       previous,
       next,
     ) {
-      final messageCountChanged = previous?.messages.length != next.messages.length;
+      final messageCountChanged =
+          previous?.messages.length != next.messages.length;
       final streamingChanged =
           previous?.streamingContent != next.streamingContent ||
           previous?.pendingApproval != next.pendingApproval ||
@@ -452,7 +518,11 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
         child: Column(
           children: [
             Expanded(child: _buildMessageList(sessionState)),
-            _buildInputBar(context, sessionState, MediaQuery.paddingOf(context).bottom),
+            _buildInputBar(
+              context,
+              sessionState,
+              MediaQuery.paddingOf(context).bottom,
+            ),
           ],
         ),
       ),
@@ -463,6 +533,8 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     BuildContext context,
     BuddySessionState sessionState,
   ) {
+    final appBarTitle = _appBarTitle(sessionState);
+
     return AppBar(
       backgroundColor: context.colors.background,
       elevation: 0,
@@ -474,8 +546,8 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: Text(
-              sessionState.session?.title ?? 'Buddy',
-              key: ValueKey(sessionState.session?.title ?? 'Buddy'),
+              appBarTitle,
+              key: ValueKey(appBarTitle),
               style: AppTheme.displayStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -486,10 +558,7 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
           if (sessionState.isStreaming)
             FadeTransition(
               opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
-                CurvedAnimation(
-                  parent: _dotAnimCtrl,
-                  curve: Curves.easeInOut,
-                ),
+                CurvedAnimation(parent: _dotAnimCtrl, curve: Curves.easeInOut),
               ),
               child: Text(
                 'Thinking…',
@@ -573,6 +642,15 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     );
   }
 
+  String _appBarTitle(BuddySessionState sessionState) {
+    final title = sessionState.session?.title.trim();
+    if (title == null || title.isEmpty || title == 'New Session') {
+      return 'Buddy';
+    }
+
+    return title;
+  }
+
   Widget _buildMessageList(BuddySessionState sessionState) {
     final hasContent =
         sessionState.messages.isNotEmpty ||
@@ -589,7 +667,8 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     }
 
     final children = <Widget>[
-      for (final message in sessionState.messages) _MessageTile(message: message),
+      for (final message in sessionState.messages)
+        _MessageTile(message: message),
       if (sessionState.isStreaming)
         sessionState.streamingContent.isEmpty
             ? (sessionState.activeToolLabel != null
@@ -619,80 +698,74 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
   }
 
   Widget _buildEmptyState(BuddySessionState sessionState) {
+    final greeting = _userName == null
+        ? 'What do you want to check today?'
+        : 'Hi, $_userName.';
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
-      child: Column(
-        children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: context.colors.border.withValues(alpha: 0.95),
-              ),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: context.colors.cardGradient,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: context.colors.shadowColor,
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+      padding: const EdgeInsets.fromLTRB(20, 30, 20, 28),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'BUDDY',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10,
+                  color: context.colors.textMuted,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
                 ),
-              ],
-            ),
-            child: Icon(
-              LucideIcons.brain,
-              color: context.colors.textPrimary,
-              size: 34,
-            ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                greeting,
+                style: AppTheme.displayStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  color: context.colors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Ask about training, meals, or your weekly progress.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  color: context.colors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Buddy already has your plan and recent check-ins, so you can keep it short.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  color: context.colors.textMuted,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _QuickStartCard(
+                options: _kQuickStartOptions,
+                onSelected: (option) =>
+                    _sendMessage(sessionState, option.prompt),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Or ask in your own words below.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  color: context.colors.textMuted,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            _userName != null ? 'Hey $_userName,' : 'Hey,',
-            style: AppTheme.displayStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: context.colors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'What can I help you with?',
-            style: AppTheme.displayStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: context.colors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Workouts, diet, macros, recovery — all yours.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
-              color: context.colors.textMuted,
-              height: 1.6,
-            ),
-          ),
-          const SizedBox(height: 36),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: _kSuggestions
-                .map(
-                  (suggestion) => _SuggestionChip(
-                    text: suggestion,
-                    onTap: () => _sendMessage(sessionState, suggestion),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -923,11 +996,7 @@ class _UserBubble extends StatelessWidget {
       height: 132,
       color: context.colors.background,
       alignment: Alignment.center,
-      child: Icon(
-        LucideIcons.image,
-        color: context.colors.textMuted,
-        size: 20,
-      ),
+      child: Icon(LucideIcons.image, color: context.colors.textMuted, size: 20),
     );
   }
 }
@@ -1445,30 +1514,104 @@ class _BlinkingCursorState extends State<_BlinkingCursor>
   }
 }
 
-class _SuggestionChip extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-  const _SuggestionChip({required this.text, required this.onTap});
+class _QuickStartCard extends StatelessWidget {
+  final List<_QuickStartOption> options;
+  final ValueChanged<_QuickStartOption> onSelected;
+
+  const _QuickStartCard({required this.options, required this.onSelected});
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      decoration: colors.cardDecoration(radius: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Quick start',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Pick a prompt or type your own question.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                color: colors.textMuted,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (var index = 0; index < options.length; index++) ...[
+              _QuickStartTile(
+                option: options[index],
+                onTap: () => onSelected(options[index]),
+              ),
+              if (index != options.length - 1)
+                Padding(
+                  padding: const EdgeInsets.only(left: 52),
+                  child: Container(
+                    height: 1,
+                    color: colors.border.withValues(alpha: 0.5),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickStartTile extends StatelessWidget {
+  final _QuickStartOption option;
+  final VoidCallback onTap;
+
+  const _QuickStartTile({required this.option, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return AppPressable(
       onPressed: onTap,
-      semanticsLabel: text,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      borderRadius: BorderRadius.circular(22),
-      decoration: BoxDecoration(
-        color: context.colors.cardRaised,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: context.colors.border),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          color: context.colors.textSecondary,
-          fontSize: 13,
-          height: 1.4,
-        ),
+      semanticsLabel: option.label,
+      minHeight: 56,
+      alignment: Alignment.centerLeft,
+      borderRadius: BorderRadius.circular(18),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colors.cardRaised,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.border),
+            ),
+            child: Icon(option.icon, size: 16, color: colors.textPrimary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              option.label,
+              style: GoogleFonts.plusJakartaSans(
+                color: colors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Icon(LucideIcons.chevron_right, size: 16, color: colors.textMuted),
+        ],
       ),
     );
   }
