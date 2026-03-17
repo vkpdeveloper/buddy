@@ -4,7 +4,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { GoogleGenAI } from '@google/genai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateText, stepCountIs, streamText } from 'ai';
+import { generateText, stepCountIs, streamText, type ModelMessage } from 'ai';
 import { eq } from 'drizzle-orm';
 import { db } from '../../db';
 import { userProfile, users } from '../../db/schema';
@@ -93,6 +93,10 @@ type StreamOutcome = {
 };
 
 type ChatInput = z.infer<typeof sessionChatSchema>['input'];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
 
 function isImmediateWriteOutput(value: unknown): value is {
     kind: 'immediate_write';
@@ -303,6 +307,104 @@ function extractCountableContent(parts: unknown): string | null {
     return textSegments.length > 0 ? textSegments.join('\n\n') : null;
 }
 
+function normalizeStoredAssistantContent(parts: unknown) {
+    if (!Array.isArray(parts)) {
+        return parts;
+    }
+
+    const normalizedParts: unknown[] = [];
+    const seenToolCallIds = new Set<string>();
+
+    for (const part of parts) {
+        if (
+            isRecord(part) &&
+            part.type === 'tool-call' &&
+            typeof part.toolCallId === 'string'
+        ) {
+            seenToolCallIds.add(part.toolCallId);
+            // Ensure providerOptions mirrors providerMetadata so Gemini thinking models
+            // can find the thoughtSignature when replaying conversation history.
+            const enrichedPart =
+                part.providerMetadata != null && part.providerOptions == null
+                    ? { ...part, providerOptions: part.providerMetadata }
+                    : part;
+            normalizedParts.push(enrichedPart);
+            continue;
+        }
+
+        if (
+            !isRecord(part) ||
+            part.type !== 'tool-approval-request' ||
+            typeof part.approvalId !== 'string'
+        ) {
+            normalizedParts.push(part);
+            continue;
+        }
+
+        if (typeof part.toolCallId === 'string') {
+            normalizedParts.push(part);
+            continue;
+        }
+
+        const toolCall = isRecord(part.toolCall) ? part.toolCall : null;
+        const toolCallId = typeof toolCall?.toolCallId === 'string'
+            ? toolCall.toolCallId
+            : null;
+        const toolName = typeof toolCall?.toolName === 'string'
+            ? toolCall.toolName
+            : null;
+        const toolInput = isRecord(toolCall?.input) ? toolCall.input : null;
+        const toolProviderMetadata = toolCall?.providerMetadata;
+
+        if (toolCallId == null) {
+            normalizedParts.push(part);
+            continue;
+        }
+
+        if (
+            toolName != null &&
+            toolInput != null &&
+            !seenToolCallIds.has(toolCallId)
+        ) {
+            normalizedParts.push({
+                type: 'tool-call',
+                toolCallId,
+                toolName,
+                input: toolInput,
+                ...(toolProviderMetadata != null
+                    ? {
+                        providerMetadata: toolProviderMetadata,
+                        providerOptions: toolProviderMetadata,
+                    }
+                    : {}),
+            });
+            seenToolCallIds.add(toolCallId);
+        }
+
+        normalizedParts.push({
+            type: 'tool-approval-request',
+            approvalId: part.approvalId,
+            toolCallId,
+        });
+    }
+
+    return normalizedParts;
+}
+
+function buildStoredModelMessages(
+    storedMessages: Array<{
+        sdkRole: 'user' | 'assistant' | 'tool';
+        parts: unknown;
+    }>,
+): ModelMessage[] {
+    return storedMessages.map((message) => ({
+        role: message.sdkRole,
+        content: message.sdkRole === 'assistant'
+            ? normalizeStoredAssistantContent(message.parts)
+            : message.parts,
+    })) as ModelMessage[];
+}
+
 async function countStoredMessageTokens(
     model: string,
     parts: unknown,
@@ -392,7 +494,7 @@ async function streamBuddyResponse(params: {
     userId: number;
     timeZone: string;
     systemPrompt: string;
-    messages: Array<{ role: 'user' | 'assistant' | 'tool'; content: unknown }>;
+    messages: ModelMessage[];
     flushSessionMeta?: () => Promise<void>;
 }): Promise<StreamOutcome> {
     const toolLabels: Record<string, string> = {
@@ -481,6 +583,9 @@ async function streamBuddyResponse(params: {
                     toolCallId: event.toolCall.toolCallId,
                     toolName: event.toolCall.toolName,
                     input: event.toolCall.input as Record<string, unknown>,
+                    ...(event.toolCall.providerMetadata != null
+                        ? { providerMetadata: event.toolCall.providerMetadata }
+                        : {}),
                 },
                 ...preview,
             };
@@ -705,6 +810,11 @@ router.post(
                 if (!pendingApproval || pendingApproval.approvalId !== input.approvalId) {
                     throw badRequest('Pending Buddy approval was not found.');
                 }
+                if (pendingApproval.toolCall.providerMetadata == null) {
+                    throw badRequest(
+                        'This approval request is out of date. Ask Buddy to prepare the change again.',
+                    );
+                }
 
                 const approvalParts = [
                     {
@@ -737,10 +847,7 @@ router.post(
             }
 
             const storedMessages = await getStoredBuddyMessages(sessionId);
-            const modelMessages = storedMessages.map((message) => ({
-                role: message.sdkRole,
-                content: message.parts,
-            }));
+            const modelMessages = buildStoredModelMessages(storedMessages);
 
             const shouldGenerateTitle = input.kind === 'user'
                 && session.title === DEFAULT_BUDDY_SESSION_TITLE
@@ -807,13 +914,20 @@ router.post(
                                     ? [{ type: 'text', text: outcome.assistantText }]
                                     : []),
                                 {
+                                    type: 'tool-call',
+                                    toolCallId: outcome.approvalRequest.toolCall.toolCallId,
+                                    toolName: outcome.approvalRequest.toolCall.toolName,
+                                    input: outcome.approvalRequest.toolCall.input,
+                                    ...(outcome.approvalRequest.toolCall.providerMetadata != null
+                                        ? {
+                                            providerMetadata: outcome.approvalRequest.toolCall.providerMetadata,
+                                        }
+                                        : {}),
+                                },
+                                {
                                     type: 'tool-approval-request',
                                     approvalId: outcome.approvalRequest.approvalId,
-                                    toolCall: {
-                                        toolCallId: outcome.approvalRequest.toolCall.toolCallId,
-                                        toolName: outcome.approvalRequest.toolCall.toolName,
-                                        input: outcome.approvalRequest.toolCall.input,
-                                    },
+                                    toolCallId: outcome.approvalRequest.toolCall.toolCallId,
                                 },
                             ]
                             : outcome.assistantText;
@@ -893,10 +1007,7 @@ router.post('/chat', zValidator('json', legacyChatSchema), async (c) => {
                     userId,
                     timeZone,
                     systemPrompt,
-                    messages: messages as Array<{
-                        role: 'user' | 'assistant' | 'tool';
-                        content: unknown;
-                    }>,
+                    messages: messages as ModelMessage[],
                 });
                 await stream.writeSSE({ data: '[DONE]' });
             } catch (streamErr) {

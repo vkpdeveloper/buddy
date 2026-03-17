@@ -268,6 +268,7 @@ class DailyCalorieSummary {
           (j['carbsConsumedG'] as num?)?.toDouble() ??
           0,
       fatsG: (j['fatsG'] as num?)?.toDouble() ??
+          (j['fatG'] as num?)?.toDouble() ??
           (j['fatsConsumedG'] as num?)?.toDouble() ??
           0,
     );

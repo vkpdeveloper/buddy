@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq, and, asc, inArray } from 'drizzle-orm';
 import { db } from '../db';
-import { dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs, dietQuickLogs, mealMediaAttachments } from '../db/schema';
+import { dietPlans, dietDays, dietMeals, dietMealLogs, dietMealOverrides, dailyLogs, dietQuickLogs, mealMediaAttachments } from '../db/schema';
 import { DIET_FOOD_OPTIONS } from '../lib/dietGenerator';
 import { ok, fail } from '../lib/response';
 import { notFound } from '../lib/errors';
@@ -375,6 +375,22 @@ router.post('/log/:date/quick', zValidator('json', z.object({
     }
 
     return ok(c, { ...inserted, signedUrl });
+});
+
+// ─── DELETE /api/diet/log/:date/:mealId ──────────────────────────────────────
+// Unlogs a meal: deletes the meal log entry and any override for that meal+date
+router.delete('/log/:date/:mealId', async (c) => {
+    const userId = c.var.userId;
+    const date = c.req.param('date');
+    const mealId = parseInt(c.req.param('mealId'));
+
+    await db.delete(dietMealLogs)
+        .where(and(eq(dietMealLogs.userId, userId), eq(dietMealLogs.mealId, mealId), eq(dietMealLogs.date, date)));
+
+    await db.delete(dietMealOverrides)
+        .where(and(eq(dietMealOverrides.userId, userId), eq(dietMealOverrides.mealId, mealId), eq(dietMealOverrides.date, date)));
+
+    return ok(c, null);
 });
 
 export default router;

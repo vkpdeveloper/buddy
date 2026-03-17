@@ -102,7 +102,13 @@ final todayNutritionSummaryProvider =
       // 6. Build TodayMealItem list with completion + actual log data
       final meals = mealsRaw.map((m) {
         final id = (m['id'] as num?)?.toInt() ?? 0;
-        final isCompleted = completionMap[id] ?? false;
+        // Override meals (AI-modified) are auto-marked as consumed unless the user
+        // explicitly unlogged them (completionMap[id] == false). This matches the
+        // diet page's client-side auto-mark logic.
+        final isOverride = m['isOverride'] == true;
+        final isCompleted = isOverride
+            ? completionMap[id] != false
+            : (completionMap[id] ?? false);
         final actual = actualMap[id];
 
         final planCalories = (m['calories'] as num?)?.toInt() ?? 0;
@@ -138,7 +144,7 @@ final todayNutritionSummaryProvider =
         );
       }).toList();
 
-      // 7. Compute consumed totals from completed meals
+      // 7. Compute consumed totals from completed meals + quick logs
       int caloriesConsumed = 0;
       double proteinConsumed = 0, carbsConsumed = 0, fatsConsumed = 0;
       for (final meal in meals) {
@@ -147,6 +153,16 @@ final todayNutritionSummaryProvider =
           proteinConsumed += meal.proteinG;
           carbsConsumed += meal.carbsG;
           fatsConsumed += meal.fatsG;
+        }
+      }
+      // Add quick logs (standalone photo-captured meals, not tied to the plan)
+      final quickLogs = (logData['quickLogs'] as List?) ?? [];
+      for (final q in quickLogs) {
+        if (q is Map) {
+          caloriesConsumed += (q['calories'] as num?)?.toInt() ?? 0;
+          proteinConsumed += (q['proteinG'] as num?)?.toDouble() ?? 0;
+          carbsConsumed += (q['carbsG'] as num?)?.toDouble() ?? 0;
+          fatsConsumed += (q['fatG'] as num?)?.toDouble() ?? 0;
         }
       }
 

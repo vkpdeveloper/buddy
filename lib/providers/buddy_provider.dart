@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:buddy/models/buddy_chat.dart';
 import 'package:buddy/providers/body_provider.dart';
+import 'package:buddy/providers/diet_provider.dart';
 import 'package:buddy/providers/growth_provider.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/providers/progress_provider.dart';
@@ -644,6 +645,7 @@ class BuddySessionController extends Notifier<BuddySessionState> {
         case 'diet':
           ref.invalidate(todayNutritionSummaryProvider(_todayDate()));
           ref.invalidate(homeDashboardProvider);
+          ref.read(dietPlanRefreshProvider.notifier).increment();
           break;
         case 'growth':
           ref.invalidate(growthOverviewProvider);

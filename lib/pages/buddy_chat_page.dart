@@ -668,7 +668,7 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
 
     final children = <Widget>[
       for (final message in sessionState.messages)
-        _MessageTile(message: message),
+        _MessageTile(key: ValueKey(message.id), message: message),
       if (sessionState.isStreaming)
         sessionState.streamingContent.isEmpty
             ? (sessionState.activeToolLabel != null
@@ -898,7 +898,7 @@ enum _ChatMenuAction { pin, rename, delete }
 class _MessageTile extends StatelessWidget {
   final BuddyChatMessage message;
 
-  const _MessageTile({required this.message});
+  const _MessageTile({super.key, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -922,41 +922,49 @@ class _UserBubble extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 22, left: 52),
       child: Align(
         alignment: Alignment.centerRight,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: context.colors.cardRaised,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-              bottomLeft: Radius.circular(20),
-              bottomRight: Radius.circular(5),
-            ),
-            border: Border.all(color: context.colors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (message.attachments.isNotEmpty) ...[
-                for (final attachment in message.attachments) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: _buildUserAttachmentImage(context, attachment),
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: context.colors.cardRaised,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: context.colors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (message.attachments.isNotEmpty) ...[
+                    for (final attachment in message.attachments) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: _buildUserAttachmentImage(context, attachment),
+                      ),
+                    ],
+                    if (hasText) const SizedBox(height: 10),
+                  ],
+                  if (hasText)
+                    Text(
+                      message.message,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: context.colors.textPrimary,
+                        fontSize: 14,
+                        height: 1.55,
+                      ),
+                    ),
                 ],
-                if (hasText) const SizedBox(height: 10),
-              ],
-              if (hasText)
-                Text(
-                  message.message,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: context.colors.textPrimary,
-                    fontSize: 14,
-                    height: 1.55,
-                  ),
-                ),
+              ),
+            ),
+            if (hasText) ...[
+              const SizedBox(height: 6),
+              _MessageCopyButton(
+                text: message.message,
+                semanticsLabel: 'Copy your message',
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -1009,6 +1017,8 @@ class _AssistantBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasText = content.trim().isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 22, right: 16),
       child: Column(
@@ -1016,9 +1026,114 @@ class _AssistantBubble extends StatelessWidget {
         children: [
           _MarkdownContent(content: content),
           if (isStreaming) ...[const SizedBox(height: 6), _BlinkingCursor()],
+          if (!isStreaming && hasText) ...[
+            const SizedBox(height: 8),
+            _AssistantMessageActions(text: content),
+          ],
         ],
       ),
     );
+  }
+}
+
+class _AssistantMessageActions extends StatelessWidget {
+  final String text;
+
+  const _AssistantMessageActions({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _MessageCopyButton(
+          text: text,
+          semanticsLabel: 'Copy Buddy response',
+          wrapWithAlign: false,
+        ),
+      ],
+    );
+  }
+}
+
+class _MessageCopyButton extends StatefulWidget {
+  final String text;
+  final String semanticsLabel;
+  final bool wrapWithAlign;
+
+  const _MessageCopyButton({
+    required this.text,
+    required this.semanticsLabel,
+    this.wrapWithAlign = true,
+  });
+
+  @override
+  State<_MessageCopyButton> createState() => _MessageCopyButtonState();
+}
+
+class _MessageCopyButtonState extends State<_MessageCopyButton> {
+  Timer? _resetTimer;
+  bool _copied = false;
+
+  Future<void> _handleCopy() async {
+    final text = widget.text.trim();
+    if (text.isEmpty) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: text));
+    await HapticFeedback.selectionClick();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _copied = true);
+    _resetTimer?.cancel();
+    _resetTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() => _copied = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final foreground = _copied ? colors.success : colors.textMuted;
+
+    final button = AppPressable(
+      onPressed: _handleCopy,
+      semanticsLabel: widget.semanticsLabel,
+      minHeight: 28,
+      minWidth: 28,
+      borderRadius: BorderRadius.circular(999),
+      padding: const EdgeInsets.all(4),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 160),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: Icon(
+          key: ValueKey(_copied),
+          _copied ? LucideIcons.check : LucideIcons.copy,
+          size: 16,
+          color: foreground,
+        ),
+      ),
+    );
+
+    if (!widget.wrapWithAlign) {
+      return button;
+    }
+
+    return Row(mainAxisAlignment: MainAxisAlignment.end, children: [button]);
   }
 }
 
@@ -1058,112 +1173,121 @@ class _ApprovalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 22, right: 16),
-      decoration: colors.cardDecoration(
-        borderColor: colors.warning.withValues(alpha: 0.35),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Align(
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Container(
+            width: double.infinity,
+            decoration: colors.cardDecoration(
+              borderColor: colors.warning.withValues(alpha: 0.35),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.warning.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: colors.warning.withValues(alpha: 0.28),
+                          ),
+                        ),
+                        child: Text(
+                          'CONFIRMATION',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: colors.warning,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  decoration: BoxDecoration(
-                    color: colors.warning.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: colors.warning.withValues(alpha: 0.28),
-                    ),
-                  ),
-                  child: Text(
-                    'CONFIRMATION',
+                  const SizedBox(height: 12),
+                  Text(
+                    approval.title,
                     style: GoogleFonts.plusJakartaSans(
-                      color: colors.warning,
-                      fontSize: 9,
+                      color: colors.textPrimary,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              approval.title,
-              style: GoogleFonts.plusJakartaSans(
-                color: colors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            if (approval.summary.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                approval.summary,
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textSecondary,
-                  fontSize: 12,
-                  height: 1.55,
-                ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: AppPressable(
-                    onPressed: onCancel,
-                    minHeight: 44,
-                    borderRadius: BorderRadius.circular(16),
-                    decoration: BoxDecoration(
-                      color: colors.cardRaised,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: colors.border),
-                    ),
-                    child: Center(
-                      child: Text(
-                        approval.cancelLabel,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  if (approval.summary.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      approval.summary,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textSecondary,
+                        fontSize: 12,
+                        height: 1.55,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: AppPressable(
-                    onPressed: onConfirm,
-                    minHeight: 44,
-                    borderRadius: BorderRadius.circular(16),
-                    decoration: BoxDecoration(
-                      color: colors.actionSurface,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Center(
-                      child: Text(
-                        approval.confirmLabel,
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.actionForeground,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                  ],
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppPressable(
+                          onPressed: onCancel,
+                          minHeight: 44,
+                          borderRadius: BorderRadius.circular(22),
+                          decoration: BoxDecoration(
+                            color: colors.cardRaised,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(color: colors.border),
+                          ),
+                          child: Center(
+                            child: Text(
+                              approval.cancelLabel,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: AppPressable(
+                          onPressed: onConfirm,
+                          minHeight: 44,
+                          borderRadius: BorderRadius.circular(22),
+                          decoration: BoxDecoration(
+                            color: colors.actionSurface,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: Center(
+                            child: Text(
+                              approval.confirmLabel,
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.actionForeground,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1187,7 +1311,7 @@ class _ComposerAttachmentPreview extends StatelessWidget {
         child: Stack(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(22),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
                 child: Image.file(

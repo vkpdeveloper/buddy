@@ -16,6 +16,7 @@ import 'package:buddy/widgets/app_card.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:buddy/widgets/app_text_field.dart';
 import 'package:buddy/widgets/progress_share_cards.dart';
+import 'package:buddy/widgets/shimmer_loading.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
@@ -288,10 +289,7 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
                 backgroundColor: context.colors.card,
                 onRefresh: _refresh,
                 child: overviewAsync.when(
-                  loading: () => ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const [SizedBox(height: 300)],
-                  ),
+                  loading: () => const _GrowthPageSkeleton(),
                   error: (e, _) => ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(24),
@@ -315,6 +313,85 @@ class _GrowthPageState extends ConsumerState<GrowthPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Growth Page Skeleton ─────────────────────────────────────────────────────
+
+class _GrowthPageSkeleton extends StatelessWidget {
+  const _GrowthPageSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.paddingOf(context).bottom + 92,
+      ),
+      children: [
+        const SizedBox(height: 16),
+        // Weight + Streak row
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Expanded(
+                child: ShimmerBox(
+                  width: double.infinity,
+                  height: 110,
+                  borderRadius: 20,
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: ShimmerBox(
+                  width: double.infinity,
+                  height: 110,
+                  borderRadius: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Time range selector
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: ShimmerBox(width: double.infinity, height: 38, borderRadius: 12),
+        ),
+        const SizedBox(height: 16),
+        // Weight Progress chart card
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: ShimmerBox(width: double.infinity, height: 220, borderRadius: 20),
+        ),
+        const SizedBox(height: 20),
+        // Progress Photos
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: ShimmerBox(width: double.infinity, height: 120, borderRadius: 20),
+        ),
+        const SizedBox(height: 20),
+        // Week selector
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: ShimmerBox(width: double.infinity, height: 38, borderRadius: 12),
+        ),
+        const SizedBox(height: 16),
+        // Weekly Calories
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: ShimmerBox(width: double.infinity, height: 180, borderRadius: 20),
+        ),
+        const SizedBox(height: 20),
+        // BMI card
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: ShimmerBox(width: double.infinity, height: 160, borderRadius: 20),
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 }
@@ -1374,15 +1451,25 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                   );
                 }
                 final totalCal = days.fold<int>(0, (s, d) => s + d.calories);
+                final activeDays =
+                    days.where((d) => d.calories > 0).length;
+                final avgCal =
+                    activeDays > 0 ? (totalCal / activeDays).round() : 0;
                 final maxCal = days
                     .map((d) => d.calories)
                     .fold<int>(1, math.max);
 
+                // Y-axis: 3 evenly-spaced labels (0, mid, max)
+                final yMid = (maxCal / 2).round();
+                final yLabels = [maxCal, yMid, 0];
+
+                // Average line fraction for the chart
+                final avgFrac = maxCal > 0 ? avgCal / maxCal : 0.0;
+
                 return Column(
                   children: [
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           '$totalCal',
@@ -1395,7 +1482,7 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
+                          padding: const EdgeInsets.only(bottom: 3),
                           child: Text(
                             'kcal total',
                             style: GoogleFonts.plusJakartaSans(
@@ -1405,62 +1492,147 @@ class _WeeklyCaloriesSection extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const Spacer(),
+                        if (activeDays > 0)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '$avgCal',
+                                style: GoogleFonts.sora(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'kcal avg/day',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: context.colors.textMuted,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
-                      height: 80,
+                      height: 96,
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: days.map((d) {
-                          final frac = maxCal > 0 ? d.calories / maxCal : 0.0;
-                          return Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 3,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Expanded(
-                                    child: Align(
-                                      alignment: Alignment.bottomCenter,
-                                      child: FractionallySizedBox(
-                                        heightFactor: frac.clamp(0.04, 1.0),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: frac > 0.01
-                                                ? context.colors.primary
-                                                : context.colors.border,
-                                            borderRadius: BorderRadius.circular(
-                                              5,
-                                            ),
-                                          ),
-                                        ),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Y-axis labels
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: yLabels.map((v) {
+                              final label = v >= 1000
+                                  ? '${(v / 1000).toStringAsFixed(1)}k'
+                                  : '$v';
+                              return Text(
+                                label,
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: context.colors.textMuted,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(width: 6),
+                          // Bar chart with average dashed line overlay
+                          Expanded(
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                // Average dashed line (positioned from bottom,
+                                // offset by the day-label area ~14px)
+                                if (activeDays > 0)
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    // bar area height = 96 - label(9) - gap(5) = ~82px
+                                    bottom: 14 + avgFrac.clamp(0.0, 1.0) * 68,
+                                    child: CustomPaint(
+                                      size: const Size(double.infinity, 1),
+                                      painter: _DashedLinePainter(
+                                        color: context.colors.xpGold
+                                            .withValues(alpha: 0.55),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    d.dayLabel,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: context.colors.textMuted,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
+                                Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: days.map((d) {
+                                final frac =
+                                    maxCal > 0 ? d.calories / maxCal : 0.0;
+                                return Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 3,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Expanded(
+                                          child: Align(
+                                            alignment: Alignment.bottomCenter,
+                                            child: frac > 0
+                                                ? FractionallySizedBox(
+                                                    heightFactor: frac.clamp(
+                                                      0.06,
+                                                      1.0,
+                                                    ),
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color: context
+                                                            .colors.primary,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(5),
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Container(
+                                                    height: 2,
+                                                    decoration: BoxDecoration(
+                                                      color: context
+                                                          .colors.border
+                                                          .withValues(
+                                                            alpha: 0.5,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            2,
+                                                          ),
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          d.dayLabel,
+                                          style: GoogleFonts.plusJakartaSans(
+                                            color: context.colors.textMuted,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
+                                );
+                              }).toList(),
+                                ),
+                            ],
                             ),
-                          );
-                        }).toList(),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _LegendDot(color: context.colors.primary, label: 'Calories'),
-                      ],
                     ),
                   ],
                 );
@@ -1471,6 +1643,27 @@ class _WeeklyCaloriesSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  const _DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    double x = 0;
+    while (x < size.width) {
+      canvas.drawLine(Offset(x, 0), Offset(math.min(x + 6, size.width), 0), paint);
+      x += 11;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedLinePainter old) => old.color != color;
 }
 
 class _LegendDot extends StatelessWidget {

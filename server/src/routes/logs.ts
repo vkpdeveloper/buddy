@@ -1,13 +1,16 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { ok } from '../lib/response';
 import { getDayNumberFromDate } from '../lib/time';
 import {
     dailyLogs,
     dietMealLogs,
+    dietMeals,
+    dietMealOverrides,
+    dietQuickLogs,
     workoutExercises,
     workoutSessions,
     workoutDays,
@@ -36,6 +39,159 @@ router.get('/week', async (c) => {
         .orderBy(desc(dailyLogs.date))
         .limit(7);
     return ok(c, rows);
+});
+
+// ─── GET /api/logs/weekly-calories ──────────────────────────────────────────
+// Returns Mon–Sun calorie totals for a given week.
+// Matches diet page logic exactly:
+//   • Override meals  → counted as consumed UNLESS explicitly unlogged (isCompleted=false)
+//   • Non-override    → counted only when dietMealLogs.isCompleted=true
+//   • Quick logs      → always counted
+// weekOffset: 0 = this week, 1 = last week, etc.
+router.get('/weekly-calories', async (c) => {
+    const userId = c.var.userId;
+    const weekOffset = Math.max(0, parseInt(c.req.query('weekOffset') ?? '0') || 0);
+
+    // Find Monday of the target week (UTC)
+    const now = new Date();
+    const utcDay = now.getUTCDay(); // 0=Sun…6=Sat
+    const daysFromMonday = utcDay === 0 ? 6 : utcDay - 1;
+    const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    monday.setUTCDate(monday.getUTCDate() - daysFromMonday - weekOffset * 7);
+
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setUTCDate(monday.getUTCDate() + i);
+        dates.push(d.toISOString().split('T')[0]);
+    }
+
+    type DayTotals = { calories: number; proteinG: number; carbsG: number; fatG: number };
+    const totals = new Map<string, DayTotals>();
+    for (const date of dates) totals.set(date, { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 });
+
+    // ── 1. Override meals ────────────────────────────────────────────────────
+    // An override is auto-consumed (mirrors the diet page's client-side auto-mark).
+    // Only skip if user explicitly unlogged the meal (isCompleted = false in dietMealLogs).
+    // Priority: actualCalories (if user logged actual) → override calories
+    const overrideRows = await db
+        .select({
+            date: dietMealOverrides.date,
+            overrideCalories: dietMealOverrides.calories,
+            overrideProteinG: dietMealOverrides.proteinG,
+            overrideCarbsG: dietMealOverrides.carbsG,
+            overrideFatG: dietMealOverrides.fatG,
+            actualCalories: dietMealLogs.actualCalories,
+            actualProteinG: dietMealLogs.actualProteinG,
+            actualCarbsG: dietMealLogs.actualCarbsG,
+            actualFatG: dietMealLogs.actualFatG,
+            isCompleted: dietMealLogs.isCompleted,
+        })
+        .from(dietMealOverrides)
+        .leftJoin(
+            dietMealLogs,
+            and(
+                eq(dietMealLogs.userId, userId),
+                eq(dietMealLogs.mealId, dietMealOverrides.mealId),
+                eq(dietMealLogs.date, dietMealOverrides.date),
+            ),
+        )
+        .where(
+            and(
+                eq(dietMealOverrides.userId, userId),
+                inArray(dietMealOverrides.date, dates),
+            ),
+        );
+
+    for (const row of overrideRows) {
+        // Skip only if user explicitly unlogged
+        if (row.isCompleted === false) continue;
+        const t = totals.get(row.date)!;
+        if (row.actualCalories != null) {
+            t.calories += row.actualCalories;
+            t.proteinG += row.actualProteinG ?? 0;
+            t.carbsG += row.actualCarbsG ?? 0;
+            t.fatG += row.actualFatG ?? 0;
+        } else {
+            t.calories += row.overrideCalories;
+            t.proteinG += row.overrideProteinG;
+            t.carbsG += row.overrideCarbsG;
+            t.fatG += row.overrideFatG;
+        }
+    }
+
+    // ── 2. Non-override completed meals ──────────────────────────────────────
+    // Only meals that the user explicitly marked completed AND have no override.
+    // Priority: actualCalories → planned meal calories
+    const completedRows = await db
+        .select({
+            date: dietMealLogs.date,
+            actualCalories: dietMealLogs.actualCalories,
+            actualProteinG: dietMealLogs.actualProteinG,
+            actualCarbsG: dietMealLogs.actualCarbsG,
+            actualFatG: dietMealLogs.actualFatG,
+            plannedCalories: dietMeals.calories,
+            plannedProteinG: dietMeals.proteinG,
+            plannedCarbsG: dietMeals.carbsG,
+            plannedFatG: dietMeals.fatG,
+            overrideId: dietMealOverrides.id,
+        })
+        .from(dietMealLogs)
+        .innerJoin(dietMeals, eq(dietMeals.id, dietMealLogs.mealId))
+        .leftJoin(
+            dietMealOverrides,
+            and(
+                eq(dietMealOverrides.userId, userId),
+                eq(dietMealOverrides.mealId, dietMealLogs.mealId),
+                eq(dietMealOverrides.date, dietMealLogs.date),
+            ),
+        )
+        .where(
+            and(
+                eq(dietMealLogs.userId, userId),
+                eq(dietMealLogs.isCompleted, true),
+                inArray(dietMealLogs.date, dates),
+                isNull(dietMealOverrides.id), // exclude meals already handled via overrides
+            ),
+        );
+
+    for (const row of completedRows) {
+        const t = totals.get(row.date)!;
+        if (row.actualCalories != null) {
+            t.calories += row.actualCalories;
+            t.proteinG += row.actualProteinG ?? 0;
+            t.carbsG += row.actualCarbsG ?? 0;
+            t.fatG += row.actualFatG ?? 0;
+        } else {
+            t.calories += row.plannedCalories;
+            t.proteinG += row.plannedProteinG;
+            t.carbsG += row.plannedCarbsG;
+            t.fatG += row.plannedFatG;
+        }
+    }
+
+    // ── 3. Quick logs (photo-captured standalone meals) ───────────────────────
+    const quickLogRows = await db
+        .select({
+            date: dietQuickLogs.date,
+            calories: dietQuickLogs.calories,
+            proteinG: dietQuickLogs.proteinG,
+            carbsG: dietQuickLogs.carbsG,
+            fatG: dietQuickLogs.fatG,
+        })
+        .from(dietQuickLogs)
+        .where(and(eq(dietQuickLogs.userId, userId), inArray(dietQuickLogs.date, dates)));
+
+    for (const row of quickLogRows) {
+        const t = totals.get(row.date)!;
+        t.calories += row.calories;
+        t.proteinG += row.proteinG;
+        t.carbsG += row.carbsG;
+        t.fatG += row.fatG;
+    }
+
+    const result = dates.map((date) => ({ date, ...totals.get(date)! }));
+    return ok(c, result);
 });
 
 // ─── GET /api/logs/home-summary/:date ───────────────────────────────────────

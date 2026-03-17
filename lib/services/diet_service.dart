@@ -101,6 +101,17 @@ final class DietService extends ApiBase {
     return ApiBase.decode(res);
   }
 
+  static Future<Map<String, dynamic>> unlogMeal(
+    String date,
+    int mealId,
+  ) async {
+    final res = await ApiBase.client.delete(
+      Uri.parse('${ApiBase.baseUrl}/api/diet/log/$date/$mealId'),
+      headers: await ApiBase.authHeaders(),
+    );
+    return ApiBase.decode(res);
+  }
+
   static Future<Map<String, dynamic>> deleteDietPlan(int id) async {
     final res = await ApiBase.client.delete(
       Uri.parse('${ApiBase.baseUrl}/api/diet/plans/$id'),

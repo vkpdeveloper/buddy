@@ -22,10 +22,12 @@ final class LogsService extends ApiBase {
     return ApiBase.decode(res);
   }
 
-  static Future<Map<String, dynamic>> getWeekLogs({int weekOffset = 0}) async {
-    final uri = weekOffset == 0
-        ? Uri.parse('${ApiBase.baseUrl}/api/logs/week')
-        : Uri.parse('${ApiBase.baseUrl}/api/logs/week?offset=$weekOffset');
+  static Future<Map<String, dynamic>> getWeeklyCalories({
+    int weekOffset = 0,
+  }) async {
+    final uri = Uri.parse(
+      '${ApiBase.baseUrl}/api/logs/weekly-calories?weekOffset=$weekOffset',
+    );
     final res = await ApiBase.client.get(
       uri,
       headers: await ApiBase.authHeaders(),

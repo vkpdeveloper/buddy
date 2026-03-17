@@ -21,6 +21,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
     state = switch (prefs.getString(_key)) {
       'dark' => ThemeMode.dark,
       'light' => ThemeMode.light,
+      'system' => ThemeMode.system,
       _ => _defaultMode,
     };
   }

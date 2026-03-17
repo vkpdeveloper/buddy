@@ -40,7 +40,7 @@ final userProfileMeasurementsProvider =
 final weeklyCaloriesProvider =
     FutureProvider.family<List<DailyCalorieSummary>, int>(
       (ref, weekOffset) async {
-        final res = await LogsService.getWeekLogs(weekOffset: weekOffset);
+        final res = await LogsService.getWeeklyCalories(weekOffset: weekOffset);
         final list = (res['data'] as List?) ?? [];
         return list
             .map((e) => DailyCalorieSummary.fromJson(e as Map<String, dynamic>))

@@ -23,6 +23,7 @@ export type PendingApprovalPayload = {
         toolCallId: string;
         toolName: string;
         input: Record<string, unknown>;
+        providerMetadata?: unknown;
     };
     title: string;
     summary: string;

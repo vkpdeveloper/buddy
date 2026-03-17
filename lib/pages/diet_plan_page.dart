@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:buddy/app_color_scheme.dart';
 import 'package:buddy/app_theme.dart';
+import 'package:buddy/providers/diet_provider.dart';
 import 'package:buddy/providers/generation_provider.dart';
 import 'package:buddy/providers/home_dashboard_provider.dart';
 import 'package:buddy/services/diet_service.dart';
@@ -130,7 +131,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   Future<void> _loadPlanDetail(int id) async {
     try {
       final results = await Future.wait([
-        DietService.getDietPlan(id),
+        DietService.getDietPlan(id, date: _todayDate),
         DietService.getDietLog(_todayDate),
       ]);
 
@@ -157,6 +158,21 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
 
       final nowDayIndex = DateTime.now().weekday - 1;
       final days = (planRes['days'] as List?) ?? [];
+
+      // Auto-mark overridden meals as logged so their macros count towards
+      // daily consumption. Buddy-replaced meals are considered eaten by default;
+      // the user can unlog them explicitly if needed.
+      for (final day in days) {
+        final meals = ((day['meals'] as List?) ?? []).whereType<Map>();
+        for (final meal in meals) {
+          if (meal['isOverride'] == true) {
+            final mealId = (meal['id'] as num?)?.toInt();
+            if (mealId != null && completionMap[mealId] != false) {
+              completionMap[mealId] = true;
+            }
+          }
+        }
+      }
       final inferredWorkoutTime = _inferWorkoutTime(
         days,
         _reminderLeadMinutes,
@@ -549,10 +565,22 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     return TimeOfDay(hour: dt.hour, minute: dt.minute);
   }
 
-  Future<void> _toggleMealCompletion(int mealId, bool isCompleted) async {
-    await DietService.logMealCompletion(_todayDate, mealId, isCompleted);
+  Future<void> _toggleMealCompletion(
+    int mealId,
+    bool isCompleted, {
+    bool isOverride = false,
+  }) async {
+    if (!isCompleted && isOverride) {
+      // Unlog an overridden meal: delete log + override so the original shows
+      await DietService.unlogMeal(_todayDate, mealId);
+      if (!mounted) return;
+      if (_activePlanId != null) await _loadPlanDetail(_activePlanId!);
+    } else {
+      await DietService.logMealCompletion(_todayDate, mealId, isCompleted);
+      if (!mounted) return;
+      setState(() => _todayLog[mealId] = isCompleted);
+    }
     if (!mounted) return;
-    setState(() => _todayLog[mealId] = isCompleted);
     ref.invalidate(todayNutritionSummaryProvider(_todayDate));
   }
 
@@ -1046,6 +1074,11 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         _loadPlans();
       }
     });
+    ref.listen<int>(dietPlanRefreshProvider, (prev, next) {
+      if (next != (prev ?? 0) && _activePlanId != null) {
+        _loadPlanDetail(_activePlanId!);
+      }
+    });
 
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     // Nav bar is 76 + bottomInset tall, positioned absolutely at bottom: 0
@@ -1392,14 +1425,19 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   itemBuilder: (ctx, i) {
                     final meal = meals[i];
                     final mealId = (meal['id'] as num).toInt();
+                    final isOverride = meal['isOverride'] == true;
                     return _MealCard(
                       key: ValueKey(mealId),
                       index: i,
                       meal: meal,
                       isCompletedToday: _todayLog[mealId] ?? false,
+                      isOverride: isOverride,
                       actualLog: _actualLogs[mealId],
-                      onToggle: (completed) =>
-                          _toggleMealCompletion(mealId, completed),
+                      onToggle: (completed) => _toggleMealCompletion(
+                        mealId,
+                        completed,
+                        isOverride: isOverride,
+                      ),
                       onLogActual: (payload) => _logActualMeal(mealId, payload),
                     );
                   },
@@ -1783,6 +1821,7 @@ class _MealCard extends StatefulWidget {
   final int index;
   final Map<String, dynamic> meal;
   final bool isCompletedToday;
+  final bool isOverride;
   final Map<String, dynamic>? actualLog;
   final Future<void> Function(bool) onToggle;
   final Future<void> Function(Map<String, dynamic>) onLogActual;
@@ -1792,6 +1831,7 @@ class _MealCard extends StatefulWidget {
     required this.index,
     required this.meal,
     required this.isCompletedToday,
+    required this.isOverride,
     required this.actualLog,
     required this.onToggle,
     required this.onLogActual,
@@ -2403,6 +2443,7 @@ class _MealCardState extends State<_MealCard> {
         ((meal['proteinG'] ?? meal['protein_g']) as num?)?.toDouble() ?? 0;
 
     final hasActual = widget.actualLog != null;
+    final isOverride = widget.isOverride;
     final rawPayload = widget.actualLog?['rawPayload'];
     final hasPhoto = rawPayload is Map && rawPayload['attachmentId'] != null;
 
@@ -2515,6 +2556,28 @@ class _MealCardState extends State<_MealCard> {
                                     ),
                                   ),
                                 ),
+                                if (isOverride) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.info.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'MODIFIED',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        color: colors.info,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 if (hasActual) ...[
                                   const SizedBox(width: 6),
                                   Container(
