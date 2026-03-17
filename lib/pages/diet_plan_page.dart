@@ -17,6 +17,7 @@ import 'package:buddy/providers/health_provider.dart';
 import 'package:buddy/widgets/app_snackbar.dart';
 import 'package:buddy/widgets/app_buttons.dart';
 import 'package:buddy/widgets/app_text_field.dart';
+import 'package:buddy/widgets/meal_analysis_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:image_picker/image_picker.dart';
@@ -181,6 +182,11 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
       final mergedRecentAnalyses = _mergePhotoAnalysesWithExisting(
         recentAnalyses,
       );
+      final mergedQuickLogs = _mergeQuickLogsWithAnalyses(
+        quickLogs,
+        mergedRecentAnalyses,
+        date: _todayDate,
+      );
 
       if (!mounted) return;
       setState(() {
@@ -188,7 +194,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         _activePlanId = id;
         _todayLog = completionMap;
         _actualLogs = actualMap;
-        _quickLogs = quickLogs;
+        _quickLogs = mergedQuickLogs;
         _photoAnalyses = mergedRecentAnalyses;
         _selectedDayIndex = days.isEmpty
             ? 0
@@ -205,31 +211,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   List<Map<String, dynamic>> get _visiblePhotoAnalyses {
-    final loggedAttachmentIds = <int>{};
-
-    for (final quickLog in _quickLogs) {
-      final attachmentId = (quickLog['attachmentId'] as num?)?.toInt();
-      if (attachmentId != null) {
-        loggedAttachmentIds.add(attachmentId);
-      }
-    }
-
-    for (final actualLog in _actualLogs.values) {
-      final rawPayload = actualLog['rawPayload'];
-      if (rawPayload is Map) {
-        final attachmentId = (rawPayload['attachmentId'] as num?)?.toInt();
-        if (attachmentId != null) {
-          loggedAttachmentIds.add(attachmentId);
-        }
-      }
-    }
-
-    final visible = _photoAnalyses.where((analysis) {
-      final attachmentId = (analysis['id'] as num?)?.toInt();
-      return attachmentId == null ||
-          !loggedAttachmentIds.contains(attachmentId);
-    }).toList();
-
+    final visible = List<Map<String, dynamic>>.from(_photoAnalyses);
     visible.sort((a, b) {
       final aCreatedAt =
           DateTime.tryParse(a['createdAt']?.toString() ?? '') ??
@@ -241,6 +223,21 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     });
 
     return visible;
+  }
+
+  List<Map<String, dynamic>> get _standaloneQuickLogs {
+    return _quickLogs
+        .where((quickLog) {
+          final attachmentId = (quickLog['attachmentId'] as num?)?.toInt();
+          if (attachmentId == null) {
+            return true;
+          }
+
+          return !_photoAnalyses.any(
+            (analysis) => (analysis['id'] as num?)?.toInt() == attachmentId,
+          );
+        })
+        .toList(growable: false);
   }
 
   bool get _hasPendingPhotoAnalyses => _visiblePhotoAnalyses.any((analysis) {
@@ -300,6 +297,96 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
             .toList()
           ..sort((a, b) => (a['key'] as String).compareTo(b['key'] as String));
     return jsonEncode(normalized);
+  }
+
+  String _quickLogKey(Map<String, dynamic> quickLog) {
+    final attachmentId = (quickLog['attachmentId'] as num?)?.toInt();
+    if (attachmentId != null) return 'attachment:$attachmentId';
+
+    final id = (quickLog['id'] as num?)?.toInt();
+    if (id != null) return 'id:$id';
+
+    final loggedAt = quickLog['loggedAt']?.toString();
+    if (loggedAt != null && loggedAt.isNotEmpty) {
+      return 'loggedAt:$loggedAt';
+    }
+
+    return jsonEncode(_normalizeJsonValue(quickLog));
+  }
+
+  String _quickLogsSignature(List<Map<String, dynamic>> quickLogs) {
+    final normalized =
+        quickLogs
+            .map<Map<String, dynamic>>(
+              (quickLog) => {
+                'key': _quickLogKey(quickLog),
+                'state': _normalizeJsonValue(quickLog),
+              },
+            )
+            .toList()
+          ..sort((a, b) => (a['key'] as String).compareTo(b['key'] as String));
+    return jsonEncode(normalized);
+  }
+
+  Map<String, dynamic>? _quickLogFromAnalysis(
+    Map<String, dynamic> analysis, {
+    required String date,
+  }) {
+    final rawLoggedQuickMeal = analysis['loggedQuickMeal'];
+    if (rawLoggedQuickMeal is! Map) return null;
+
+    final quickLog = Map<String, dynamic>.from(rawLoggedQuickMeal);
+    if (quickLog['date']?.toString() != date) {
+      return null;
+    }
+
+    final attachmentId =
+        (quickLog['attachmentId'] as num?)?.toInt() ??
+        (analysis['id'] as num?)?.toInt();
+    if (attachmentId != null) {
+      quickLog['attachmentId'] = attachmentId;
+    }
+
+    final signedUrl = analysis['signedUrl']?.toString();
+    if (signedUrl != null && signedUrl.isNotEmpty) {
+      quickLog['signedUrl'] = quickLog['signedUrl'] ?? signedUrl;
+    }
+
+    return quickLog;
+  }
+
+  List<Map<String, dynamic>> _mergeQuickLogsWithAnalyses(
+    List<Map<String, dynamic>> quickLogs,
+    List<Map<String, dynamic>> analyses, {
+    required String date,
+  }) {
+    final mergedByKey = <String, Map<String, dynamic>>{
+      for (final quickLog in quickLogs) _quickLogKey(quickLog): quickLog,
+    };
+
+    for (final analysis in analyses) {
+      final quickLog = _quickLogFromAnalysis(analysis, date: date);
+      if (quickLog == null) continue;
+
+      final key = _quickLogKey(quickLog);
+      mergedByKey[key] = {...?mergedByKey[key], ...quickLog};
+    }
+
+    final merged = mergedByKey.values.toList(growable: false);
+    merged.sort((a, b) {
+      final aLoggedAt =
+          DateTime.tryParse(
+            (a['loggedAt'] ?? a['createdAt'] ?? '').toString(),
+          ) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bLoggedAt =
+          DateTime.tryParse(
+            (b['loggedAt'] ?? b['createdAt'] ?? '').toString(),
+          ) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return bLoggedAt.compareTo(aLoggedAt);
+    });
+    return merged;
   }
 
   List<Map<String, dynamic>> _mergePhotoAnalysesWithExisting(
@@ -364,11 +451,30 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
       final mergedAnalyses = _mergePhotoAnalysesWithExisting(analyses);
+      final mergedQuickLogs = _mergeQuickLogsWithAnalyses(
+        _quickLogs,
+        mergedAnalyses,
+        date: _todayDate,
+      );
 
       if (!mounted) return;
-      if (_photoAnalysesSignature(_photoAnalyses) !=
-          _photoAnalysesSignature(mergedAnalyses)) {
-        setState(() => _photoAnalyses = mergedAnalyses);
+      final analysesChanged =
+          _photoAnalysesSignature(_photoAnalyses) !=
+          _photoAnalysesSignature(mergedAnalyses);
+      final quickLogsChanged =
+          _quickLogsSignature(_quickLogs) !=
+          _quickLogsSignature(mergedQuickLogs);
+
+      if (analysesChanged || quickLogsChanged) {
+        setState(() {
+          _photoAnalyses = mergedAnalyses;
+          _quickLogs = mergedQuickLogs;
+        });
+      }
+
+      if (quickLogsChanged) {
+        ref.invalidate(todayNutritionSummaryProvider(_todayDate));
+        ref.invalidate(homeDashboardProvider);
       }
     } catch (_) {
       if (!silent && mounted) {
@@ -390,9 +496,18 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
       analysis,
       ..._photoAnalyses.where((item) => _photoAnalysisKey(item) != key),
     ]);
+    final nextQuickLogs = _mergeQuickLogsWithAnalyses(
+      _quickLogs,
+      nextAnalyses,
+      date: _todayDate,
+    );
     if (_photoAnalysesSignature(_photoAnalyses) !=
-        _photoAnalysesSignature(nextAnalyses)) {
-      setState(() => _photoAnalyses = nextAnalyses);
+            _photoAnalysesSignature(nextAnalyses) ||
+        _quickLogsSignature(_quickLogs) != _quickLogsSignature(nextQuickLogs)) {
+      setState(() {
+        _photoAnalyses = nextAnalyses;
+        _quickLogs = nextQuickLogs;
+      });
     }
     _syncPhotoAnalysisPolling();
   }
@@ -402,7 +517,6 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
     if (result is! Map) return;
 
     _showPhotoResultSheet(
-      attachmentId: (analysis['id'] as num).toInt(),
       result: Map<String, dynamic>.from(result),
       signedUrl: analysis['signedUrl'] as String?,
     );
@@ -512,11 +626,12 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
         'signedUrl': signedUrl,
         'analysisResult': analyzeData['analysisResult'],
         'aiAnalysisStatus': analyzeData['status'] ?? 'analyzing',
+        'loggedQuickMeal': analyzeData['loggedQuickMeal'],
         'createdAt': DateTime.now().toIso8601String(),
       });
       AppSnackbar.info(
         context,
-        'Meal uploaded. Analysis is running in the background.',
+        'Meal uploaded. It will be logged automatically once analysis finishes.',
       );
       unawaited(_refreshRecentPhotoAnalyses(silent: true));
     } catch (e) {
@@ -528,7 +643,6 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
   }
 
   void _showPhotoResultSheet({
-    required int attachmentId,
     required Map<String, dynamic> result,
     String? signedUrl,
     File? file,
@@ -540,7 +654,6 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
             ?.map((e) => e as Map<String, dynamic>)
             .toList() ??
         [];
-    final confidence = (result['confidence'] as num?)?.toDouble() ?? 0.0;
     final calories = (macros['calories'] as num?)?.toInt() ?? 0;
     final protein = (macros['proteinG'] as num?)?.toDouble() ?? 0;
     final carbs = (macros['carbsG'] as num?)?.toDouble() ?? 0;
@@ -555,211 +668,121 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
       ),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
-        initialChildSize: 0.6,
-        minChildSize: 0.45,
-        maxChildSize: 0.85,
-        builder: (_, ctrl) => ListView(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (sheetContext, ctrl) => ListView(
           controller: ctrl,
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.paddingOf(sheetContext).bottom + 32,
+          ),
           children: [
-            // Header
-            Row(
-              children: [
-                Text(
-                  'PHOTO ANALYSIS',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: colors.primary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        LucideIcons.sparkles,
-                        size: 11,
-                        color: colors.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${(confidence * 100).toStringAsFixed(0)}% confident',
-                        style: GoogleFonts.plusJakartaSans(
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              child: AspectRatio(
+                aspectRatio: 1.18,
+                child: file != null
+                    ? Image.file(
+                        file,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      )
+                    : signedUrl != null
+                    ? Image.network(
+                        signedUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        color: colors.primary.withValues(alpha: 0.08),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          LucideIcons.camera,
                           color: colors.primary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                          size: 28,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Photo thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: file != null
-                  ? Image.file(
-                      file,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    )
-                  : signedUrl != null
-                  ? Image.network(
-                      signedUrl,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    )
-                  : Container(
-                      height: 180,
-                      color: colors.primary.withValues(alpha: 0.08),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        LucideIcons.camera,
-                        color: colors.primary,
-                        size: 28,
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 20),
-
-            // Macro row
-            Row(
-              children: [
-                _MacroPill(
-                  label: 'CAL',
-                  value: '$calories',
-                  color: colors.primary,
-                ),
-                const SizedBox(width: 8),
-                _MacroPill(
-                  label: 'PROTEIN',
-                  value: '${protein.toStringAsFixed(1)}g',
-                  color: colors.info,
-                ),
-                const SizedBox(width: 8),
-                _MacroPill(
-                  label: 'CARBS',
-                  value: '${carbs.toStringAsFixed(1)}g',
-                  color: colors.warning,
-                ),
-                const SizedBox(width: 8),
-                _MacroPill(
-                  label: 'FAT',
-                  value: '${fat.toStringAsFixed(1)}g',
-                  color: colors.muscleArms,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Ingredients
-            if (ingredients.isNotEmpty) ...[
-              Text(
-                'DETECTED ITEMS',
-                style: GoogleFonts.plusJakartaSans(
-                  color: colors.textMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2,
-                ),
               ),
-              const SizedBox(height: 10),
-              ...ingredients.map(
-                (ing) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Icon(
-                        LucideIcons.circle_dot,
-                        size: 10,
+                      _MacroPill(
+                        label: 'CAL',
+                        value: '$calories',
                         color: colors.primary,
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          ing['name']?.toString() ?? '',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: colors.textPrimary,
-                            fontSize: 13,
-                          ),
-                        ),
+                      _MacroPill(
+                        label: 'PROTEIN',
+                        value: '${protein.toStringAsFixed(1)}g',
+                        color: colors.info,
                       ),
-                      Text(
-                        ing['quantity']?.toString() ?? '',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: colors.textMuted,
-                          fontSize: 12,
-                        ),
+                      const SizedBox(width: 8),
+                      _MacroPill(
+                        label: 'CARBS',
+                        value: '${carbs.toStringAsFixed(1)}g',
+                        color: colors.warning,
+                      ),
+                      const SizedBox(width: 8),
+                      _MacroPill(
+                        label: 'FAT',
+                        value: '${fat.toStringAsFixed(1)}g',
+                        color: colors.muscleArms,
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Log button
-            Semantics(
-              label: 'Log this meal',
-              button: true,
-              child: GestureDetector(
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  try {
-                    await MediaService.logQuickMeal(_todayDate, {
-                      'mealName':
-                          (result['ingredients'] as List?)
-                              ?.map((e) => (e as Map)['name'])
-                              .take(2)
-                              .join(', ') ??
-                          'Photo meal',
-                      'calories': calories,
-                      'proteinG': protein,
-                      'carbsG': carbs,
-                      'fatG': fat,
-                      'attachmentId': attachmentId,
-                    });
-                    if (_activePlanId != null) {
-                      await _loadPlanDetail(_activePlanId!);
-                    }
-                    if (mounted) {
-                      ref.invalidate(todayNutritionSummaryProvider(_todayDate));
-                    }
-                  } catch (_) {}
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: colors.actionSurface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'LOG THIS MEAL',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.actionForeground,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.1,
+                  const SizedBox(height: 20),
+                  if (ingredients.isNotEmpty) ...[
+                    Text(
+                      'DETECTED ITEMS',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: colors.textMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
+                      ),
                     ),
-                  ),
-                ),
+                    const SizedBox(height: 10),
+                    ...ingredients.map(
+                      (ing) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Icon(
+                              LucideIcons.circle_dot,
+                              size: 10,
+                              color: colors.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                ing['name']?.toString() ?? '',
+                                style: GoogleFonts.plusJakartaSans(
+                                  color: colors.textPrimary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              ing['quantity']?.toString() ?? '',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: colors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
@@ -1394,7 +1417,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                   ),
                   const SizedBox(height: 8),
                   ...photoAnalyses.map(
-                    (analysis) => _PhotoAnalysisCard(
+                    (analysis) => MealAnalysisCard(
                       key: ValueKey(
                         (analysis['id'] as num?)?.toInt() ??
                             analysis['createdAt']?.toString(),
@@ -1428,7 +1451,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     ),
                   ),
                 ],
-                if (_quickLogs.isNotEmpty) ...[
+                if (_standaloneQuickLogs.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
                     'CAPTURED MEALS',
@@ -1440,7 +1463,7 @@ class _DietPlanPageState extends ConsumerState<DietPlanPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ..._quickLogs.map((q) => _QuickLogCard(log: q)),
+                  ..._standaloneQuickLogs.map((q) => _QuickLogCard(log: q)),
                 ],
               ],
             ),
@@ -2889,310 +2912,6 @@ class _MealDetailSheet extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PhotoAnalysisCard extends StatelessWidget {
-  final Map<String, dynamic> analysis;
-  final VoidCallback onTap;
-  final VoidCallback onRetry;
-
-  const _PhotoAnalysisCard({
-    super.key,
-    required this.analysis,
-    required this.onTap,
-    required this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final signedUrl = analysis['signedUrl'] as String?;
-    final status = analysis['aiAnalysisStatus']?.toString() ?? 'pending';
-    final result = analysis['analysisResult'] is Map
-        ? Map<String, dynamic>.from(analysis['analysisResult'] as Map)
-        : null;
-    final macros = result?['macros'] is Map
-        ? Map<String, dynamic>.from(result!['macros'] as Map)
-        : null;
-    final calories = (macros?['calories'] as num?)?.toInt();
-    final protein = (macros?['proteinG'] as num?)?.toDouble();
-    final carbs = (macros?['carbsG'] as num?)?.toDouble();
-    final fat = (macros?['fatG'] as num?)?.toDouble();
-    final confidence = (result?['confidence'] as num?)?.toDouble();
-
-    final isReady = status == 'completed' && result != null;
-    final isFailed = status == 'failed';
-    final title = isReady
-        ? 'Photo analysis complete'
-        : isFailed
-        ? 'Photo analysis failed'
-        : 'Photo analysis in progress';
-
-    final (badgeLabel, badgeColor, message) = switch (status) {
-      'completed' => (
-        'READY',
-        colors.success,
-        confidence == null
-            ? 'Tap to review this meal.'
-            : 'Tap to review. ${(confidence * 100).toStringAsFixed(0)}% confident.',
-      ),
-      'failed' => (
-        'FAILED',
-        colors.error,
-        'Analysis failed. Retry when you are ready.',
-      ),
-      _ => (
-        'ANALYZING',
-        colors.primary,
-        'Processing in the background. You can keep using the app.',
-      ),
-    };
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isReady ? onTap : null,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-          decoration: colors.cardDecoration(
-            borderColor: colors.border.withValues(alpha: 0.95),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PhotoAnalysisThumbnail(
-                signedUrl: signedUrl,
-                badgeColor: badgeColor,
-                colors: colors,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: badgeColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            badgeLabel,
-                            style: GoogleFonts.plusJakartaSans(
-                              color: badgeColor,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        if (!isFailed && !isReady)
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colors.primary,
-                            ),
-                          )
-                        else if (isReady)
-                          Icon(
-                            LucideIcons.chevron_right,
-                            size: 16,
-                            color: colors.textMuted,
-                          )
-                        else
-                          Icon(
-                            LucideIcons.circle_alert,
-                            size: 16,
-                            color: colors.error,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      title,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: colors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      message,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: colors.textMuted,
-                        fontSize: 11,
-                        height: 1.45,
-                      ),
-                    ),
-                    if (isReady &&
-                        calories != null &&
-                        protein != null &&
-                        carbs != null &&
-                        fat != null) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          _PhotoAnalysisStatChip(
-                            label: '$calories kcal',
-                            color: colors.xpGold,
-                          ),
-                          _PhotoAnalysisStatChip(
-                            label: '${protein.toStringAsFixed(1)}g protein',
-                            color: colors.success,
-                          ),
-                          _PhotoAnalysisStatChip(
-                            label: '${carbs.toStringAsFixed(1)}g carbs',
-                            color: colors.warning,
-                          ),
-                          _PhotoAnalysisStatChip(
-                            label: '${fat.toStringAsFixed(1)}g fat',
-                            color: colors.info,
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (isFailed) ...[
-                      const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        onPressed: onRetry,
-                        icon: Icon(
-                          LucideIcons.rotate_cw,
-                          color: colors.error,
-                          size: 14,
-                        ),
-                        label: Text(
-                          'Retry',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: colors.error,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: colors.error),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          minimumSize: const Size(0, 36),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PhotoAnalysisThumbnail extends StatelessWidget {
-  final String? signedUrl;
-  final Color badgeColor;
-  final AppColorScheme colors;
-
-  const _PhotoAnalysisThumbnail({
-    required this.signedUrl,
-    required this.badgeColor,
-    required this.colors,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: SizedBox(
-        width: 88,
-        height: 88,
-        child: signedUrl == null
-            ? ColoredBox(
-                color: badgeColor.withValues(alpha: 0.12),
-                child: Center(
-                  child: Icon(
-                    LucideIcons.scan_search,
-                    size: 22,
-                    color: badgeColor,
-                  ),
-                ),
-              )
-            : Image.network(
-                signedUrl!,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                loadingBuilder: (_, child, progress) => progress == null
-                    ? child
-                    : ColoredBox(
-                        color: badgeColor.withValues(alpha: 0.08),
-                        child: Center(
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                errorBuilder: (context, error, stackTrace) => ColoredBox(
-                  color: colors.cardRaised,
-                  child: Center(
-                    child: Icon(
-                      LucideIcons.image_off,
-                      size: 20,
-                      color: colors.textMuted,
-                    ),
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
-}
-
-class _PhotoAnalysisStatChip extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _PhotoAnalysisStatChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.plusJakartaSans(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

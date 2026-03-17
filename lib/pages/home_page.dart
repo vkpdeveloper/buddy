@@ -21,7 +21,7 @@ import 'package:buddy/app_theme.dart';
 import 'package:buddy/pages/diet_plan_page.dart';
 import 'package:buddy/pages/workout_page.dart';
 import 'package:buddy/pages/growth_page.dart';
-import 'package:buddy/pages/buddy_chat_page.dart';
+import 'package:buddy/pages/buddy_sessions_page.dart';
 import 'package:buddy/utils/motion_preferences.dart';
 import 'package:buddy/services/logs_service.dart';
 import 'package:buddy/services/diet_service.dart';
@@ -3121,7 +3121,9 @@ class _BottomNavigation extends StatelessWidget {
             child: AppPressable(
               onPressed: () => Navigator.of(
                 context,
-              ).push(MaterialPageRoute(builder: (_) => const BuddyChatPage())),
+              ).push(
+                MaterialPageRoute(builder: (_) => const BuddySessionsPage()),
+              ),
               semanticsLabel: 'Open Buddy AI Chat',
               minHeight: 66,
               minWidth: 66,

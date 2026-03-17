@@ -22,6 +22,14 @@ import buddyRouter from "./routes/buddy";
 import targetsRouter from "./routes/targets";
 import { seedCatalog } from "./lib/seedCatalog";
 
+const shouldStartInlineWorkers =
+  Bun.env.NODE_ENV !== "production" &&
+  Bun.env.BUDDY_INLINE_WORKERS !== "false";
+
+if (shouldStartInlineWorkers) {
+  await import("./worker");
+}
+
 const app = new Hono();
 
 // ─── Middleware ───────────────────────────────────────────────────────────────

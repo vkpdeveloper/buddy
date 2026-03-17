@@ -7,7 +7,7 @@ import { dietPlans, dietDays, dietMeals, dietMealLogs, dailyLogs, dietQuickLogs,
 import { DIET_FOOD_OPTIONS } from '../lib/dietGenerator';
 import { ok, fail } from '../lib/response';
 import { notFound } from '../lib/errors';
-import { createQuickMealLog, getEffectiveDietDayForDate, parseIngredientsJson, upsertActualMealLog } from '../services/diet';
+import { getEffectiveDietDayForDate, parseIngredientsJson, upsertActualMealLog, upsertQuickMealLog } from '../services/diet';
 
 const router = new Hono();
 
@@ -353,7 +353,7 @@ router.post('/log/:date/quick', zValidator('json', z.object({
     const date = c.req.param('date');
     const { mealName, calories, proteinG, carbsG, fatG, notes, attachmentId } = c.req.valid('json');
 
-    const inserted = await createQuickMealLog(userId, {
+    const inserted = await upsertQuickMealLog(userId, {
         date,
         mealName,
         calories,

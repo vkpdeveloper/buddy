@@ -1,7 +1,8 @@
 import { Tool } from 'ai';
 import { z } from 'zod';
+import { type MealAnalysisPipelineEvent } from '../../../lib/mealAnalysisPipeline';
 import { getLocalDateInTimeZone } from '../../../lib/time';
-import { createQuickMealLog, getMealSlotForDate, upsertActualMealLog } from '../../../services/diet';
+import { getMealSlotForDate, upsertActualMealLog, upsertQuickMealLog } from '../../../services/diet';
 import { ensureMealAnalysisReady } from '../../../services/mealMedia';
 import { immediateWriteResult } from './tool_output';
 
@@ -19,21 +20,30 @@ function prettyMealType(mealType: string) {
     return mealType.replace(/_/g, ' ');
 }
 
-export function getMealPhotoAttachmentTool(userId: number): Tool {
+type MealPhotoProgressReporter = (
+    event: MealAnalysisPipelineEvent,
+) => Promise<void> | void;
+
+export function getMealPhotoAttachmentTool(
+    userId: number,
+    onProgress?: MealPhotoProgressReporter,
+): Tool {
     return {
-        description: 'Read a meal photo attachment by attachmentId. If analysis is not finished yet, wait for it to complete and then return the final meal analysis, signed image URL, and estimated macros.',
+        description: 'Read a meal photo attachment by attachmentId. If analysis is not finished yet, wait for it to complete, auto-log it as a quick meal, and then return the final meal analysis, signed image URL, and estimated macros.',
         inputSchema: z.object({
             attachmentId: z.number().int().positive(),
         }),
         execute: async ({ attachmentId }: { attachmentId: number }) => {
-            const attachment = await ensureMealAnalysisReady(userId, attachmentId);
+            const attachment = await ensureMealAnalysisReady(userId, attachmentId, {
+                onProgress,
+            });
 
             return {
                 attachmentId: attachment.id,
                 status: attachment.aiAnalysisStatus,
                 analysisResult: attachment.aiAnalysisResult,
                 signedUrl: attachment.signedUrl,
-                imageMarkdown: `![Meal photo](${attachment.signedUrl})`,
+                loggedQuickMeal: attachment.loggedQuickMeal,
                 createdAt: attachment.createdAt,
             };
         },
@@ -92,7 +102,7 @@ export function logMealPhotoTool(userId: number, timeZone: string): Tool {
                 });
             }
 
-            await createQuickMealLog(userId, {
+            await upsertQuickMealLog(userId, {
                 date,
                 mealName: input.mealName,
                 calories: input.calories,

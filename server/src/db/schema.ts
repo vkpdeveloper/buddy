@@ -9,6 +9,7 @@ import {
     uniqueIndex,
     jsonb,
     timestamp,
+    uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -431,6 +432,83 @@ export const mealMediaAttachments = pgTable('meal_media_attachments', {
 }, (t) => [
     index('meal_media_attachments_user_id_idx').on(t.userId),
 ]);
+
+// ─── Buddy Chat Persistence ──────────────────────────────────────────────────
+
+export const buddyChatSessions = pgTable('buddy_chat_sessions', {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title').notNull().default('New Session'),
+    isPinned: boolean('is_pinned').notNull().default(false),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    activityAt: timestamp('activity_at').notNull().defaultNow(),
+    lastMessagePreview: text('last_message_preview'),
+    lastMessageRole: text('last_message_role', { enum: ['user', 'buddy'] }),
+    pendingApproval: jsonb('pending_approval'),
+}, (t) => [
+    index('buddy_chat_sessions_user_sort_idx').on(
+        t.userId,
+        t.isPinned.desc(),
+        t.activityAt.desc(),
+        t.createdAt.desc(),
+    ),
+    index('buddy_chat_sessions_user_activity_idx').on(
+        t.userId,
+        t.activityAt.desc(),
+    ),
+]);
+
+export const buddyChatMessages = pgTable('buddy_chat_messages', {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: uuid('session_id').notNull().references(() => buddyChatSessions.id, { onDelete: 'cascade' }),
+    displayRole: text('display_role', { enum: ['user', 'buddy'] }),
+    sdkRole: text('sdk_role', { enum: ['user', 'assistant', 'tool'] }).notNull(),
+    message: text('message'),
+    parts: jsonb('parts').notNull(),
+    model: text('model'),
+    tokens: integer('tokens'),
+    tokenCountStatus: text('token_count_status', { enum: ['exact', 'unknown'] }).notNull().default('unknown'),
+    sentAt: timestamp('sent_at').notNull().defaultNow(),
+    isVisible: boolean('is_visible').notNull().default(true),
+}, (t) => [
+    index('buddy_chat_messages_session_sent_idx').on(
+        t.sessionId,
+        t.sentAt.asc(),
+        t.id.asc(),
+    ),
+    index('buddy_chat_messages_visible_session_sent_idx').on(
+        t.sessionId,
+        t.isVisible,
+        t.sentAt.asc(),
+        t.id.asc(),
+    ),
+]);
+
+export const buddyChatMessageAttachments = pgTable(
+    'buddy_chat_message_attachments',
+    {
+        id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+        messageId: uuid('message_id').notNull().references(() => buddyChatMessages.id, { onDelete: 'cascade' }),
+        kind: text('kind', { enum: ['meal_photo'] }).notNull(),
+        mealMediaAttachmentId: integer('meal_media_attachment_id').references(
+            () => mealMediaAttachments.id,
+            { onDelete: 'set null' },
+        ),
+        sortOrder: integer('sort_order').notNull().default(0),
+        metadata: jsonb('metadata'),
+        createdAt: timestamp('created_at').notNull().defaultNow(),
+    },
+    (t) => [
+        index('buddy_chat_message_attachments_message_sort_idx').on(
+            t.messageId,
+            t.sortOrder,
+        ),
+        index('buddy_chat_message_attachments_meal_media_idx').on(
+            t.mealMediaAttachmentId,
+        ),
+    ],
+);
 
 // ─── AI Usage Logs (token accounting for every AI call) ──────────────────────
 

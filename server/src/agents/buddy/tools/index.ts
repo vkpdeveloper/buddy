@@ -1,4 +1,5 @@
 import { type Tool } from 'ai';
+import { type MealAnalysisPipelineEvent } from '../../../lib/mealAnalysisPipeline';
 import { getUserProfileTool } from './profile';
 import { getTodayDietTool } from './today_diet';
 import { getTodayWorkoutTool } from './today_workout';
@@ -46,7 +47,15 @@ function withLogging(name: string, tool: Tool): Tool {
  * Creates all Buddy AI tools bound to a specific user.
  * Each tool is lazy — it only hits the DB when the model decides to call it.
  */
-export function createBuddyTools(userId: number, timeZone: string): Record<string, Tool> {
+export function createBuddyTools(
+    userId: number,
+    timeZone: string,
+    options?: {
+        onMealPhotoProgress?: (
+            event: MealAnalysisPipelineEvent,
+        ) => Promise<void> | void;
+    },
+): Record<string, Tool> {
     const tools = {
         getUserProfile: getUserProfileTool(userId),
         getTodayDiet: getTodayDietTool(userId, timeZone),
@@ -59,7 +68,10 @@ export function createBuddyTools(userId: number, timeZone: string): Record<strin
         getUserTargets: getUserTargetsTool(userId),
         getDietMealSlot: getDietMealSlotTool(userId, timeZone),
         getWorkoutLoggingContext: getWorkoutLoggingContextTool(userId, timeZone),
-        getMealPhotoAttachment: getMealPhotoAttachmentTool(userId),
+        getMealPhotoAttachment: getMealPhotoAttachmentTool(
+            userId,
+            options?.onMealPhotoProgress,
+        ),
         logBodyProgress: logBodyProgressTool(userId, timeZone),
         updateDailyHealthLog: updateDailyHealthLogTool(userId, timeZone),
         logDetailedWorkout: logDetailedWorkoutTool(userId, timeZone),

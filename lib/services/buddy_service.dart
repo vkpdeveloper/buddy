@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:buddy/models/buddy_chat.dart';
 import 'package:buddy/providers/firebase_auth_provider.dart';
 import 'package:buddy/services/api_base.dart';
 
@@ -28,77 +29,72 @@ class BuddyRefreshEvent extends BuddyStreamEvent {
   BuddyRefreshEvent(this.domains);
 }
 
-class BuddyToolCall {
-  final String toolCallId;
-  final String toolName;
-  final Map<String, dynamic> input;
-
-  const BuddyToolCall({
-    required this.toolCallId,
-    required this.toolName,
-    required this.input,
-  });
-
-  factory BuddyToolCall.fromJson(Map<String, dynamic> json) {
-    return BuddyToolCall(
-      toolCallId: (json['toolCallId'] ?? '').toString(),
-      toolName: (json['toolName'] ?? '').toString(),
-      input: json['input'] is Map
-          ? Map<String, dynamic>.from(json['input'] as Map)
-          : const {},
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'type': 'tool-call',
-      'toolCallId': toolCallId,
-      'toolName': toolName,
-      'input': input,
-    };
-  }
+class BuddyPipelineEvent extends BuddyStreamEvent {
+  final Map<String, dynamic> payload;
+  BuddyPipelineEvent(this.payload);
 }
 
-class BuddyApprovalRequest {
-  final String approvalId;
-  final BuddyToolCall toolCall;
+class BuddySessionMetaEvent extends BuddyStreamEvent {
+  final String sessionId;
   final String title;
-  final String summary;
-  final String confirmLabel;
-  final String cancelLabel;
 
-  const BuddyApprovalRequest({
-    required this.approvalId,
-    required this.toolCall,
-    required this.title,
-    required this.summary,
-    required this.confirmLabel,
-    required this.cancelLabel,
-  });
-
-  factory BuddyApprovalRequest.fromJson(Map<String, dynamic> json) {
-    return BuddyApprovalRequest(
-      approvalId: (json['approvalId'] ?? '').toString(),
-      toolCall: BuddyToolCall.fromJson(
-        Map<String, dynamic>.from(json['toolCall'] as Map),
-      ),
-      title: (json['title'] ?? '').toString(),
-      summary: (json['summary'] ?? '').toString(),
-      confirmLabel: (json['confirmLabel'] ?? 'Approve').toString(),
-      cancelLabel: (json['cancelLabel'] ?? 'Cancel').toString(),
-    );
-  }
+  BuddySessionMetaEvent({required this.sessionId, required this.title});
 }
 
 final class BuddyService extends ApiBase {
-  static Stream<BuddyStreamEvent> buddyChat(
-    List<Map<String, dynamic>> messages,
+  static Future<Map<String, dynamic>> listSessions() async {
+    final res = await ApiBase.client.get(
+      Uri.parse('${ApiBase.baseUrl}/api/buddy/sessions'),
+      headers: await ApiBase.authHeaders(),
+    );
+    return ApiBase.decode(res);
+  }
+
+  static Future<Map<String, dynamic>> createSession() async {
+    final res = await ApiBase.client.post(
+      Uri.parse('${ApiBase.baseUrl}/api/buddy/sessions'),
+      headers: await ApiBase.authHeaders(),
+    );
+    return ApiBase.decode(res);
+  }
+
+  static Future<Map<String, dynamic>> getSessionDetail(String sessionId) async {
+    final res = await ApiBase.client.get(
+      Uri.parse('${ApiBase.baseUrl}/api/buddy/sessions/$sessionId'),
+      headers: await ApiBase.authHeaders(),
+    );
+    return ApiBase.decode(res);
+  }
+
+  static Future<Map<String, dynamic>> updateSession(
+    String sessionId,
+    Map<String, dynamic> data,
+  ) async {
+    final res = await ApiBase.client.patch(
+      Uri.parse('${ApiBase.baseUrl}/api/buddy/sessions/$sessionId'),
+      headers: await ApiBase.authHeaders(),
+      body: jsonEncode(data),
+    );
+    return ApiBase.decode(res);
+  }
+
+  static Future<Map<String, dynamic>> deleteSession(String sessionId) async {
+    final res = await ApiBase.client.delete(
+      Uri.parse('${ApiBase.baseUrl}/api/buddy/sessions/$sessionId'),
+      headers: await ApiBase.authHeaders(),
+    );
+    return ApiBase.decode(res);
+  }
+
+  static Stream<BuddyStreamEvent> streamSessionChat(
+    String sessionId,
+    Map<String, dynamic> input,
   ) async* {
     final token = await FirebaseAuthProvider.instance.getToken();
     final timeZone = await ApiBase.localTimeZone();
     final request = http.Request(
       'POST',
-      Uri.parse('${ApiBase.baseUrl}/api/buddy/chat'),
+      Uri.parse('${ApiBase.baseUrl}/api/buddy/sessions/$sessionId/chat'),
     );
     request.headers.addAll({
       'Content-Type': 'application/json',
@@ -107,7 +103,7 @@ final class BuddyService extends ApiBase {
       'X-Timezone': timeZone,
       if (token != null) 'Authorization': 'Bearer $token',
     });
-    request.body = jsonEncode({'messages': messages});
+    request.body = jsonEncode({'input': input});
 
     final http.StreamedResponse response;
     try {
@@ -200,6 +196,20 @@ final class BuddyService extends ApiBase {
           if (decoded is List) {
             return BuddyRefreshEvent(
               decoded.map((item) => item.toString()).toList(),
+            );
+          }
+          return null;
+        case 'pipeline':
+          if (decoded is Map) {
+            return BuddyPipelineEvent(Map<String, dynamic>.from(decoded));
+          }
+          return null;
+        case 'session-meta':
+          if (decoded is Map) {
+            final json = Map<String, dynamic>.from(decoded);
+            return BuddySessionMetaEvent(
+              sessionId: (json['sessionId'] ?? '').toString(),
+              title: (json['title'] ?? '').toString(),
             );
           }
           return null;

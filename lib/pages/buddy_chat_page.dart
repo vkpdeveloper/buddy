@@ -3,50 +3,21 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:buddy/app_theme.dart';
 import 'package:buddy/app_color_scheme.dart';
-import 'package:buddy/providers/body_provider.dart';
-import 'package:buddy/providers/growth_provider.dart';
-import 'package:buddy/providers/home_dashboard_provider.dart';
-import 'package:buddy/providers/progress_provider.dart';
-import 'package:buddy/services/buddy_service.dart';
+import 'package:buddy/app_theme.dart';
+import 'package:buddy/models/buddy_chat.dart';
+import 'package:buddy/providers/buddy_provider.dart';
 import 'package:buddy/services/media_service.dart';
 import 'package:buddy/services/profile_service.dart';
 import 'package:buddy/utils/motion_preferences.dart';
 import 'package:buddy/widgets/app_buttons.dart';
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-enum _Role { user, assistant, error }
-
-class _ChatMessage {
-  final _Role role;
-  final String content;
-  final _ChatAttachment? attachment;
-  const _ChatMessage({
-    required this.role,
-    required this.content,
-    this.attachment,
-  });
-}
-
-class _ChatAttachment {
-  final int attachmentId;
-  final String localPath;
-  final String? signedUrl;
-
-  const _ChatAttachment({
-    required this.attachmentId,
-    required this.localPath,
-    this.signedUrl,
-  });
-}
 
 class _ComposerAttachment {
   final File file;
@@ -85,15 +56,10 @@ const _kSuggestions = [
   'How\'s my streak looking?',
 ];
 
-String _todayDate() {
-  final now = DateTime.now();
-  return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 class BuddyChatPage extends ConsumerStatefulWidget {
-  const BuddyChatPage({super.key});
+  final String sessionId;
+
+  const BuddyChatPage({super.key, required this.sessionId});
 
   @override
   ConsumerState<BuddyChatPage> createState() => _BuddyChatPageState();
@@ -101,23 +67,14 @@ class BuddyChatPage extends ConsumerStatefulWidget {
 
 class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     with TickerProviderStateMixin {
-  final List<_ChatMessage> _messages = [];
-  final List<Map<String, dynamic>> _apiMessages = [];
   final TextEditingController _inputCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
   final FocusNode _focusNode = FocusNode();
   final ImagePicker _imagePicker = ImagePicker();
 
   String? _userName;
-  bool _isStreaming = false;
   bool _isUploadingAttachment = false;
-  String _streamingContent = '';
-  String? _activeToolLabel;
-  BuddyApprovalRequest? _pendingApproval;
-  BuddyApprovalRequest? _streamingApprovalRequest;
   _ComposerAttachment? _composerAttachment;
-  bool _sawApprovalOrRefreshEvent = false;
-  StreamSubscription<BuddyStreamEvent>? _streamSub;
 
   late AnimationController _dotAnimCtrl;
   late AnimationController _fadeInCtrl;
@@ -151,7 +108,6 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
 
   @override
   void dispose() {
-    _streamSub?.cancel();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     _focusNode.dispose();
@@ -160,11 +116,11 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     super.dispose();
   }
 
-  // ─── Scrolling ──────────────────────────────────────────────────────────────
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollCtrl.hasClients) return;
+      if (!_scrollCtrl.hasClients) {
+        return;
+      }
       _scrollCtrl.animateTo(
         _scrollCtrl.position.maxScrollExtent,
         duration: const Duration(milliseconds: 260),
@@ -173,79 +129,58 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     });
   }
 
-  // ─── Send ───────────────────────────────────────────────────────────────────
-
-  Future<void> _sendMessage(String text) async {
-    final trimmed = text.trim();
-    if (_isStreaming || _isUploadingAttachment || _pendingApproval != null) {
+  Future<void> _sendMessage(BuddySessionState sessionState, String text) async {
+    if (sessionState.isStreaming ||
+        _isUploadingAttachment ||
+        sessionState.pendingApproval != null) {
       return;
     }
-    if (trimmed.isEmpty && _composerAttachment == null) return;
 
     final attachment = _composerAttachment == null
         ? null
-        : _ChatAttachment(
+        : BuddyDraftAttachment(
             attachmentId: _composerAttachment!.attachmentId,
             localPath: _composerAttachment!.file.path,
             signedUrl: _composerAttachment!.signedUrl,
           );
 
-    _inputCtrl.clear();
-    _focusNode.unfocus();
-
-    final apiContent = attachment == null
-        ? trimmed
-        : '${trimmed.isEmpty ? 'Please inspect this meal photo.' : trimmed}\n\n[User attached a meal photo. attachmentId=${attachment.attachmentId}. Call getMealPhotoAttachment with this attachmentId if you need to inspect or log it.]';
-
-    // Remove any trailing error message before adding the new user turn
-    setState(() {
-      _messages.removeWhere((m) => m.role == _Role.error);
-      _messages.add(
-        _ChatMessage(
-          role: _Role.user,
-          content: trimmed,
-          attachment: attachment,
-        ),
-      );
-      _apiMessages.add({'role': 'user', 'content': apiContent});
-      _isStreaming = true;
-      _streamingContent = '';
-      _activeToolLabel = null;
-      _composerAttachment = null;
-      _streamingApprovalRequest = null;
-      _sawApprovalOrRefreshEvent = false;
-    });
-
-    _scrollToBottom();
-    _startStream();
-  }
-
-  // ─── Retry ──────────────────────────────────────────────────────────────────
-
-  void _retryLast() {
-    if (_isStreaming || _isUploadingAttachment || _pendingApproval != null) {
+    if (text.trim().isEmpty && attachment == null) {
       return;
     }
 
-    // Strip error bubble, keep user message, resend
-    setState(() {
-      _messages.removeWhere((m) => m.role == _Role.error);
-      _isStreaming = true;
-      _streamingContent = '';
-      _activeToolLabel = null;
-      _streamingApprovalRequest = null;
-      _sawApprovalOrRefreshEvent = false;
-    });
+    final controller = ref.read(buddySessionProvider(widget.sessionId).notifier);
+    await controller.sendUserMessage(text: text, attachment: attachment);
 
+    if (!mounted) {
+      return;
+    }
+
+    _inputCtrl.clear();
+    _focusNode.unfocus();
+    setState(() => _composerAttachment = null);
     _scrollToBottom();
-    _startStream();
   }
 
-  Future<void> _pickMealPhoto() async {
-    if (_isStreaming ||
+  Future<void> _respondToApproval({
+    required BuddySessionState sessionState,
+    required bool approved,
+  }) async {
+    if (sessionState.pendingApproval == null ||
+        sessionState.isStreaming ||
+        _isUploadingAttachment) {
+      return;
+    }
+
+    final controller = ref.read(buddySessionProvider(widget.sessionId).notifier);
+    await controller.respondToApproval(approved: approved);
+    _scrollToBottom();
+  }
+
+  Future<void> _pickMealPhoto(BuddySessionState sessionState) async {
+    if (sessionState.isStreaming ||
         _isUploadingAttachment ||
         _composerAttachment != null ||
-        _pendingApproval != null) {
+        sessionState.pendingApproval != null) {
       return;
     }
 
@@ -257,18 +192,19 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
       ),
       builder: (_) => const _MealPhotoSourceSheet(),
     );
-    if (!mounted || source == null) return;
+    if (!mounted || source == null) {
+      return;
+    }
 
     await _pickMealPhotoFromSource(source);
   }
 
   Future<void> _pickMealPhotoFromSource(ImageSource source) async {
     try {
-      final picked = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 88,
-      );
-      if (picked == null) return;
+      final picked = await _pickMealPhotoFile(source);
+      if (picked == null) {
+        return;
+      }
 
       final file = File(picked.path);
       final mimeType = _mimeTypeForPath(file.path);
@@ -282,7 +218,9 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
         throw Exception('Upload did not return an attachment id.');
       }
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _composerAttachment = _ComposerAttachment(
           file: file,
@@ -294,8 +232,10 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
 
       unawaited(_startMealPhotoAnalysis(attachmentId));
     } catch (err) {
-      if (!mounted) return;
-      _showSnack('Meal photo upload failed.');
+      if (!mounted) {
+        return;
+      }
+      _showSnack(_mealPhotoUploadErrorMessage(err, source));
       debugPrint('[BuddyChat] meal photo upload error: $err');
     } finally {
       if (mounted) {
@@ -320,76 +260,43 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     }
   }
 
-  Future<void> _respondToApproval({required bool approved}) async {
-    final approval = _pendingApproval;
-    if (approval == null || _isStreaming || _isUploadingAttachment) return;
-
-    setState(() {
-      _pendingApproval = null;
-      _isStreaming = true;
-      _streamingContent = '';
-      _activeToolLabel = null;
-      _streamingApprovalRequest = null;
-      _sawApprovalOrRefreshEvent = false;
-    });
-
-    _apiMessages.add({
-      'role': 'tool',
-      'content': [
-        {
-          'type': 'tool-approval-response',
-          'approvalId': approval.approvalId,
-          'approved': approved,
-        },
-      ],
-    });
-
-    _scrollToBottom();
-    _startStream();
-  }
-
-  void _handleRefreshDomains(List<String> domains) {
-    for (final domain in domains) {
-      switch (domain) {
-        case 'body':
-          ref.invalidate(bodyHistoryProvider);
-          ref.invalidate(latestBodyMeasurementProvider);
-          ref.invalidate(growthOverviewProvider);
-          break;
-        case 'diet':
-          ref.invalidate(todayNutritionSummaryProvider(_todayDate()));
-          ref.invalidate(homeDashboardProvider);
-          break;
-        case 'growth':
-          ref.invalidate(growthOverviewProvider);
-          ref.invalidate(growthGoalsProvider);
-          ref.invalidate(bodyHistoryProvider);
-          ref.invalidate(latestBodyMeasurementProvider);
-          break;
-        case 'home':
-          ref.invalidate(homeDashboardProvider);
-          ref.invalidate(todayNutritionSummaryProvider(_todayDate()));
-          break;
-        case 'progress':
-          ref.invalidate(progressProvider);
-          break;
-        case 'targets':
-          ref.invalidate(userTargetsProvider);
-          ref.invalidate(homeDashboardProvider);
-          break;
-        case 'workout':
-          ref.invalidate(weeklyWorkoutSummaryProvider);
-          ref.invalidate(homeDashboardProvider);
-          ref.invalidate(progressProvider);
-          break;
+  Future<XFile?> _pickMealPhotoFile(ImageSource source) async {
+    try {
+      return await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 88,
+        maxWidth: 1280,
+        requestFullMetadata: !(Platform.isIOS && source == ImageSource.gallery),
+      );
+    } on PlatformException catch (err) {
+      if (!_isIosGalleryRepresentationError(err, source)) {
+        rethrow;
       }
+
+      debugPrint(
+        '[BuddyChat] retrying iOS gallery pick without transforms: $err',
+      );
+
+      return _imagePicker.pickImage(source: source, requestFullMetadata: false);
     }
   }
 
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  bool _isIosGalleryRepresentationError(
+    PlatformException err,
+    ImageSource source,
+  ) {
+    return Platform.isIOS &&
+        source == ImageSource.gallery &&
+        err.code == 'invalid_image';
+  }
+
+  String _mealPhotoUploadErrorMessage(Object err, ImageSource source) {
+    if (err is PlatformException &&
+        _isIosGalleryRepresentationError(err, source)) {
+      return 'That photo format could not be loaded from Photos. Try another image or use the camera.';
+    }
+
+    return 'Meal photo upload failed.';
   }
 
   String _mimeTypeForPath(String path) {
@@ -400,165 +307,262 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     return 'image/jpeg';
   }
 
-  void _startStream() {
-    _streamSub?.cancel();
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
-    try {
-      _streamSub = BuddyService.buddyChat(_apiMessages).listen(
-        (event) {
-          if (!mounted) return;
-          switch (event) {
-            case BuddyToolStart(:final label):
-              setState(() => _activeToolLabel = label);
-            case BuddyTextChunk(:final text):
-              setState(() {
-                _activeToolLabel = null;
-                _streamingContent += text;
-              });
-            case BuddyApprovalEvent(:final approval):
-              setState(() {
-                _activeToolLabel = null;
-                _pendingApproval = approval;
-                _streamingApprovalRequest = approval;
-                _sawApprovalOrRefreshEvent = true;
-              });
-            case BuddyRefreshEvent(:final domains):
-              _handleRefreshDomains(domains);
-              setState(() {
-                _activeToolLabel = null;
-                _sawApprovalOrRefreshEvent = true;
-              });
-          }
-          _scrollToBottom();
-        },
-        onDone: _onStreamDone,
-        onError: _onStreamError,
-        cancelOnError: true,
-      );
-    } catch (e) {
-      _onStreamError(e);
+  Future<void> _showRenameDialog(BuddySessionState sessionState) async {
+    final controller = TextEditingController(
+      text: sessionState.session?.title ?? 'New Session',
+    );
+    final title = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: context.colors.cardRaised,
+        title: Text(
+          'Rename session',
+          style: GoogleFonts.plusJakartaSans(
+            color: context.colors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: GoogleFonts.plusJakartaSans(
+            color: context.colors.textPrimary,
+            fontSize: 14,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Session title',
+            hintStyle: GoogleFonts.plusJakartaSans(
+              color: context.colors.textMuted,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.plusJakartaSans(
+                color: context.colors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (title == null || title.isEmpty) {
+      return;
+    }
+
+    await ref
+        .read(buddySessionProvider(widget.sessionId).notifier)
+        .renameSession(title);
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: context.colors.cardRaised,
+        title: Text(
+          'Delete session?',
+          style: GoogleFonts.plusJakartaSans(
+            color: context.colors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'This removes the full conversation history from Buddy.',
+          style: GoogleFonts.plusJakartaSans(
+            color: context.colors.textSecondary,
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.plusJakartaSans(
+                color: context.colors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: context.colors.error,
+              foregroundColor: context.colors.background,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(buddySessionProvider(widget.sessionId).notifier).deleteSession();
     }
   }
 
-  void _onStreamDone() {
-    if (!mounted) return;
-    setState(() {
-      if (_streamingApprovalRequest != null) {
-        final approvalContent = <Map<String, dynamic>>[];
-        if (_streamingContent.isNotEmpty) {
-          approvalContent.add({'type': 'text', 'text': _streamingContent});
-        }
-        approvalContent.add({
-          'type': 'tool-approval-request',
-          'approvalId': _streamingApprovalRequest!.approvalId,
-          'toolCall': _streamingApprovalRequest!.toolCall.toJson(),
-        });
-        _apiMessages.add({'role': 'assistant', 'content': approvalContent});
-      } else if (_streamingContent.isNotEmpty) {
-        _apiMessages.add({'role': 'assistant', 'content': _streamingContent});
-      }
-
-      if (_streamingContent.isNotEmpty) {
-        _messages.add(
-          _ChatMessage(role: _Role.assistant, content: _streamingContent),
-        );
-      } else if (!_sawApprovalOrRefreshEvent) {
-        // Model called a tool but produced no text — or stream was empty
-        _messages.add(
-          const _ChatMessage(
-            role: _Role.error,
-            content: "Hmm, I didn't get a response back. Want to try again?",
-          ),
-        );
-      }
-      _isStreaming = false;
-      _streamingContent = '';
-      _activeToolLabel = null;
-      _streamingApprovalRequest = null;
-      _sawApprovalOrRefreshEvent = false;
-    });
-    _scrollToBottom();
-  }
-
-  void _onStreamError(dynamic err) {
-    if (!mounted) return;
-    debugPrint('[BuddyChat] stream error: $err');
-    setState(() {
-      _messages.add(
-        const _ChatMessage(
-          role: _Role.error,
-          content: "Something went wrong. Check your connection and retry.",
-        ),
-      );
-      _isStreaming = false;
-      _streamingContent = '';
-      _activeToolLabel = null;
-      _streamingApprovalRequest = null;
-      _sawApprovalOrRefreshEvent = false;
-    });
-    _scrollToBottom();
-  }
-
-  // ─── Build ──────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.paddingOf(context).bottom;
+    ref.listen<BuddySessionState>(buddySessionProvider(widget.sessionId), (
+      previous,
+      next,
+    ) {
+      final messageCountChanged = previous?.messages.length != next.messages.length;
+      final streamingChanged =
+          previous?.streamingContent != next.streamingContent ||
+          previous?.pendingApproval != next.pendingApproval ||
+          previous?.errorMessage != next.errorMessage;
+
+      if (messageCountChanged || streamingChanged) {
+        _scrollToBottom();
+      }
+
+      if (!(previous?.isDeleted ?? false) && next.isDeleted && mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+
+    final sessionState = ref.watch(buddySessionProvider(widget.sessionId));
+
     return Scaffold(
       backgroundColor: context.colors.background,
-      appBar: _buildAppBar(context),
+      appBar: _buildAppBar(context, sessionState),
       body: FadeTransition(
         opacity: _fadeIn,
         child: Column(
           children: [
-            Expanded(child: _buildMessageList()),
-            _buildInputBar(context, bottomPad),
+            Expanded(child: _buildMessageList(sessionState)),
+            _buildInputBar(context, sessionState, MediaQuery.paddingOf(context).bottom),
           ],
         ),
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    BuddySessionState sessionState,
+  ) {
     return AppBar(
       backgroundColor: context.colors.background,
       elevation: 0,
       leading: AppBackButton(onPressed: () => Navigator.pop(context)),
       titleSpacing: 0,
-      title: Row(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Buddy',
-                style: AppTheme.displayStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: context.colors.textPrimary,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: Text(
+              sessionState.session?.title ?? 'Buddy',
+              key: ValueKey(sessionState.session?.title ?? 'Buddy'),
+              style: AppTheme.displayStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: context.colors.textPrimary,
+              ),
+            ),
+          ),
+          if (sessionState.isStreaming)
+            FadeTransition(
+              opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
+                CurvedAnimation(
+                  parent: _dotAnimCtrl,
+                  curve: Curves.easeInOut,
                 ),
               ),
-              if (_isStreaming)
-                FadeTransition(
-                  opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
-                    CurvedAnimation(
-                      parent: _dotAnimCtrl,
-                      curve: Curves.easeInOut,
-                    ),
-                  ),
-                  child: Text(
-                    'Thinking…',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      color: context.colors.textMuted,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
+              child: Text(
+                'Thinking…',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  color: context.colors.textMuted,
+                  fontWeight: FontWeight.w400,
                 ),
-            ],
-          ),
+              ),
+            ),
         ],
       ),
+      actions: [
+        PopupMenuButton<_ChatMenuAction>(
+          icon: Icon(
+            LucideIcons.ellipsis_vertical,
+            color: context.colors.textMuted,
+            size: 18,
+          ),
+          color: context.colors.cardRaised,
+          onSelected: (action) async {
+            switch (action) {
+              case _ChatMenuAction.pin:
+                await ref
+                    .read(buddySessionProvider(widget.sessionId).notifier)
+                    .togglePinned();
+                break;
+              case _ChatMenuAction.rename:
+                await _showRenameDialog(sessionState);
+                break;
+              case _ChatMenuAction.delete:
+                await _confirmDelete();
+                break;
+            }
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: _ChatMenuAction.pin,
+              child: Text(
+                sessionState.session?.isPinned == true ? 'Unpin' : 'Pin',
+                style: GoogleFonts.plusJakartaSans(
+                  color: context.colors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            PopupMenuItem(
+              value: _ChatMenuAction.rename,
+              child: Text(
+                'Rename',
+                style: GoogleFonts.plusJakartaSans(
+                  color: context.colors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            PopupMenuItem(
+              value: _ChatMenuAction.delete,
+              child: Text(
+                'Delete',
+                style: GoogleFonts.plusJakartaSans(
+                  color: context.colors.error,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(width: 4),
+      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(
@@ -569,29 +573,42 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     );
   }
 
-  Widget _buildMessageList() {
+  Widget _buildMessageList(BuddySessionState sessionState) {
     final hasContent =
-        _messages.isNotEmpty || _isStreaming || _pendingApproval != null;
-    if (!hasContent) return _buildEmptyState();
+        sessionState.messages.isNotEmpty ||
+        sessionState.isStreaming ||
+        sessionState.pendingApproval != null ||
+        sessionState.errorMessage != null;
+
+    if (sessionState.isLoading && !hasContent) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (!hasContent) {
+      return _buildEmptyState(sessionState);
+    }
 
     final children = <Widget>[
-      for (final msg in _messages)
-        _MessageTile(
-          message: msg,
-          onRetry: msg.role == _Role.error ? _retryLast : null,
-        ),
-      if (_isStreaming)
-        _streamingContent.isEmpty
-            ? (_activeToolLabel != null
-                  ? _ToolStatusBubble(label: _activeToolLabel!)
+      for (final message in sessionState.messages) _MessageTile(message: message),
+      if (sessionState.isStreaming)
+        sessionState.streamingContent.isEmpty
+            ? (sessionState.activeToolLabel != null
+                  ? _ToolStatusBubble(label: sessionState.activeToolLabel!)
                   : _ThinkingBubble(animation: _dotAnimCtrl))
-            : _AssistantBubble(content: _streamingContent, isStreaming: true),
-      if (_pendingApproval != null)
+            : _AssistantBubble(
+                content: sessionState.streamingContent,
+                isStreaming: true,
+              ),
+      if (sessionState.pendingApproval != null)
         _ApprovalCard(
-          approval: _pendingApproval!,
-          onConfirm: () => _respondToApproval(approved: true),
-          onCancel: () => _respondToApproval(approved: false),
+          approval: sessionState.pendingApproval!,
+          onConfirm: () =>
+              _respondToApproval(sessionState: sessionState, approved: true),
+          onCancel: () =>
+              _respondToApproval(sessionState: sessionState, approved: false),
         ),
+      if (sessionState.errorMessage != null)
+        _ErrorBubble(content: sessionState.errorMessage!),
     ];
 
     return ListView(
@@ -601,7 +618,7 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuddySessionState sessionState) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
       child: Column(
@@ -668,7 +685,10 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
             alignment: WrapAlignment.center,
             children: _kSuggestions
                 .map(
-                  (s) => _SuggestionChip(text: s, onTap: () => _sendMessage(s)),
+                  (suggestion) => _SuggestionChip(
+                    text: suggestion,
+                    onTap: () => _sendMessage(sessionState, suggestion),
+                  ),
                 )
                 .toList(),
           ),
@@ -677,9 +697,15 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
     );
   }
 
-  Widget _buildInputBar(BuildContext context, double bottomPad) {
+  Widget _buildInputBar(
+    BuildContext context,
+    BuddySessionState sessionState,
+    double bottomPad,
+  ) {
     final isComposerLocked =
-        _isStreaming || _isUploadingAttachment || _pendingApproval != null;
+        sessionState.isStreaming ||
+        _isUploadingAttachment ||
+        sessionState.pendingApproval != null;
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomPad),
@@ -695,7 +721,7 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
           if (_composerAttachment != null) ...[
             _ComposerAttachmentPreview(
               attachment: _composerAttachment!,
-              onRemove: _isStreaming || _isUploadingAttachment
+              onRemove: sessionState.isStreaming || _isUploadingAttachment
                   ? null
                   : () => setState(() => _composerAttachment = null),
             ),
@@ -731,7 +757,7 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
                               isBusy:
                                   isComposerLocked ||
                                   _composerAttachment != null,
-                              onTap: _pickMealPhoto,
+                              onTap: () => _pickMealPhoto(sessionState),
                             ),
                           ),
                         ),
@@ -755,9 +781,9 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
                             decoration: InputDecoration(
                               hintText: _isUploadingAttachment
                                   ? 'Uploading photo…'
-                                  : _pendingApproval != null
+                                  : sessionState.pendingApproval != null
                                   ? 'Approve or cancel the pending change…'
-                                  : _isStreaming
+                                  : sessionState.isStreaming
                                   ? 'Buddy is thinking…'
                                   : _composerAttachment != null
                                   ? 'Add context for this meal photo…'
@@ -784,7 +810,7 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
               const SizedBox(width: 10),
               _SendButton(
                 isStreaming: isComposerLocked,
-                onTap: () => _sendMessage(_inputCtrl.text),
+                onTap: () => _sendMessage(sessionState, _inputCtrl.text),
               ),
             ],
           ),
@@ -794,38 +820,31 @@ class _BuddyChatPageState extends ConsumerState<BuddyChatPage>
   }
 }
 
-// ─── Message Tile ─────────────────────────────────────────────────────────────
+enum _ChatMenuAction { pin, rename, delete }
 
 class _MessageTile extends StatelessWidget {
-  final _ChatMessage message;
-  final VoidCallback? onRetry;
-  const _MessageTile({required this.message, this.onRetry});
+  final BuddyChatMessage message;
+
+  const _MessageTile({required this.message});
 
   @override
   Widget build(BuildContext context) {
     return switch (message.role) {
-      _Role.user => _UserBubble(
-        content: message.content,
-        attachment: message.attachment,
-      ),
-      _Role.error => _ErrorBubble(
-        content: message.content,
-        onRetry: onRetry ?? () {},
-      ),
-      _Role.assistant => _AssistantBubble(content: message.content),
+      BuddyMessageRole.user => _UserBubble(message: message),
+      BuddyMessageRole.buddy => _AssistantBubble(content: message.message),
     };
   }
 }
 
-// ─── User Bubble ──────────────────────────────────────────────────────────────
-
 class _UserBubble extends StatelessWidget {
-  final String content;
-  final _ChatAttachment? attachment;
-  const _UserBubble({required this.content, this.attachment});
+  final BuddyChatMessage message;
+
+  const _UserBubble({required this.message});
 
   @override
   Widget build(BuildContext context) {
+    final hasText = message.message.trim().isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 22, left: 52),
       child: Align(
@@ -845,52 +864,18 @@ class _UserBubble extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (attachment != null) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.file(
-                    File(attachment!.localPath),
-                    width: 184,
-                    height: 132,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      width: 184,
-                      height: 132,
-                      color: context.colors.background,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        LucideIcons.image,
-                        color: context.colors.textMuted,
-                        size: 20,
-                      ),
-                    ),
+              if (message.attachments.isNotEmpty) ...[
+                for (final attachment in message.attachments) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: _buildUserAttachmentImage(context, attachment),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.camera,
-                      size: 12,
-                      color: context.colors.textMuted,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Meal photo attached',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: context.colors.textMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                if (content.trim().isNotEmpty) const SizedBox(height: 10),
+                ],
+                if (hasText) const SizedBox(height: 10),
               ],
-              if (content.trim().isNotEmpty)
+              if (hasText)
                 Text(
-                  content,
+                  message.message,
                   style: GoogleFonts.plusJakartaSans(
                     color: context.colors.textPrimary,
                     fontSize: 14,
@@ -903,13 +888,54 @@ class _UserBubble extends StatelessWidget {
       ),
     );
   }
-}
 
-// ─── Assistant Bubble ─────────────────────────────────────────────────────────
+  Widget _buildUserAttachmentImage(
+    BuildContext context,
+    BuddyMessageAttachment attachment,
+  ) {
+    final localPath = attachment.localPath;
+    if (localPath != null && localPath.isNotEmpty) {
+      return Image.file(
+        File(localPath),
+        width: 184,
+        height: 132,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _attachmentFallback(context),
+      );
+    }
+
+    if (attachment.signedUrl != null && attachment.signedUrl!.isNotEmpty) {
+      return Image.network(
+        attachment.signedUrl!,
+        width: 184,
+        height: 132,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _attachmentFallback(context),
+      );
+    }
+
+    return _attachmentFallback(context);
+  }
+
+  Widget _attachmentFallback(BuildContext context) {
+    return Container(
+      width: 184,
+      height: 132,
+      color: context.colors.background,
+      alignment: Alignment.center,
+      child: Icon(
+        LucideIcons.image,
+        color: context.colors.textMuted,
+        size: 20,
+      ),
+    );
+  }
+}
 
 class _AssistantBubble extends StatelessWidget {
   final String content;
   final bool isStreaming;
+
   const _AssistantBubble({required this.content, this.isStreaming = false});
 
   @override
@@ -927,71 +953,22 @@ class _AssistantBubble extends StatelessWidget {
   }
 }
 
-// ─── Error Bubble ─────────────────────────────────────────────────────────────
-
 class _ErrorBubble extends StatelessWidget {
   final String content;
-  final VoidCallback onRetry;
-  const _ErrorBubble({required this.content, required this.onRetry});
+
+  const _ErrorBubble({required this.content});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 22, right: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  content,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: context.colors.textMuted,
-                    fontSize: 14,
-                    height: 1.55,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: onRetry,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.colors.cardRaised,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: context.colors.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.rotate_ccw,
-                          size: 12,
-                          color: context.colors.textMuted,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Retry',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: context.colors.textMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: Text(
+        content,
+        style: GoogleFonts.plusJakartaSans(
+          color: context.colors.textMuted,
+          fontSize: 14,
+          height: 1.55,
+        ),
       ),
     );
   }
@@ -1138,56 +1115,35 @@ class _ComposerAttachmentPreview extends StatelessWidget {
       decoration: colors.cardDecoration(radius: 18),
       child: Padding(
         padding: const EdgeInsets.all(10),
-        child: Row(
+        child: Stack(
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: Image.file(
-                attachment.file,
-                width: 68,
-                height: 68,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Meal photo ready',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    attachment.isAnalyzing
-                        ? 'Analysis started. You can send it now.'
-                        : 'Attached to your next Buddy message.',
-                    style: GoogleFonts.plusJakartaSans(
-                      color: colors.textMuted,
-                      fontSize: 11,
-                      height: 1.45,
-                    ),
-                  ),
-                ],
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Image.file(
+                  attachment.file,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             if (onRemove != null)
-              AppPressable(
-                onPressed: onRemove,
-                minHeight: 34,
-                minWidth: 34,
-                borderRadius: BorderRadius.circular(12),
-                decoration: BoxDecoration(
-                  color: colors.cardRaised,
+              Positioned(
+                top: 8,
+                right: 8,
+                child: AppPressable(
+                  onPressed: onRemove,
+                  minHeight: 34,
+                  minWidth: 34,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colors.border),
+                  decoration: BoxDecoration(
+                    color: colors.cardRaised.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: Icon(LucideIcons.x, size: 16, color: colors.textMuted),
                 ),
-                child: Icon(LucideIcons.x, size: 16, color: colors.textMuted),
               ),
           ],
         ),
@@ -1195,8 +1151,6 @@ class _ComposerAttachmentPreview extends StatelessWidget {
     );
   }
 }
-
-// ─── Markdown Content ─────────────────────────────────────────────────────────
 
 class _MarkdownContent extends StatelessWidget {
   final String content;
@@ -1321,8 +1275,6 @@ class _MarkdownContent extends StatelessWidget {
   }
 }
 
-// ─── Tool Status Bubble ───────────────────────────────────────────────────────
-
 class _ToolStatusBubble extends StatefulWidget {
   final String label;
   const _ToolStatusBubble({required this.label});
@@ -1383,8 +1335,6 @@ class _ToolStatusBubbleState extends State<_ToolStatusBubble>
   }
 }
 
-// ─── Thinking Bubble ──────────────────────────────────────────────────────────
-
 class _ThinkingBubble extends StatelessWidget {
   final AnimationController animation;
   const _ThinkingBubble({required this.animation});
@@ -1428,8 +1378,6 @@ class _AnimatedDots extends AnimatedWidget {
     );
   }
 }
-
-// ─── Blinking Cursor ──────────────────────────────────────────────────────────
 
 class _BlinkingCursor extends StatefulWidget {
   @override
@@ -1497,8 +1445,6 @@ class _BlinkingCursorState extends State<_BlinkingCursor>
   }
 }
 
-// ─── Suggestion Chip ──────────────────────────────────────────────────────────
-
 class _SuggestionChip extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
@@ -1527,8 +1473,6 @@ class _SuggestionChip extends StatelessWidget {
     );
   }
 }
-
-// ─── Send Button ─────────────────────────────────────────────────────────────
 
 class _AttachButton extends StatelessWidget {
   final bool isBusy;
@@ -1661,13 +1605,14 @@ class _MealPhotoSourceOption extends StatelessWidget {
 class _SendButton extends StatelessWidget {
   final bool isStreaming;
   final VoidCallback onTap;
+
   const _SendButton({required this.isStreaming, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return AppPressable(
       onPressed: isStreaming ? null : onTap,
-      semanticsLabel: isStreaming ? 'Buddy is responding' : 'Send message',
+      semanticsLabel: isStreaming ? 'Send unavailable' : 'Send message',
       minHeight: 48,
       minWidth: 48,
       borderRadius: BorderRadius.circular(24),
@@ -1677,63 +1622,17 @@ class _SendButton extends StatelessWidget {
             : context.colors.actionSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isStreaming ? context.colors.border : AppTheme.transparent,
+          color: isStreaming
+              ? context.colors.border
+              : context.colors.actionSurface,
         ),
       ),
-      child: AnimatedContainer(
-        duration: motionDuration(context, const Duration(milliseconds: 200)),
-        width: 48,
-        height: 48,
-        alignment: Alignment.center,
-        child: isStreaming
-            ? const _SpinnerIcon()
-            : Icon(
-                LucideIcons.arrow_up,
-                color: context.colors.background,
-                size: 20,
-              ),
-      ),
-    );
-  }
-}
-
-class _SpinnerIcon extends StatefulWidget {
-  const _SpinnerIcon();
-
-  @override
-  State<_SpinnerIcon> createState() => _SpinnerIconState();
-}
-
-class _SpinnerIconState extends State<_SpinnerIcon>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, _) => Transform.rotate(
-        angle: _ctrl.value * 2 * math.pi,
-        child: Icon(
-          LucideIcons.loader_circle,
-          color: context.colors.textMuted,
-          size: 20,
-        ),
+      child: Icon(
+        LucideIcons.arrow_up,
+        color: isStreaming
+            ? context.colors.textMuted
+            : context.colors.actionForeground,
+        size: 18,
       ),
     );
   }

@@ -4,13 +4,17 @@ import { connection } from '../lib/queue';
 import { db } from '../db';
 import { mealMediaAttachments } from '../db/schema';
 import { analyzeMealImage } from '../lib/mealAnalyzer';
+import { createMealAnalysisJobProgress } from '../lib/mealAnalysisPipeline';
 
 export const mealAnalysisWorker = new Worker(
     'meal-analysis',
     async (job) => {
         const { attachmentId } = job.data as { attachmentId: number };
 
-        console.log(`[worker] Starting meal analysis for attachment ${attachmentId}`);
+        console.info('[meal-analysis/worker] job started', {
+            jobId: job.id,
+            attachmentId,
+        });
 
         const [attachment] = await db
             .select()
@@ -26,7 +30,20 @@ export const mealAnalysisWorker = new Worker(
             const analysisResult = await analyzeMealImage(
                 attachment.objectKey,
                 attachment.mimeType,
+                async (phase) => {
+                    await job.updateProgress(createMealAnalysisJobProgress(phase));
+                    console.info('[meal-analysis/worker] phase updated', {
+                        jobId: job.id,
+                        attachmentId,
+                        phase,
+                    });
+                },
             );
+            await job.updateProgress(createMealAnalysisJobProgress('saving_analysis'));
+            console.info('[meal-analysis/worker] saving analysis result', {
+                jobId: job.id,
+                attachmentId,
+            });
 
             await db
                 .update(mealMediaAttachments)
@@ -35,6 +52,15 @@ export const mealAnalysisWorker = new Worker(
                     aiAnalysisResult: analysisResult,
                 })
                 .where(eq(mealMediaAttachments.id, attachmentId));
+            console.info('[meal-analysis/worker] analysis result persisted', {
+                jobId: job.id,
+                attachmentId,
+                calories: analysisResult.macros.calories,
+                proteinG: analysisResult.macros.proteinG,
+                carbsG: analysisResult.macros.carbsG,
+                fatG: analysisResult.macros.fatG,
+                confidence: analysisResult.confidence,
+            });
         } catch (err) {
             await db
                 .update(mealMediaAttachments)
@@ -46,10 +72,25 @@ export const mealAnalysisWorker = new Worker(
     { connection, concurrency: 3 },
 );
 
+mealAnalysisWorker.on('active', (job) => {
+    console.info('[meal-analysis/worker] job active', {
+        jobId: job.id,
+        attachmentId: (job.data as { attachmentId?: number }).attachmentId,
+    });
+});
+
 mealAnalysisWorker.on('completed', (job) => {
-    console.log(`[worker] Meal analysis job ${job.id} completed`);
+    console.info('[meal-analysis/worker] job completed', {
+        jobId: job.id,
+        attachmentId: (job.data as { attachmentId?: number }).attachmentId,
+    });
 });
 
 mealAnalysisWorker.on('failed', (job, err) => {
-    console.error(`[worker] Meal analysis job ${job?.id} failed:`, err.message);
+    console.error('[meal-analysis/worker] job failed', {
+        jobId: job?.id,
+        attachmentId: (job?.data as { attachmentId?: number } | undefined)
+            ?.attachmentId,
+        error: err.message,
+    });
 });

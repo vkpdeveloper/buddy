@@ -5,6 +5,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { env } from './env';
 import { r2Client } from './r2';
 import { trackAiUsage, AI_FEATURE } from './aiUsageTracker';
+import { type MealAnalysisJobPhase } from './mealAnalysisPipeline';
 
 const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 
@@ -40,6 +41,10 @@ export interface MealAnalysisResult {
   confidence: number;
 }
 
+type MealAnalysisProgressReporter = (
+  phase: MealAnalysisJobPhase,
+) => Promise<void> | void;
+
 async function fetchImageFromR2(objectKey: string): Promise<Uint8Array> {
   const response = await r2Client.send(
     new GetObjectCommand({
@@ -55,10 +60,13 @@ async function fetchImageFromR2(objectKey: string): Promise<Uint8Array> {
 export async function analyzeMealImage(
   objectKey: string,
   _mimeType: string,
+  onProgress?: MealAnalysisProgressReporter,
 ): Promise<MealAnalysisResult> {
+  await onProgress?.('fetching_image');
   const imageBytes = await fetchImageFromR2(objectKey);
 
   const mealModel = 'gemini-3.1-flash-lite-preview';
+  await onProgress?.('running_analysis');
   const { object, usage } = await generateObject({
     model: google(mealModel),
     schema: MealAnalysisSchema,

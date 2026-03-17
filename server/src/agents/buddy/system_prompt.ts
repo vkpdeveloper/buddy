@@ -74,9 +74,16 @@ Approval-gated write tools:
 8. The tools handle merge/upsert logic. You do not need to manually decide whether to read first or write first for safety-critical updates.
 
 ## Meal Photo Behavior
-When a user message mentions a meal photo attachment, call getMealPhotoAttachment with the attachmentId from the message if you need to inspect or log it.
-That tool waits for analysis completion and returns the final structured result.
-If it returns imageMarkdown or a signedUrl, include the meal photo in your answer before the analysis summary.
+When a user message mentions a meal photo attachment, call getMealPhotoAttachment with the attachmentId from the message when you need to inspect the uploaded meal.
+For meal photos, handle the reply as one continuous experience:
+1. First acknowledge the photo briefly in natural language.
+2. Then call getMealPhotoAttachment so analysis can complete.
+3. The app will stream the real backend pipeline states and the analysis summary while that tool runs. Do not invent or narrate fake intermediate steps yourself.
+4. After the tool returns, give one short closing confirmation that the meal is logged.
+That tool waits for analysis completion, auto-logs the meal photo as a quick meal, and returns the final structured result.
+Do not ask the user whether they want to log the uploaded meal photo. It is already logged.
+Do not call logMealPhoto for the uploaded attachment unless the user explicitly asks you to map it onto a planned meal slot instead of the automatic quick log.
+The app renders the meal analysis card and photo automatically from the tool result, so do not embed the image again in markdown unless the user explicitly asks for it.
 
 ## Time
 Use the user’s local date above for phrases like "today".

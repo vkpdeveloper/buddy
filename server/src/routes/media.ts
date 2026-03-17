@@ -1,11 +1,16 @@
 import { Hono } from 'hono';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { db } from '../db';
-import { mealMediaAttachments } from '../db/schema';
+import { dietQuickLogs, mealMediaAttachments } from '../db/schema';
 import { createMealPhotoObjectKey, signPrivateObjectUrl, uploadPrivateObject } from '../lib/r2';
 import { ok, fail } from '../lib/response';
 import { notFound, badRequest } from '../lib/errors';
-import { ensureMealAnalysisQueued } from '../services/mealMedia';
+import {
+  ensureMealAnalysisQueued,
+  ensureMealAnalysisReady,
+  ensureLoggedQuickMealForAttachment,
+  getLoggedQuickMealForAttachment,
+} from '../services/mealMedia';
 
 const router = new Hono();
 
@@ -69,16 +74,42 @@ router.get('/recent', async (c) => {
     .orderBy(desc(mealMediaAttachments.createdAt))
     .limit(12);
 
+  const attachmentIds = attachments.map((attachment) => attachment.id);
+  const quickLogs = attachmentIds.length === 0
+    ? []
+    : await db
+        .select()
+        .from(dietQuickLogs)
+        .where(
+          and(
+            eq(dietQuickLogs.userId, userId),
+            inArray(dietQuickLogs.attachmentId, attachmentIds),
+          ),
+        );
+  const quickLogByAttachmentId = new Map<number, (typeof quickLogs)[number]>();
+  for (const quickLog of quickLogs) {
+    if (quickLog.attachmentId != null) {
+      quickLogByAttachmentId.set(quickLog.attachmentId, quickLog);
+    }
+  }
+
   const items = await Promise.all(
-    attachments.map(async (attachment) => ({
-      id: attachment.id,
-      mimeType: attachment.mimeType,
-      sizeBytes: attachment.sizeBytes,
-      aiAnalysisStatus: attachment.aiAnalysisStatus,
-      analysisResult: attachment.aiAnalysisResult,
-      createdAt: attachment.createdAt,
-      signedUrl: await signPrivateObjectUrl(attachment.objectKey),
-    })),
+    attachments.map(async (attachment) => {
+      const loggedQuickMeal =
+        quickLogByAttachmentId.get(attachment.id) ??
+        (await ensureLoggedQuickMealForAttachment(userId, attachment));
+
+      return {
+        id: attachment.id,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        aiAnalysisStatus: attachment.aiAnalysisStatus,
+        analysisResult: attachment.aiAnalysisResult,
+        createdAt: attachment.createdAt,
+        signedUrl: await signPrivateObjectUrl(attachment.objectKey),
+        loggedQuickMeal,
+      };
+    }),
   );
 
   return ok(c, items);
@@ -103,9 +134,11 @@ router.post('/:id/analyze', async (c) => {
   }
 
   if (attachment.aiAnalysisStatus === 'completed' && attachment.aiAnalysisResult) {
+    const resolved = await ensureMealAnalysisReady(userId, attachment.id);
     return ok(c, {
       status: 'completed',
-      analysisResult: attachment.aiAnalysisResult,
+      analysisResult: resolved.aiAnalysisResult,
+      loggedQuickMeal: resolved.loggedQuickMeal,
     });
   }
 
@@ -141,10 +174,14 @@ router.get('/:id/url', async (c) => {
   }
 
   const signedUrl = await signPrivateObjectUrl(attachment.objectKey);
+  const loggedQuickMeal =
+    (await getLoggedQuickMealForAttachment(userId, attachment.id)) ??
+    (await ensureLoggedQuickMealForAttachment(userId, attachment));
   return ok(c, {
     signedUrl,
     aiAnalysisStatus: attachment.aiAnalysisStatus,
     analysisResult: attachment.aiAnalysisResult,
+    loggedQuickMeal,
   });
 });
 
@@ -164,6 +201,9 @@ router.get('/:id', async (c) => {
   }
 
   const signedUrl = await signPrivateObjectUrl(attachment.objectKey);
+  const loggedQuickMeal =
+    (await getLoggedQuickMealForAttachment(userId, attachment.id)) ??
+    (await ensureLoggedQuickMealForAttachment(userId, attachment));
 
   return ok(c, {
     id: attachment.id,
@@ -173,6 +213,7 @@ router.get('/:id', async (c) => {
     analysisResult: attachment.aiAnalysisResult,
     signedUrl,
     createdAt: attachment.createdAt,
+    loggedQuickMeal,
   });
 });
 

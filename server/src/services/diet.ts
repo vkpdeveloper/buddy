@@ -271,6 +271,52 @@ export async function createQuickMealLog(userId: number, params: {
     return inserted;
 }
 
+export async function upsertQuickMealLog(userId: number, params: {
+    date: string;
+    mealName: string;
+    calories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    notes?: string;
+    attachmentId?: number;
+}) {
+    if (params.attachmentId != null) {
+        const [existing] = await db.select().from(dietQuickLogs)
+            .where(and(
+                eq(dietQuickLogs.userId, userId),
+                eq(dietQuickLogs.attachmentId, params.attachmentId),
+            ))
+            .limit(1);
+
+        if (existing) {
+            const [updated] = await db.update(dietQuickLogs).set({
+                date: params.date,
+                mealName: params.mealName,
+                calories: params.calories,
+                proteinG: params.proteinG,
+                carbsG: params.carbsG,
+                fatG: params.fatG,
+                notes: params.notes ?? '',
+                loggedAt: new Date().toISOString(),
+            }).where(eq(dietQuickLogs.id, existing.id)).returning();
+            return updated;
+        }
+    }
+
+    return createQuickMealLog(userId, params);
+}
+
+export async function getQuickMealLogByAttachmentId(userId: number, attachmentId: number) {
+    const [quickLog] = await db.select().from(dietQuickLogs)
+        .where(and(
+            eq(dietQuickLogs.userId, userId),
+            eq(dietQuickLogs.attachmentId, attachmentId),
+        ))
+        .limit(1);
+    return quickLog ?? null;
+}
+
 export async function getMealAttachment(userId: number, attachmentId: number) {
     const [attachment] = await db.select().from(mealMediaAttachments)
         .where(and(eq(mealMediaAttachments.userId, userId), eq(mealMediaAttachments.id, attachmentId)))
